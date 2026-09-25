@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tiny Tactics — Auto-battler</title>
+<meta name="description" content="Recruit champions, build elemental traits, and battle through a full auto-chess match in your browser.">
+<meta name="theme-color" content="#101a23">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23101a23'/%3E%3Cpath d='M6 8h20v5h-7v13h-6V13H6z' fill='%23b8efce'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="campaign-game">
+<div class="app-shell">
+<header class="app-header">
+<a href="./" class="brand" aria-label="Tiny Tactics home"><span class="brand-mark">T</span><span>TINY<span class="brand-light">TACTICS</span></span></a>
+<div class="header-actions"><button id="sound-button" class="quiet-button" aria-pressed="false">Sound off</button><button id="help-button" class="quiet-button">How to play <span class="question-mark">?</span></button></div>
+</header>
+<main>
+<div class="match-heading"><div><p class="eyebrow">THE PROVING GROUNDS</p><h1>Build your company.</h1></div><div class="round-pill"><span class="diamond">◇</span><div><span class="eyebrow">ROUND</span><strong id="match-number">1-1</strong></div></div></div>
+<div class="game-layout">
+<section class="arena-panel" aria-label="Battlefield">
+<div class="arena-top"><div class="team-label enemy"><span class="team-emblem">E</span><div><strong>Ember company</strong><span id="enemy-count"></span></div></div><div class="timer"><span id="phase-label">PREPARATION</span><strong id="timer">00:00</strong></div><span class="team-total enemy" id="enemy-hp">100 HP</span></div>
+<div id="formation-surface">
+<div class="arena-stage">
+<div class="board-side-label">EMBER TERRITORY</div>
+<div class="board-shell"><div id="board" class="board" role="group" aria-label="8 by 8 battlefield. Your territory is in the lower four rows."></div><div id="units" class="units"></div><div id="trait-effects" class="trait-effects" aria-hidden="true"></div><svg id="effects" class="effects" viewBox="0 0 800 800" aria-hidden="true"></svg><div id="floaters" class="floaters" aria-hidden="true"></div><div id="result" class="result-overlay" hidden></div></div>
+<div class="board-side-label own-territory">YOUR TERRITORY <span>◆</span></div>
+</div>
+<div class="arena-bottom"><div class="team-label friendly"><span class="team-emblem">A</span><div><strong>Azure company <span class="you-tag">YOU</span></strong><span id="player-count">0 / 3 deployed</span></div></div><span id="arena-hint" class="arena-hint">Recruit your first champion.</span><span class="team-total friendly" id="player-hp">100 HP</span></div>
+<section class="bench-panel" aria-label="Your bench"><div class="bench-heading"><strong>Bench <span id="bench-count">0 / 9</span></strong><span>Drag onto the board · Drop on a teammate to swap</span></div><div id="bench" class="bench"></div><div class="bench-actions"><span id="bench-selection" role="status" aria-live="polite">Select a bench champion to sell.</span><button id="bench-sell" class="secondary-button" disabled>Sell selected</button></div></section>
+</div>
+<section class="shop-panel" aria-label="Champion shop"><div class="shop-heading"><div><h2>Recruit champions</h2><span id="shop-caption">Five offers. A new shop each round.</span></div><button id="refresh-button" class="secondary-button">Refresh <span>2 gold</span></button></div><div id="champion-cards" class="champion-cards"></div><div class="shop-odds"><span id="odds-label">Level 3 odds</span><div id="shop-odds"></div></div></section>
+</section>
+<aside class="command-panel" aria-label="Economy and battle controls">
+<div class="panel-heading"><div><p class="eyebrow">YOUR TREASURY</p><h2><span id="gold-count">10</span> <span class="gold-label">gold</span></h2></div><span id="squad-count" class="count-badge">0<span>/3</span></span></div>
+<div class="income-preview" id="income-preview"></div>
+<div class="level-panel"><div><strong id="level-label">Level 3</strong><span id="level-caption">Deploy up to 3 champions</span></div><label id="xp-label" for="xp-bar">0 / 10 XP · +2 each round</label><progress id="xp-bar" max="10" value="0"></progress><button id="level-button" class="secondary-button">Level up · 10 gold</button></div>
+<p id="notice" class="notice" role="status" aria-live="polite">Buy champions below the board, then drag them from your bench into your territory.</p>
+<button id="start-button" class="primary-button"><span>Start battle</span><span aria-hidden="true">↗</span></button>
+<div class="playback-controls"><span>Battle speed</span><div class="segmented" aria-label="Battle speed"><button data-speed="1" class="active" aria-pressed="true">1×</button><button data-speed="2" aria-pressed="false">2×</button><button data-speed="3" aria-pressed="false">3×</button></div></div>
+<div id="selection-panel" class="selection-panel"></div>
+<section class="traits-panel" aria-label="Your team traits"><div class="traits-heading"><h2>Your traits</h2><span>Distinct champions count once</span></div><div id="trait-list"></div><div id="class-counts" class="class-counts"></div></section>
+<div class="scouting-panel"><span class="eyebrow">OPPONENT SCOUTING</span><p id="bot-plan"></p><p id="damage-preview"></p></div>
+<button id="new-match" class="quiet-button">Start a new match</button>
+</aside>
+</div>
+<footer class="page-footer"><span><span class="small-diamond">◆</span> POSITION. COMMIT. CONQUER.</span><span>Single-player auto-battler <span class="footer-divider">/</span> Prototype 03</span></footer>
+</main>
+</div>
+<dialog id="help-dialog"><div class="dialog-head"><p class="eyebrow">FIELD GUIDE</p><button class="close-dialog" aria-label="Close how to play">×</button></div><h2>Recruit. Position. Battle.</h2><ol class="guide">
+<li><strong>Build your team</strong><p>Both players begin at level 3 with 100 HP and 10 gold. Buy shop cards and drag champions from the nine-slot bench into your lower four rows. Your level is your deployment limit. Drop on a teammate to swap. Starting battle automatically fills open board slots from the bench, prioritizing distinct champions sharing your deployed traits. Existing placements stay in place.</p></li>
+<li><strong>Manage your gold</strong><p>Refresh five shop cards for 2 gold, or wait for a free new shop next round. Each round gives 5 base gold, plus 1 per 10 gold held before rewards (maximum 5). Winners get 1 extra. Consecutive losses pay 1 extra at three, 2 at four, and 3 at five or more. A win or draw resets the loss streak. Draws deal no player damage.</p></li>
+<li><strong>Grow your company</strong><p>Both players earn 2 XP after every round. The next levels require 10 / 20 / 30 / 40 / 55 / 65 / 80 XP. Each XP earned reduces the remaining gold price by 1: 2/10 XP means 8 gold to level up. Reaching the requirement levels you automatically and carries extra XP forward. Level 10 is the maximum. Higher levels improve future shop odds.</p></li>
+<li><strong>Combine your champions</strong><p>Three identical 1-star copies automatically become one 2-star champion. Three identical 2-star copies become one 3-star champion, the maximum. Copies can be on the board or bench; different costs or identities do not combine. An upgraded champion keeps a deployed copy's tile when possible. Two stars add 25% of the role's 1-cost base HP and attack damage; three stars add 50%, without stacking the previous bonus. Selling refunds all copies invested: 1 / 3 / 9 times the card cost.</p></li>
+<li><strong>Win the match</strong><p>Start combat after preparing. Champions automatically move and fight. All owned champions return at full health next round. Rounds run 1-1 through 1-7, then 2-1 and onward. The losing player takes 2 / 3 / 4 / 5 / 6 HP damage in stages 1 / 2 / 3 / 4 / 5+. Reduce Ember to 0 HP to win the match. A 60-second battle is a draw.</p></li>
+<li><strong>Fire &amp; Water</strong><p>Distinct deployed champions count once. Fire 2/4/6/8 burns 5/10/15/20% maximum HP each second for 3 seconds; attacks refresh it. Fire 10 continuously launches a meteor every 0.5 seconds. Each takes 3 seconds to fall, deals 25% maximum HP damage and hits at most two enemies. Water 3/6/9 heals its attacker for 5/15/25% maximum HP per attack. Water 10 adds a seven-second tsunami carrying enemies off the right edge. Maximum traits retain their strongest normal tier.</p></li>
+<li><strong>Mountain &amp; Electric</strong><p>Mountain 1/3/5/7 grants Mountain champions a shield worth 10/25/50/100% of their maximum HP at round start. Mountain 9 also gives five seconds of golden immunity to burns, tsunami sweeps and stuns. A resisted wave cannot catch the same champion later. Electric 3/6/9 adds 5/10/20% of star-adjusted attack damage to Electric champions. Electric 10 strikes every enemy once at five seconds for 50% maximum HP; enemies already below 50% HP are executed through shields.</p></li>
+<li><strong>Air</strong><p>Air 1/4 gives each Air attack a 25/50% chance to collect one gold immediately. Air 10 creates a wind wall across the middle for five seconds: enemies cannot cross it or target Air champions with basic attacks. Air can still attack. Air champions gain 50% of their current star-adjusted HP and attack for the whole battle, resetting at round end. Class bonuses are coming later.</p></li>
+</ol><p class="shortcut-note">Keyboard: Tab to a champion, Enter to select, then Enter on its destination to move or swap. Escape clears selection. Space starts or pauses when a board tile is focused. Match progress lasts until you reload or start a new match.</p><button class="primary-button close-dialog">Back to the battlefield <span>↗</span></button></dialog>
+<dialog id="restart-dialog"><h2>Start a new match?</h2><p>Your current match will end. Both companies restart with 100 HP, level 3 and 10 gold.</p><button id="confirm-restart" class="primary-button">Start new match</button><button id="cancel-restart" class="secondary-button">Keep playing</button></dialog>
+<div class="mobile-playbar"><span id="mobile-status">0 / 3 ready</span><button id="mobile-start" class="primary-button"><span>Start battle</span><span aria-hidden="true">↗</span></button></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
