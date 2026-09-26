@@ -87,22 +87,25 @@ export class TraitEffects {
       b.events.push({type:'released',id:u.id});
     }
   }
-  sweep(){
+ sweep(){
     const {battle}=this;
     for(const wave of this.waves){
-      if(wave.released)continue;
+      if(battle.tick>wave.endTick)continue;
       wave.x=-.5+battle.width*Math.min(1,(battle.tick-wave.startTick)/(wave.endTick-wave.startTick));
       for(const unit of battle.living().filter(u=>u.team!==wave.team)){
-        if(!unit.sweptBy&&!wave.hitIds.includes(unit.id)&&!wave.resistedIds.includes(unit.id)&&unit.x<=wave.x){
+        if(!unit.sweptBy&&!wave.resistedIds.includes(unit.id)&&unit.x<=wave.x){
+          // Immunity resolves this wave's contact, even after the front has passed.
           if(this.isGolden(unit)){wave.resistedIds.push(unit.id);continue;}
           unit.sweptBy=wave.id;unit.targetId=null;wave.hitIds.push(unit.id);
           battle.events.push({type:'swept',id:unit.id});
         }
-        if(unit.sweptBy===wave.id)unit.sweepX=Math.min(battle.width-1,wave.x+.5);
+        if(unit.sweptBy===wave.id){
+          // Swept units leave grid occupancy immediately and cannot attack.
+          unit.sweepX=wave.x+.5;
+          if(battle.tick===wave.endTick){unit.hp=0;unit.eliminatedBy='tsunami';battle.events.push({type:'ejected',id:unit.id});}
+        }
       }
     }
-    // Resolve contacts for both teams before placing released survivors.
-    for(const wave of this.waves)if(battle.tick>=wave.endTick)this.release(wave);
   }
   damageIntents(){
     const {battle}=this,hits=[];
