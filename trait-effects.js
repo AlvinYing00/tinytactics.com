@@ -75,18 +75,6 @@ export class TraitEffects {
       }
     }
   }
-  release(wave){
-    if(wave.released)return;wave.released=true;
-    const b=this.battle,occupied=new Set(b.living().filter(u=>!u.sweptBy).map(u=>`${u.x},${u.y}`));
-    for(const u of b.living().filter(u=>u.sweptBy===wave.id).sort((a,b)=>a.id-b.id)){
-      const cells=[];
-      for(let y=0;y<b.height;y++)for(let x=0;x<b.width;x++)if(!occupied.has(`${x},${y}`))cells.push({x,y});
-      cells.sort((a,c)=>(b.width-1-a.x+Math.abs(a.y-u.y))-(b.width-1-c.x+Math.abs(c.y-u.y))||c.x-a.x||a.y-c.y);
-      const cell=cells[0];if(!cell)throw new Error('No free cell for tsunami release.');
-      u.x=cell.x;u.y=cell.y;occupied.add(`${u.x},${u.y}`);delete u.sweptBy;delete u.sweepX;u.targetId=null;
-      b.events.push({type:'released',id:u.id});
-    }
-  }
  sweep(){
     const {battle}=this;
     for(const wave of this.waves){
