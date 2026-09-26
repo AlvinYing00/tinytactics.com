@@ -12,7 +12,7 @@ export class TraitEffects {
         const launchTick=i*5;
         this.meteors.push({id:`${team}-${i}`,team,targetId:u.id,x:u.x,y:u.y,launchTick,impactTick:launchTick+30,impacted:false});
       });
-      if(traits.tsunami)this.waves.push({id:team,team,startTick:0,endTick:70,x:-.5,hitIds:[],resistedIds:[],released:false});
+      if(traits.tsunami)this.waves.push({id:team,team,startTick:0,endTick:70,x:-.5,hitIds:[],resistedIds:[],completed:false});
       if(traits.windWall)this.walls.push({team,y:battle.height/2-.5,endTick:50});
       if(traits.thunder)this.thunderstorms.push({team,impactTick:30,triggered:false,targets:[]});
       for(const u of battle.living(team)){
@@ -33,7 +33,7 @@ export class TraitEffects {
     return !this.walls.some(w=>this.wallActive(w)&&(from.y<w.y)!==(to.y<w.y));
   }
   applyStun(unit,durationTicks){
-    if(unit.hp<=0||this.isGolden(unit))return false;
+    if(unit.hp<=0||unit.eliminated||this.isGolden(unit))return false;
     unit.stunnedUntil=Math.max(unit.stunnedUntil||0,this.battle.tick+durationTicks);return true;
   }
   prepareAttack(attacker,target){
@@ -61,13 +61,13 @@ export class TraitEffects {
     return this.battle.catalog[target.type].element==='mountain'?hpDamage*this.teams[target.team].reflectPercent:0;
   }
   inherit(fallen){
-    const fresh=fallen.filter(u=>!this.inheritedDeaths.has(u.id));
+    const fresh=fallen.filter(u=>u.hp<=0&&!u.eliminated&&!this.inheritedDeaths.has(u.id));
     for(const u of fresh)this.inheritedDeaths.add(u.id);
     for(const team of ['azure','ember']){
-      const rate=this.teams[team].inheritancePercent;if(!rate)continue;
+      const {inheritanceHpPercent:hpRate,inheritanceAttackPercent:attackRate}=this.teams[team];if(!hpRate&&!attackRate)continue;
       const losses=fresh.filter(u=>u.team===team&&this.battle.catalog[u.type].element==='electric');
-      const hp=losses.reduce((sum,u)=>sum+this.baseStats.get(u.id).maxHp*rate,0);
-      const attack=losses.reduce((sum,u)=>sum+this.baseStats.get(u.id).attackDamage*rate,0);
+      const hp=losses.reduce((sum,u)=>sum+this.baseStats.get(u.id).maxHp*hpRate,0);
+      const attack=losses.reduce((sum,u)=>sum+this.baseStats.get(u.id).attackDamage*attackRate,0);
       if(!losses.length)continue;
       for(const u of this.battle.living(team).filter(u=>this.battle.catalog[u.type].element==='electric')){
         u.maxHp+=hp;u.hp=Math.min(u.maxHp,u.hp+hp);u.attackDamage+=attack;
@@ -75,25 +75,32 @@ export class TraitEffects {
       }
     }
   }
- sweep(){
+  eject(wave){
+    if(wave.completed)return;wave.completed=true;
+    const b=this.battle;
+    for(const u of b.living().filter(u=>u.sweptBy===wave.id)){
+      // Removal is not death: preserve HP and never resolve death/on-kill effects.
+      u.eliminated=true;u.eliminatedBy='tsunami';u.x=b.width;u.targetId=null;
+      delete u.sweptBy;delete u.sweepX;delete this.burns[u.id];
+      b.events.push({type:'ejected',id:u.id});
+    }
+  }
+  sweep(){
     const {battle}=this;
     for(const wave of this.waves){
-      if(battle.tick>wave.endTick)continue;
+      if(wave.completed)continue;
       wave.x=-.5+battle.width*Math.min(1,(battle.tick-wave.startTick)/(wave.endTick-wave.startTick));
       for(const unit of battle.living().filter(u=>u.team!==wave.team)){
-        if(!unit.sweptBy&&!wave.resistedIds.includes(unit.id)&&unit.x<=wave.x){
-          // Immunity resolves this wave's contact, even after the front has passed.
+        if(!unit.sweptBy&&!wave.hitIds.includes(unit.id)&&!wave.resistedIds.includes(unit.id)&&unit.x<=wave.x){
           if(this.isGolden(unit)){wave.resistedIds.push(unit.id);continue;}
           unit.sweptBy=wave.id;unit.targetId=null;wave.hitIds.push(unit.id);
           battle.events.push({type:'swept',id:unit.id});
         }
-        if(unit.sweptBy===wave.id){
-          // Swept units leave grid occupancy immediately and cannot attack.
-          unit.sweepX=wave.x+.5;
-          if(battle.tick===wave.endTick){unit.hp=0;unit.eliminatedBy='tsunami';battle.events.push({type:'ejected',id:unit.id});}
-        }
+        if(unit.sweptBy===wave.id)unit.sweepX=wave.x+.5;
       }
     }
+    // Both teams' contacts resolve before simultaneous off-board eliminations.
+    for(const wave of this.waves)if(battle.tick>=wave.endTick)this.eject(wave);
   }
   damageIntents(){
     const {battle}=this,hits=[];
@@ -107,7 +114,7 @@ export class TraitEffects {
     }
     for(const meteor of this.meteors){
       const target=battle.units.find(u=>u.id===meteor.targetId);
-      if(target?.hp>0){meteor.x=target.sweepX??target.x;meteor.y=target.y;}
+      if(target?.hp>0&&!target.eliminated){meteor.x=target.sweepX??target.x;meteor.y=target.y;}
       if(meteor.impacted||battle.tick<meteor.impactTick)continue;
       meteor.impacted=true;
       const victims=battle.living().filter(u=>u.team!==meteor.team&&Math.abs((u.sweepX??u.x)-meteor.x)+Math.abs(u.y-meteor.y)<=1)
@@ -117,7 +124,7 @@ export class TraitEffects {
     }
     for(const [id,burn] of Object.entries(this.burns)){
       const unit=battle.units.find(u=>u.id===Number(id));
-      if(!unit||unit.hp<=0||this.isGolden(unit)||battle.tick>burn.expires){delete this.burns[id];continue;}
+      if(!unit||unit.hp<=0||unit.eliminated||this.isGolden(unit)||battle.tick>burn.expires){delete this.burns[id];continue;}
       if(battle.tick>=burn.nextTick){
         hits.push({targetId:unit.id,amount:unit.maxHp*burn.rate,sourceId:burn.sourceId,kind:'burn'});burn.nextTick+=10;
       }
@@ -125,7 +132,7 @@ export class TraitEffects {
     return hits;
   }
   finish(){
-    for(const wave of this.waves)this.release(wave);
+    // Ending early cancels unfinished waves; it must not eject enemies early.
     for(const u of this.battle.units){
       const base=this.baseStats.get(u.id);u.maxHp=base.maxHp;u.attackDamage=base.attackDamage;u.hp=Math.min(u.hp,u.maxHp);
       u.shield=0;u.maxShield=0;u.goldenUntil=0;u.stunnedUntil=0;u.basicAttacks=0;delete u.sweptBy;delete u.sweepX;

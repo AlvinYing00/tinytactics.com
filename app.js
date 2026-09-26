@@ -26,7 +26,7 @@ const snapshot=()=>({
   odds:shopOdds(campaign.player.level),result:campaign.result,
   airGold:{...battle.goldEarned},
   traits:Object.fromEntries(['azure','ember'].map(team=>[team,battle.traits?.teams[team]||campaign.traits(team)])),
-  units:battle.units.map(u=>({id:u.id,type:u.type,stars:u.stars,team:u.team,x:u.x,y:u.y,hp:u.hp,maxHp:u.maxHp,shield:u.shield,goldenShield:!!battle.traits?.isGolden(u),basicAttacks:u.basicAttacks,attackDamage:u.attackDamage,damageType:u.damageType,attackInterval:ARCHETYPES[u.type].attackTicks/10}))
+  units:battle.units.map(u=>({id:u.id,type:u.type,stars:u.stars,team:u.team,x:u.x,y:u.y,hp:u.hp,maxHp:u.maxHp,shield:u.shield,eliminated:!!u.eliminated,swept:!!u.sweptBy,goldenShield:!!battle.traits?.isGolden(u),basicAttacks:u.basicAttacks,attackDamage:u.attackDamage,damageType:u.damageType,attackInterval:ARCHETYPES[u.type].attackTicks/10}))
 });
 function say(message,error=false){$('#notice').textContent=message;$('#notice').classList.toggle('error',error);if($('#shop-dialog').open){$('#shop-feedback').textContent=message;$('#shop-feedback').classList.toggle('error',error);}}
 function perform(action){try{const value=action();battle=campaign.battle;render();return value??true;}catch(error){say(error.message,true);return false;}}
@@ -136,7 +136,7 @@ function renderHazards(){
     if(!m.impacted)html+=`<div class="meteor-target" style="left:${m.x*12.5+6.25}%;top:${m.y*12.5+6.25}%"></div><div class="meteor" style="left:${(m.x-1.5*(1-p))*12.5+6.25}%;top:${(-2+(m.y+2)*p)*12.5+6.25}%"></div>`;
     else html+=`<div class="meteor-blast" style="left:${m.x*12.5+6.25}%;top:${m.y*12.5+6.25}%;opacity:${Math.max(0,1-(tick-m.impactTick)/5)}"></div>`;
   }
-  for(const w of fx.waves)if(!w.released&&tick<=w.endTick){const p=Math.min(1,(tick-w.startTick)/(w.endTick-w.startTick));html+=`<div class="tsunami-wave" style="left:${p*100}%"><span>TSUNAMI</span></div>`;}
+  for(const w of fx.waves)if(battle.phase==='combat'&&!w.completed&&tick<=w.endTick){const p=Math.min(1,(tick-w.startTick)/(w.endTick-w.startTick));html+=`<div class="tsunami-wave" style="left:${p*100}%"><span>TSUNAMI</span></div>`;}
   for(const w of fx.walls)if(fx.wallActive(w))html+=`<div class="wind-wall ${w.team}" style="top:${(w.y+.5)/battle.height*100}%"><span>${w.team==='azure'?'AZURE':'EMBER'} WIND WALL · ${Math.max(0,(w.endTick-tick)/10).toFixed(1)}s</span></div>`;
   for(const storm of fx.thunderstorms)if(storm.triggered&&tick<storm.impactTick+7)for(const u of storm.targets)html+=`<div class="thunder-strike" style="left:${u.x*12.5+6.25}%;height:${u.y*12.5+6.25}%;opacity:${1-(tick-storm.impactTick)/7}"></div>`;
   $('#trait-effects').innerHTML=html;
@@ -146,7 +146,7 @@ function renderHazards(){
 function renderSelection(){
   const own=owned(selection?.id),u=battle.units.find(v=>v.id===selection?.id),type=own?.type||u?.type,panel=$('#selection-panel');
   if(!type){panel.innerHTML='<span class="selection-kicker">FORMATION TIP</span><p>Frontline first. Rangers behind.</p><span class="tip-caption">Drag between the board and bench. Drop on a teammate to swap.</span>';return;}
-  const c=championStats(type,(own||u).stars),location=own?.position.bench!==undefined?'Bench':u?coordinate(u.x,u.y):'';
+  const c=championStats(type,(own||u).stars),location=u?.eliminated?'Swept out':own?.position.bench!==undefined?'Bench':u?coordinate(u.x,u.y):'';
   if(u){c.hp=u.maxHp;c.damage=Math.round(u.attackDamage*100)/100;}
   panel.innerHTML='<span class="selection-kicker">'+starLabel(own||u)+' · COST '+c.cost+' · '+c.traits.map(t=>ELEMENT_LABELS[t]||ROLES[t].name).join(' + ')+'</span><p>'+c.name+' <span class="selection-coordinate">'+location+'</span></p><span class="tip-caption">'+(c.legendary?'Single trait. Fights as '+ROLES[c.combatRole].name+'. ':'')+c.description+' Attacks every '+c.attackTicks/10+'s.</span><div class="stat-row"><span>HP <strong>'+Math.ceil(u?.hp??c.hp)+'/'+c.hp+'</strong></span><span>'+(c.damageType==='true'?'TRUE DMG':'ATK')+' <strong>'+c.damage+'</strong></span><span>RANGE <strong>'+c.range+'</strong></span></div>'+(own&&editable()?'<div class="unit-actions">'+(own.position.bench===undefined?'<button id="bench-unit" class="secondary-button">To bench</button>':'')+'<button id="sell-unit" class="secondary-button">Sell · '+sellValue(own)+' gold</button></div>':'');
   const benchButton=$('#bench-unit');if(benchButton)benchButton.onclick=()=>perform(()=>{const slot=campaign.freeBench('azure');if(slot===undefined)throw new Error('Bench is full. Drag onto a bench champion to swap.');campaign.move(own.id,{bench:slot});say(c.name+' moved to the bench.');});
@@ -165,7 +165,7 @@ function render(){
   for(const u of battle.units){
     const c=ARCHETYPES[u.type];let el=views.get(u.id);
     if(!el){el=document.createElement('div');el.dataset.unitId=u.id;el.innerHTML='<span class="trait-aura" aria-hidden="true"></span><div class="unit-portrait"><span class="portrait-art"></span><span class="unit-glyph"></span></div><span class="unit-trait-mark" aria-hidden="true" hidden></span><span class="unit-stars"></span><div class="shield-track"><div class="shield-fill"></div></div><div class="health-track"><div class="health-fill"></div></div>';views.set(u.id,el);unitLayer.append(el);}
-    el.className='unit has-art '+u.team+' type-'+c.combatRole+' element-'+c.element+(u.hp<=0?' dead':'')+(selection?.id===u.id?' selected':'')+(battle.traits?.burns[u.id]?' burning':'')+(u.sweptBy?' swept':'')+(u.shield>0?' shielded':'')+(battle.traits?.isGolden(u)?' golden':'');
+    el.className='unit has-art '+u.team+' type-'+c.combatRole+' element-'+c.element+(u.hp<=0?' dead':'')+(u.eliminated?' eliminated':'')+(selection?.id===u.id?' selected':'')+(battle.traits?.burns[u.id]?' burning':'')+(u.sweptBy?' swept':'')+(u.shield>0?' shielded':'')+(battle.traits?.isGolden(u)?' golden':'');
     el.style.left=((u.sweepX??u.x)*12.5)+'%';el.style.top=(u.y*12.5)+'%';el.style.transitionDuration=(.22/speed)+'s';
     el.querySelector('.unit-glyph').textContent=c.element[0].toUpperCase()+c.cost;
     el.querySelector('.unit-stars').textContent=starLabel(u);
@@ -179,7 +179,7 @@ function render(){
     tile.title=u?ARCHETYPES[u.type].name+' '+starLabel(u)+' · '+Math.ceil(u.hp)+'/'+u.maxHp+' HP'+(u.shield?' · '+Math.ceil(u.shield)+' shield':''):coordinate(x,y);
     tile.classList.toggle('selected',!!u&&u.id===selection?.id);
     tile.classList.toggle('draggable',editing&&u?.team==='azure');
-    tile.classList.toggle('in-range',!!selected&&selected.hp>0&&distance(selected,{x,y})<=ARCHETYPES[selected.type].range);
+    tile.classList.toggle('in-range',!!selected&&selected.hp>0&&!selected.eliminated&&!selected.sweptBy&&distance(selected,{x,y})<=ARCHETYPES[selected.type].range);
   });
   const deployed=campaign.deployed().length,remaining=battle.living('azure').length;
   $('#player-hp').textContent=p.hp+' HP';$('#enemy-hp').textContent=enemy.hp+' HP';
@@ -231,8 +231,8 @@ function showResult(){
 function effects(events){
   let played=false;
   for(const e of events){
-    if(['burn','meteor','heal','released','thunder','gold','reflection','inheritance'].includes(e.type)){
-      const u=battle.units.find(v=>v.id===e.id);if(u){const n=document.createElement('span');n.className=`damage-number effect-${e.type}`;n.textContent=e.type==='gold'?'+1 GOLD':e.type==='inheritance'?'INHERITED':e.execute?'EXECUTED':e.type==='released'?'RELEASED':`${e.type==='heal'?'+':'−'}${Math.round(e.amount)}`;n.style.left=`${(u.sweepX??u.x)*12.5+6.25}%`;n.style.top=`${u.y*12.5+3}%`;$('#floaters').append(n);setTimeout(()=>n.remove(),820);}continue;
+    if(['burn','meteor','heal','ejected','thunder','gold','reflection','inheritance'].includes(e.type)){
+      const u=battle.units.find(v=>v.id===e.id);if(u){const n=document.createElement('span');n.className=`damage-number effect-${e.type}`;n.textContent=e.type==='gold'?'+1 GOLD':e.type==='inheritance'?'INHERITED':e.execute?'EXECUTED':e.type==='ejected'?'SWEPT OUT':`${e.type==='heal'?'+':'−'}${Math.round(e.amount)}`;n.style.left=`${Math.min(7,u.sweepX??u.x)*12.5+6.25}%`;n.style.top=`${u.y*12.5+3}%`;$('#floaters').append(n);setTimeout(()=>n.remove(),820);}continue;
     }
     if(e.type!=='attack')continue;
     const from=battle.units.find(u=>u.id===e.id),to=battle.units.find(u=>u.id===e.targetId);if(!from||!to)continue;

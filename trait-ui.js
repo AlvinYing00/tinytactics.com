@@ -10,7 +10,7 @@ export const TRAIT_DETAILS={
     'Each basic attack heals the attacker for 5% max HP.',
     'Healing increases to 15% max HP per attack.',
     'Healing increases to 25% max HP per attack.',
-    '25% healing + a 7s Tsunami. Swept enemies cannot move or attack; survivors return to combat.'
+    '25% healing + a 7s Tsunami sweeps enemies off the board. They cannot move or attack while swept; removal grants no Electric inheritance.'
   ]},
   mountain:{name:'Mountain',steps:[1,2,4,6],rows:[
     'Start combat with a shield worth 10% max HP.',
@@ -21,7 +21,7 @@ export const TRAIT_DETAILS={
   electric:{name:'Electric',steps:[3,5,7],rows:[
     'On an Electric ally’s death, survivors gain 5% of its original HP and attack; heal the HP gained.',
     'Inheritance increases to 10% HP and attack.',
-    '10% inheritance + Thunder once at 3s: 25% enemy max HP damage; execute targets already below 25% HP.'
+    '25% HP + 15% attack inheritance. Thunder once at 3s: 25% enemy max HP damage; execute targets already below 25% HP.'
   ],note:'Inherited bonuses never transfer again.'},
   air:{name:'Air',steps:[1,4,8,10],exact:true,rows:[
     '1% chance to earn 1 gold per basic attack.',
@@ -84,7 +84,7 @@ export function createTraitHud({rail,dialog,ambience,onOpen,onClose}){
     const nextUnits=new Map();
     for(const u of units){
       const view=views.get(u.id);if(!view||u.team!=='azure')continue;
-      const element=u.type.split('-')[0],tier=u.hp>0?traitTier(element,traits.counts[element]):0;
+      const element=u.type.split('-')[0],tier=u.hp>0&&!u.eliminated?traitTier(element,traits.counts[element]):0;
       const position=preparation?`${u.x},${u.y}`:'combat',prior=previousUnits.get(u.id);
       view.classList.toggle('trait-awakened',!!tier);
       const mark=view.querySelector('.unit-trait-mark');

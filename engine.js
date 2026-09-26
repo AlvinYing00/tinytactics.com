@@ -18,8 +18,8 @@ export class Battle {
   }
   inside(x,y) { return Number.isInteger(x)&&Number.isInteger(y)&&x>=0&&x<this.width&&y>=0&&y<this.height; }
   home(team,y) { return team==='azure' ? y>=this.height/2 : y<this.height/2; }
-  at(x,y) { return this.units.find(u=>u.hp>0&&!u.sweptBy&&u.x===x&&u.y===y); }
-  living(team) { return this.units.filter(u=>u.hp>0&&(!team||u.team===team)); }
+  at(x,y) { return this.units.find(u=>u.hp>0&&!u.eliminated&&!u.sweptBy&&u.x===x&&u.y===y); }
+  living(team) { return this.units.filter(u=>u.hp>0&&!u.eliminated&&(!team||u.team===team)); }
   editable() { if(this.phase!=='preparation') throw new Error('Finish the battle or reset before changing your formation.'); }
   validate(team,x,y,ignoreId) {
     this.editable();
@@ -115,9 +115,9 @@ export class Battle {
     this.traits.sweep();
     const hits=[];
     for(const u of alive) {
-      if(u.sweptBy||u.hp<=0||this.tick<u.stunnedUntil)continue;
+      if(u.sweptBy||u.eliminated||u.hp<=0||this.tick<u.stunnedUntil)continue;
       const stats=this.catalog[u.type];
-      const candidates=alive.filter(e=>!e.sweptBy&&e.hp>0&&e.team!==u.team&&this.traits.canTarget(u,e)&&distance(u,e)<=stats.range)
+      const candidates=alive.filter(e=>!e.sweptBy&&!e.eliminated&&e.hp>0&&e.team!==u.team&&this.traits.canTarget(u,e)&&distance(u,e)<=stats.range)
         .sort((a,b)=>(a.id===u.targetId?-1:b.id===u.targetId?1:distance(u,a)-distance(u,b)||a.id-b.id));
       if(candidates.length)u.targetId=candidates[0].id;
       if(candidates.length&&this.tick>=u.attackReady) {
@@ -126,7 +126,7 @@ export class Battle {
       }
     }
     resolveCombat(this,hits);
-    for(const u of this.living()) if(!this.units.some(t=>t.id===u.targetId&&t.hp>0&&!t.sweptBy)) u.targetId=null;
+    for(const u of this.living()) if(!this.units.some(t=>t.id===u.targetId&&t.hp>0&&!t.eliminated&&!t.sweptBy)) u.targetId=null;
     const azure=this.living('azure').length,ember=this.living('ember').length;
     if(!azure||!ember||this.tick>=this.timeout) {
       this.phase='finished';this.outcome=!azure&&!ember?'draw':!ember?'azure':!azure?'ember':'draw';

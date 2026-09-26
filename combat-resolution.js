@@ -1,7 +1,7 @@
 // All committed attacks resolve even if their source dies during this tick.
 // Damage categories stay separate so shield damage and trait damage never reflect.
 export function applyDamage(target,amount,{source,execute=false}={}){
-  if(target.hp<=0)return {hpDamage:0,shieldDamage:0};
+  if(target.hp<=0||target.eliminated)return {hpDamage:0,shieldDamage:0};
   const before=target.hp;
   const shieldDamage=execute?0:Math.min(target.shield,amount);
   target.shield-=shieldDamage;
@@ -12,6 +12,7 @@ export function applyDamage(target,amount,{source,execute=false}={}){
 }
 
 export function resolveCombat(battle,hits){
+  hits=hits.filter(({attacker,target})=>!attacker.eliminated&&!target.eliminated&&!attacker.sweptBy&&!target.sweptBy);
   const traits=battle.traits,alive=battle.living(),healing=new Map(),reflections=[];
   for(const hit of hits){
     const heal=traits.onAttack(hit.attacker,hit.target,hit.dodged);
@@ -30,7 +31,7 @@ export function resolveCombat(battle,hits){
   }
   // Thunder execution is checked against HP immediately before its damage lands.
   for(const effect of traits.damageIntents()){
-    const target=battle.units.find(u=>u.id===effect.targetId);if(!target||target.hp<=0)continue;
+    const target=battle.units.find(u=>u.id===effect.targetId);if(!target||target.hp<=0||target.eliminated)continue;
     const source=battle.units.find(u=>u.id===effect.sourceId);
     const execute=effect.executeBelow!==undefined&&target.hp<target.maxHp*effect.executeBelow;
     applyDamage(target,effect.amount,{source,execute});

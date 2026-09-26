@@ -2,7 +2,7 @@ export function registerGameTools(actions,context=globalThis.document?.modelCont
   if(!context?.registerTool)return null;
   const lifecycle=new AbortController(),empty={type:'object',properties:{},additionalProperties:false};
   const specs=[
-    ['read_champion_catalog','Read champion catalog','Read the 46 shop champions, costs, traits and combat roles.',empty,true,()=>actions.catalog()],
+    ['read_champion_catalog','Read champion catalog','Read the 65 shop champions, costs, traits and combat roles.',empty,true,()=>actions.catalog()],
     ['read_battle','Read match','Read round, economy, shop, owned champions, combat and result.',empty,true,()=>actions.snapshot()],
     ['buy_champion','Buy champion','Spend the card price and move one shop card to your bench during preparation.',{type:'object',properties:{slot:{type:'integer',minimum:0,maximum:4}},required:['slot'],additionalProperties:false},false,input=>actions.buy(input.slot)],
     ['refresh_shop','Refresh shop','Spend 2 gold to roll five new cards using current level odds.',empty,false,()=>actions.refresh()],

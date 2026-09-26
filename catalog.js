@@ -52,17 +52,8 @@ for(const element of ELEMENTS){
   const [name,role]=legendary[element];champion(`${element}-legendary`,name,element,role,5);
 }
 export const CHAMPIONS=Object.freeze(champions);
-// Air/Water keep their full roster until Augments can supply the rare counts.
-const fullElementRoster=[...Object.keys(ARCHETYPES).flatMap(role=>[1,2,3,4].map(cost=>`${role}-${cost}`)),'legendary'];
-// Retired definitions remain available to saved rosters.
-const naturalRoster={
-  fire:['sentinel-1','duelist-1','sentinel-2','ranger-2','duelist-3','ranger-4','legendary'],
-  water:fullElementRoster,
-  mountain:['sentinel-1','duelist-2','ranger-3','sentinel-4','duelist-4','legendary'],
-  electric:['duelist-1','sentinel-2','ranger-2','duelist-3','ranger-3','sentinel-4','legendary'],
-  air:fullElementRoster
-};
-export const SHOP_CHAMPIONS=Object.freeze(Object.fromEntries(Object.entries(naturalRoster).flatMap(([element,ids])=>ids.map(id=>{const key=`${element}-${id}`;return [key,CHAMPIONS[key]];}))));
+// Every element offers all three roles at costs 1–4 and one 5-cost legendary.
+export const SHOP_CHAMPIONS=CHAMPIONS;
 export function virtualTraitCounts(input={}){
   const counts=Object.fromEntries(ELEMENTS.map(element=>[element,0]));
   for(const [element,count] of Object.entries(input)){
@@ -72,14 +63,13 @@ export function virtualTraitCounts(input={}){
   return counts;
 }
 
-// Stars add the same element and role's 1-cost HP/attack bonus.
+// Each star tier scales this champion's own 1-star stats, never the previous tier.
 export function championStats(type,stars=1,catalog=CHAMPIONS){
   const champion=catalog[type];
   if(!champion)throw new Error('Unknown champion.');
   if(!Number.isInteger(stars)||stars<1||stars>3)throw new Error('Stars must be between 1 and 3.');
-  const first=ELEMENT_STATS[champion.element]?.[champion.combatRole];
-  const base=first?{hp:first.hp[0],damage:first.damage[0]}:ARCHETYPES[champion.combatRole]||champion,bonus=[0,0,.25,.5][stars];
-  return {...champion,hp:Math.round(champion.hp+base.hp*bonus),damage:Math.round(champion.damage+base.damage*bonus)};
+  const hpMultiplier=[0,1,1.75,3][stars],attackMultiplier=[0,1,1.5,2.25][stars];
+  return {...champion,hp:Math.round(champion.hp*hpMultiplier),damage:Math.round(champion.damage*attackMultiplier)};
 }
 export const sellValue = unit => CHAMPIONS[unit.type].cost * 3 ** ((unit.stars||1)-1);
 
@@ -95,7 +85,8 @@ export function teamTraits(units,catalog=CHAMPIONS,virtual={}){
     healPercent:water>=9?.25:water>=6?.15:water>=3?.05:0,meteor:fire>=7,tsunami:water>=10,
     shieldPercent:mountain>=6?1:mountain>=4?.5:mountain>=2?.25:mountain>=1?.1:0,goldenShield:mountain>=6,
     reflectPercent:mountain>=6?.3:mountain>=4?.2:mountain>=2?.1:0,
-    inheritancePercent:electric>=5?.1:electric>=3?.05:0,thunder:electric>=7,
+    inheritanceHpPercent:electric>=7?.25:electric>=5?.1:electric>=3?.05:0,
+    inheritanceAttackPercent:electric>=7?.15:electric>=5?.1:electric>=3?.05:0,thunder:electric>=7,
     coinChance:air===1?.01:air===4?.025:air===8||air===10?.05:0,
     dodgeChance:air===4?.05:air===8||air===10?.1:0,criticalEvery:air===4?10:air===8?8:air===10?5:0,windWall:air===10};
 }

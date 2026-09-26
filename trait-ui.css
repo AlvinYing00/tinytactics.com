@@ -84,3 +84,5 @@
 .shop-dialog-footer{display:flex;justify-content:space-between;align-items:center;gap:18px;border-top:1px solid #34483e;padding-top:16px;margin-top:16px}
 .shop-dialog-footer>span{font-size:12px;line-height:1.5;color:#98aca3}.shop-dialog-footer .primary-button{width:auto;min-height:42px;padding:10px 27px;font-size:14px}
 @media(max-width:600px){.campaign-game #shop-dialog .shop-panel{padding:16px}.shop-dialog-head{gap:9px;margin-bottom:14px}.shop-dialog-head h2{font-size:23px}#shop-gold{font-size:17px}.shop-actions .secondary-button{padding:9px;font-size:13px}.shop-dialog-footer{gap:12px}.shop-dialog-footer>span{max-width:185px}.board-toolbar .board-side-label{font-size:9px;letter-spacing:1px}}
+/* Swept-out champions retain HP but no longer occupy or appear on the board. */
+.unit.eliminated{opacity:0;pointer-events:none;visibility:hidden}
