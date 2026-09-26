@@ -1,14 +1,20 @@
 import { distance } from './engine.js';
-import { CHAMPIONS as ARCHETYPES, ARCHETYPES as ROLES, ELEMENTS, ELEMENT_LABELS, teamTraits, championStats, sellValue } from './catalog.js';
+import { CHAMPIONS as ARCHETYPES, SHOP_CHAMPIONS, ARCHETYPES as ROLES, ELEMENT_LABELS, championStats, sellValue } from './catalog.js';
 import { Campaign, LEVEL_COSTS, BENCH_SIZE, shopOdds, stageDamage, streakBonus } from './campaign.js';
 import { registerGameTools } from './webmcp.js';
 import { attachBoardDrag } from './drag.js';
+import { createTraitHud } from './trait-ui.js';
 
 const $=selector=>document.querySelector(selector);
 const board=$('#board'),unitLayer=$('#units'),shell=$('.board-shell');
 let campaign=new Campaign(),battle=campaign.battle,selection=null,paused=false,speed=1;
 let lastTime=0,sound=false,audio=null,shopKey='',benchNotice='Select a bench champion to sell.';
 const tiles=[],views=new Map(),benchTiles=[];
+let resumeAfterTrait=false;
+const traitHud=createTraitHud({rail:$('#trait-list'),dialog:$('#trait-dialog'),ambience:$('#territory-ambience'),
+  onOpen:()=>{resumeAfterTrait=campaign.phase==='combat'&&!paused;if(resumeAfterTrait){paused=true;render();}},
+  onClose:()=>{if(resumeAfterTrait&&campaign.phase==='combat'&&!document.hidden){paused=false;lastTime=performance.now();render();}resumeAfterTrait=false;}
+});
 const coordinate=(x,y)=>y===8?'Bench '+(x+1):String.fromCharCode(65+x)+(8-y);
 const starLabel=u=>'★'.repeat(u.stars||1);
 const editable=()=>campaign.phase==='preparation';
@@ -16,12 +22,13 @@ const owned=id=>campaign.player.roster.find(u=>u.id===id);
 const atPosition=(x,y)=>y===8?campaign.bench().find(u=>u.position.bench===x):battle.at(x,y);
 const snapshot=()=>({
   phase:campaign.phase,round:campaign.roundLabel,paused,outcome:battle.outcome,seconds:battle.tick/10,
-  players:Object.fromEntries(Object.entries(campaign.players).map(([team,p])=>[team,{hp:p.hp,gold:p.gold,level:p.level,xp:p.xp,levelPrice:campaign.levelPrice(team),lossStreak:p.lossStreak,roster:p.roster,shop:team==='azure'?p.shop:undefined}])),
+  players:Object.fromEntries(Object.entries(campaign.players).map(([team,p])=>[team,{hp:p.hp,gold:p.gold,level:p.level,xp:p.xp,levelPrice:campaign.levelPrice(team),lossStreak:p.lossStreak,roster:p.roster,shop:team==='azure'?p.shop:undefined,shopLocked:p.shopLocked,retainedShop:p.retainShop}])),
   odds:shopOdds(campaign.player.level),result:campaign.result,
   airGold:{...battle.goldEarned},
-  units:battle.units.map(u=>({id:u.id,type:u.type,stars:u.stars,team:u.team,x:u.x,y:u.y,hp:u.hp,maxHp:u.maxHp,shield:u.shield,goldenShield:!!battle.traits?.isGolden(u),airBoosted:u.airBoosted,attackDamage:u.attackDamage,damageType:u.damageType,attackInterval:ARCHETYPES[u.type].attackTicks/10}))
+  traits:Object.fromEntries(['azure','ember'].map(team=>[team,battle.traits?.teams[team]||campaign.traits(team)])),
+  units:battle.units.map(u=>({id:u.id,type:u.type,stars:u.stars,team:u.team,x:u.x,y:u.y,hp:u.hp,maxHp:u.maxHp,shield:u.shield,goldenShield:!!battle.traits?.isGolden(u),basicAttacks:u.basicAttacks,attackDamage:u.attackDamage,damageType:u.damageType,attackInterval:ARCHETYPES[u.type].attackTicks/10}))
 });
-function say(message,error=false){$('#notice').textContent=message;$('#notice').classList.toggle('error',error);}
+function say(message,error=false){$('#notice').textContent=message;$('#notice').classList.toggle('error',error);if($('#shop-dialog').open){$('#shop-feedback').textContent=message;$('#shop-feedback').classList.toggle('error',error);}}
 function perform(action){try{const value=action();battle=campaign.battle;render();return value??true;}catch(error){say(error.message,true);return false;}}
 
 for(let y=0;y<8;y++)for(let x=0;x<8;x++){
@@ -62,7 +69,9 @@ function tileAction(x,y){
   });
 }
 function buy(slot){return perform(()=>{dragging.cancel();const u=campaign.buy(slot);selection={id:u.id};say(u.stars>1?ARCHETYPES[u.type].name+' combined to '+u.stars+' stars!':ARCHETYPES[u.type].name+' joined your bench. Drag to deploy, or start battle to auto-deploy.');});}
-function refresh(){return perform(()=>{dragging.cancel();campaign.refresh();say('Five new offers. Spent 2 gold.');});}
+function refresh(){return perform(()=>{dragging.cancel();campaign.refresh();say('Shop refreshed. Spent 2 gold.');});}
+function setShopLock(locked){return perform(()=>{campaign.setShopLocked(locked);say(locked?'Offers locked for next round. The lock resets at round end.':'Shop unlocked. New offers arrive next round.');});}
+function openShop(){if(!editable())return;dragging.cancel();$('#shop-feedback').textContent='Recruit to your bench. Close the shop to place champions.';$('#shop-feedback').classList.remove('error');$('#shop-dialog').showModal();}
 function levelUp(){return perform(()=>{campaign.levelUp();say('Level '+campaign.player.level+'! One more board slot. Your next shop uses the new odds.');});}
 function sellUnit(id){return perform(()=>{
   const unit=owned(id);if(!unit)throw new Error('Select one of your champions to sell.');
@@ -76,7 +85,7 @@ function renderShop(){
   if(key!==shopKey){
     shopKey=key;
     $('#champion-cards').innerHTML=p.shop.map((type,slot)=>{
-      if(!type)return '<div class="shop-empty" aria-label="Purchased shop slot '+(slot+1)+'"><span>✓</span>Recruited</div>';
+      if(!type)return '<div class="shop-empty" aria-label="Empty shop slot '+(slot+1)+'"><span>—</span>No offer</div>';
       const c=ARCHETYPES[type],disabled=!campaign.canBuy(slot),plan=campaign.purchasePlan(type);
       const combines=plan.upgrades.length?' · Combines to '+plan.unit.stars+' stars':'';
       return '<button class="champion-card element-'+c.element+' cost-tier-'+c.cost+'" data-slot="'+slot+'" '+(disabled?'disabled':'')+' aria-label="Buy '+c.name+', '+c.cost+' gold, '+c.traits.join(' and ')+combines+'"><span class="card-art has-art art-'+c.combatRole+'"></span><span class="card-content"><span class="card-title">'+c.name+'</span><span class="card-role">'+ELEMENT_LABELS[c.element]+'</span><span class="card-class">'+(c.sideTrait?ROLES[c.sideTrait].name:'Legendary')+'</span>'+(combines?'<span class="combine-hint">Combine '+starLabel(plan.unit)+'</span>':'')+'</span><span class="cost-badge cost-'+c.cost+'">'+c.cost+' gold</span></button>';
@@ -84,7 +93,11 @@ function renderShop(){
     document.querySelectorAll('[data-slot]').forEach(card=>card.onclick=()=>buy(Number(card.dataset.slot)));
   }
   $('#refresh-button').disabled=!editing||p.gold<2;
-  $('#shop-caption').textContent=editing?'Click to recruit · Free new shop next round':'Shop reopens after this round';
+  $('#shop-button').disabled=!editing;$('#board-shop-gold').textContent=p.gold+'g';$('#board-shop-lock').hidden=!p.shopLocked;
+  $('#shop-gold').textContent=p.gold+' gold';$('#shop-lock').disabled=!editing;
+  $('#shop-lock').setAttribute('aria-pressed',String(p.shopLocked));$('#shop-lock-label').textContent=p.shopLocked?'Locked · Next round':'Lock next round';
+  $('#shop-caption').textContent=editing?(p.shopLocked?'These offers will stay for the next round. Lock resets at round end.':'Free new offers next round. Lock to keep these cards.'):'Shop reopens next round.';
+  if(!editing&&$('#shop-dialog').open)$('#shop-dialog').close();
   $('#odds-label').textContent='Level '+p.level+' roll odds';
   $('#shop-odds').innerHTML=shopOdds(p.level).map((percent,i)=>'<span class="cost-'+(i+1)+'" title="'+(i+1)+' cost champions: '+percent+'%"><b>'+(i+1)+'</b> '+percent+'%</span>').join('');
 }
@@ -110,20 +123,8 @@ function renderBench(){
   sell.setAttribute('aria-label',champion?'Sell '+champion.name+' for '+sellValue(selected)+' gold':'Select a bench champion to sell');
 }
 function renderTraits(){
-  const traits=battle.traits?.teams.azure||teamTraits(campaign.deployed());
-  const descriptions={
-    fire:traits.meteor?'20% burn + Meteor':traits.burnPercent?Math.round(traits.burnPercent*100)+'% max HP burn / second':'2 needed to activate',
-    water:traits.tsunami?'25% healing + Tsunami':traits.healPercent?Math.round(traits.healPercent*100)+'% max HP healing / attack':'3 needed to activate',
-    mountain:traits.goldenShield?'100% HP shield + 5s golden immunity':traits.shieldPercent?Math.round(traits.shieldPercent*100)+'% max HP shield at start':'1 needed to activate',
-    electric:traits.thunder?'20% bonus damage + Thunder at 5s':traits.electricPercent?Math.round(traits.electricPercent*100)+'% bonus attack damage':'3 needed to activate',
-    air:traits.windWall?'50% coin chance + 5s Wind Wall':traits.coinChance?Math.round(traits.coinChance*100)+'% chance: +1 gold / attack':'1 needed to activate'
-  };
-  $('#trait-list').innerHTML=ELEMENTS.map(element=>{
-    const count=traits.counts[element],active=count>=({fire:2,water:3,mountain:1,electric:3,air:1}[element]);
-    const thresholds={fire:'2 / 4 / 6 / 8 / 10',water:'3 / 6 / 9 / 10',mountain:'1 / 3 / 5 / 7 / 9',electric:'3 / 6 / 9 / 10',air:'1 / 4 / 10'};
-    return '<div class="trait-row element-'+element+(active?' active':'')+'"><span class="trait-icon">'+element[0].toUpperCase()+'</span><div><strong>'+ELEMENT_LABELS[element]+' <span>'+count+'</span></strong><p>'+descriptions[element]+'</p></div><span class="trait-thresholds">'+thresholds[element]+'</span></div>';
-  }).join('');
-  $('#class-counts').textContent=traits.counts.sentinel+' Sentinel · '+traits.counts.ranger+' Ranger · '+traits.counts.duelist+' Duelist. Class bonuses coming later.';
+  const traits=battle.traits?.teams.azure||campaign.traits();
+  traitHud.render(traits,battle.units,views,editable());
 }
 function renderHazards(){
   const fx=battle.traits;if(!fx){$('#trait-effects').replaceChildren();return;}
@@ -135,7 +136,7 @@ function renderHazards(){
     if(!m.impacted)html+=`<div class="meteor-target" style="left:${m.x*12.5+6.25}%;top:${m.y*12.5+6.25}%"></div><div class="meteor" style="left:${(m.x-1.5*(1-p))*12.5+6.25}%;top:${(-2+(m.y+2)*p)*12.5+6.25}%"></div>`;
     else html+=`<div class="meteor-blast" style="left:${m.x*12.5+6.25}%;top:${m.y*12.5+6.25}%;opacity:${Math.max(0,1-(tick-m.impactTick)/5)}"></div>`;
   }
-  for(const w of fx.waves)if(tick<=w.endTick){const p=Math.min(1,(tick-w.startTick)/(w.endTick-w.startTick));html+=`<div class="tsunami-wave" style="left:${p*100}%"><span>TSUNAMI</span></div>`;}
+  for(const w of fx.waves)if(!w.released&&tick<=w.endTick){const p=Math.min(1,(tick-w.startTick)/(w.endTick-w.startTick));html+=`<div class="tsunami-wave" style="left:${p*100}%"><span>TSUNAMI</span></div>`;}
   for(const w of fx.walls)if(fx.wallActive(w))html+=`<div class="wind-wall ${w.team}" style="top:${(w.y+.5)/battle.height*100}%"><span>${w.team==='azure'?'AZURE':'EMBER'} WIND WALL · ${Math.max(0,(w.endTick-tick)/10).toFixed(1)}s</span></div>`;
   for(const storm of fx.thunderstorms)if(storm.triggered&&tick<storm.impactTick+7)for(const u of storm.targets)html+=`<div class="thunder-strike" style="left:${u.x*12.5+6.25}%;height:${u.y*12.5+6.25}%;opacity:${1-(tick-storm.impactTick)/7}"></div>`;
   $('#trait-effects').innerHTML=html;
@@ -150,7 +151,7 @@ function renderSelection(){
   panel.innerHTML='<span class="selection-kicker">'+starLabel(own||u)+' · COST '+c.cost+' · '+c.traits.map(t=>ELEMENT_LABELS[t]||ROLES[t].name).join(' + ')+'</span><p>'+c.name+' <span class="selection-coordinate">'+location+'</span></p><span class="tip-caption">'+(c.legendary?'Single trait. Fights as '+ROLES[c.combatRole].name+'. ':'')+c.description+' Attacks every '+c.attackTicks/10+'s.</span><div class="stat-row"><span>HP <strong>'+Math.ceil(u?.hp??c.hp)+'/'+c.hp+'</strong></span><span>'+(c.damageType==='true'?'TRUE DMG':'ATK')+' <strong>'+c.damage+'</strong></span><span>RANGE <strong>'+c.range+'</strong></span></div>'+(own&&editable()?'<div class="unit-actions">'+(own.position.bench===undefined?'<button id="bench-unit" class="secondary-button">To bench</button>':'')+'<button id="sell-unit" class="secondary-button">Sell · '+sellValue(own)+' gold</button></div>':'');
   const benchButton=$('#bench-unit');if(benchButton)benchButton.onclick=()=>perform(()=>{const slot=campaign.freeBench('azure');if(slot===undefined)throw new Error('Bench is full. Drag onto a bench champion to swap.');campaign.move(own.id,{bench:slot});say(c.name+' moved to the bench.');});
   const sellButton=$('#sell-unit');if(sellButton)sellButton.onclick=()=>sellUnit(own.id);
-  if(u)panel.querySelector('.tip-caption').textContent+=(u.shield?' Shield: '+Math.ceil(u.shield)+'.':'')+(battle.traits?.isGolden(u)?' Golden immunity.':'')+(u.airBoosted?' Air: +50% HP and attack this round.':'');
+  if(u){const every=c.element==='air'?battle.traits?.teams[u.team].criticalEvery:0;panel.querySelector('.tip-caption').textContent+=(u.shield?' Shield: '+Math.ceil(u.shield)+'.':'')+(battle.traits?.isGolden(u)?' Golden immunity.':'')+(every?' Crit progress: '+u.basicAttacks%every+'/'+every+'.':'');}
 }
 function render(){
   battle=campaign.battle;
@@ -163,8 +164,8 @@ function render(){
   for(const [id,el] of views)if(!battle.units.some(u=>u.id===id)){el.remove();views.delete(id);}
   for(const u of battle.units){
     const c=ARCHETYPES[u.type];let el=views.get(u.id);
-    if(!el){el=document.createElement('div');el.innerHTML='<div class="unit-portrait"><span class="portrait-art"></span><span class="unit-glyph"></span></div><span class="unit-stars"></span><div class="shield-track"><div class="shield-fill"></div></div><div class="health-track"><div class="health-fill"></div></div>';views.set(u.id,el);unitLayer.append(el);}
-    el.className='unit has-art '+u.team+' type-'+c.combatRole+' element-'+c.element+(u.hp<=0?' dead':'')+(selection?.id===u.id?' selected':'')+(battle.traits?.burns[u.id]?' burning':'')+(u.sweptBy?' swept':'')+(u.shield>0?' shielded':'')+(battle.traits?.isGolden(u)?' golden':'')+(u.airBoosted?' air-boosted':'');
+    if(!el){el=document.createElement('div');el.dataset.unitId=u.id;el.innerHTML='<span class="trait-aura" aria-hidden="true"></span><div class="unit-portrait"><span class="portrait-art"></span><span class="unit-glyph"></span></div><span class="unit-trait-mark" aria-hidden="true" hidden></span><span class="unit-stars"></span><div class="shield-track"><div class="shield-fill"></div></div><div class="health-track"><div class="health-fill"></div></div>';views.set(u.id,el);unitLayer.append(el);}
+    el.className='unit has-art '+u.team+' type-'+c.combatRole+' element-'+c.element+(u.hp<=0?' dead':'')+(selection?.id===u.id?' selected':'')+(battle.traits?.burns[u.id]?' burning':'')+(u.sweptBy?' swept':'')+(u.shield>0?' shielded':'')+(battle.traits?.isGolden(u)?' golden':'');
     el.style.left=((u.sweepX??u.x)*12.5)+'%';el.style.top=(u.y*12.5)+'%';el.style.transitionDuration=(.22/speed)+'s';
     el.querySelector('.unit-glyph').textContent=c.element[0].toUpperCase()+c.cost;
     el.querySelector('.unit-stars').textContent=starLabel(u);
@@ -200,7 +201,7 @@ function render(){
   $('#xp-bar').max=LEVEL_COSTS[p.level]||1;$('#xp-bar').value=p.level<10?p.xp:1;
   const interest=Math.min(5,Math.floor(p.gold/10));
   $('#income-preview').innerHTML='<span>Next income <strong>5 base + '+interest+' interest</strong></span><span>Loss streak <strong>'+p.lossStreak+' · +'+streakBonus(p.lossStreak)+' gold</strong></span><small>Win bonus +1 · Interest caps at 50 gold</small>';
-  const bt=battle.traits?.teams.ember||teamTraits(campaign.deployed('ember'));
+  const bt=battle.traits?.teams.ember||campaign.traits('ember');
   $('#bot-plan').textContent='Building '+ELEMENT_LABELS[campaign.botElement]+' · '+bt.counts.fire+' Fire / '+bt.counts.water+' Water. '+enemy.gold+' gold in reserve.';
   $('#damage-preview').textContent='Stage '+campaign.stage+': the loser takes '+stageDamage(campaign.stage)+' HP damage.';
   renderShop();renderBench();renderSelection();renderTraits();renderHazards();
@@ -210,11 +211,11 @@ function cleanEffects(){dragging.cancel();$('#effects').replaceChildren();$('#fl
 function startOrPause(){perform(()=>{
   dragging.cancel();
   if(editable()){campaign.start();paused=false;selection=null;lastTime=performance.now();say(campaign.lastAutoDeployed.length?'Auto-deployed '+campaign.lastAutoDeployed.length+' champion(s) from your bench. Battle underway.':campaign.deployed().length?'Battle underway.':'No champions owned. Ember claims this round.');tone(390,.12);}
-  else if(campaign.phase==='result'){cleanEffects();campaign.nextRound();selection=null;paused=false;$('#result').hidden=true;say('Round '+campaign.roundLabel+'. Champions restored and a free new shop is ready.');}
+  else if(campaign.phase==='result'){const retained=campaign.player.retainShop;cleanEffects();campaign.nextRound();selection=null;paused=false;$('#result').hidden=true;say('Round '+campaign.roundLabel+'. '+(retained?'Shop offers kept. Lock again to save them another round.':'Champions restored. Open Shop for new offers.'));}
   else if(campaign.phase==='finished')restartMatch();
   else{paused=!paused;say(paused?'Battle paused.':'Battle resumed.');}
 });}
-function restartMatch(){cleanEffects();campaign=new Campaign();battle=campaign.battle;selection=null;paused=false;shopKey='';benchNotice='Select a bench champion to sell.';$('#result').hidden=true;say('New match. Buy a champion, then drag from your bench onto the board.');}
+function restartMatch(){cleanEffects();traitHud.reset();campaign=new Campaign();battle=campaign.battle;selection=null;paused=false;shopKey='';benchNotice='Select a bench champion to sell.';$('#result').hidden=true;say('New match. Buy a champion, then drag from your bench onto the board.');}
 function showResult(){
   const result=$('#result');if(!result.hidden)return;
   const r=campaign.result,won=r.outcome==='azure',draw=r.outcome==='draw',income=r.income.azure;
@@ -230,8 +231,8 @@ function showResult(){
 function effects(events){
   let played=false;
   for(const e of events){
-    if(['burn','meteor','heal','ejected','thunder','gold'].includes(e.type)){
-      const u=battle.units.find(v=>v.id===e.id);if(u){const n=document.createElement('span');n.className=`damage-number effect-${e.type}`;n.textContent=e.type==='gold'?'+1 GOLD':e.execute?'EXECUTED':e.type==='ejected'?'OUT':`${e.type==='heal'?'+':'−'}${Math.round(e.amount)}`;n.style.left=`${(u.sweepX??u.x)*12.5+6.25}%`;n.style.top=`${u.y*12.5+3}%`;$('#floaters').append(n);setTimeout(()=>n.remove(),820);}continue;
+    if(['burn','meteor','heal','released','thunder','gold','reflection','inheritance'].includes(e.type)){
+      const u=battle.units.find(v=>v.id===e.id);if(u){const n=document.createElement('span');n.className=`damage-number effect-${e.type}`;n.textContent=e.type==='gold'?'+1 GOLD':e.type==='inheritance'?'INHERITED':e.execute?'EXECUTED':e.type==='released'?'RELEASED':`${e.type==='heal'?'+':'−'}${Math.round(e.amount)}`;n.style.left=`${(u.sweepX??u.x)*12.5+6.25}%`;n.style.top=`${u.y*12.5+3}%`;$('#floaters').append(n);setTimeout(()=>n.remove(),820);}continue;
     }
     if(e.type!=='attack')continue;
     const from=battle.units.find(u=>u.id===e.id),to=battle.units.find(u=>u.id===e.targetId);if(!from||!to)continue;
@@ -241,7 +242,7 @@ function effects(events){
     const line=document.createElementNS('http://www.w3.org/2000/svg','line');line.classList.add('shot');
     for(const [k,v] of Object.entries({x1:from.x*100+50,y1:from.y*100+50,x2:to.x*100+50,y2:to.y*100+50,stroke:from.team==='azure'?'#b8efce':'#ee9d8d'}))line.setAttribute(k,String(v));
     $('#effects').append(line);setTimeout(()=>line.remove(),360);
-    const number=document.createElement('span');number.className='damage-number';number.textContent=`−${e.amount}`;number.style.left=`${to.x*12.5+6.25}%`;number.style.top=`${to.y*12.5+3}%`;$('#floaters').append(number);setTimeout(()=>number.remove(),820);
+    const number=document.createElement('span');number.className='damage-number'+(e.dodged?' effect-dodge':e.critical?' effect-critical':'');number.textContent=e.dodged?'DODGE':`${e.critical?'CRIT ':''}−${Math.round(e.amount)}`;number.style.left=`${to.x*12.5+6.25}%`;number.style.top=`${to.y*12.5+3}%`;$('#floaters').append(number);setTimeout(()=>number.remove(),820);
     if(!played){tone(ARCHETYPES[from.type].combatRole==='ranger'?600:160,.035);played=true;}
   }
 }
@@ -256,6 +257,10 @@ $('#sound-button').onclick=async()=>{
 };
 $('#start-button').onclick=startOrPause;$('#mobile-start').onclick=startOrPause;
 $('#refresh-button').onclick=refresh;$('#level-button').onclick=levelUp;
+$('#shop-button').onclick=openShop;
+$('#shop-lock').onclick=()=>setShopLock(!campaign.player.shopLocked);
+$('#close-shop').onclick=$('#done-shop').onclick=()=>$('#shop-dialog').close();
+$('#shop-dialog').addEventListener('click',event=>{if(event.target===$('#shop-dialog')){const r=event.target.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)event.target.close();}});
 $('#bench-sell').onclick=()=>{const unit=owned(selection?.id);if(unit?.position.bench!==undefined)sellUnit(unit.id);};
 $('#new-match').onclick=()=>{if(campaign.phase==='combat'){paused=true;render();}$('#restart-dialog').showModal();};
 $('#cancel-restart').onclick=()=>$('#restart-dialog').close();
@@ -265,7 +270,7 @@ document.querySelectorAll('[data-speed]').forEach(button=>button.onclick=()=>{
 });
 $('#help-button').onclick=()=>{if(campaign.phase==='combat'&&!paused){paused=true;say('Battle paused while you read the field guide.');render();}$('#help-dialog').showModal();};
 document.querySelectorAll('.close-dialog').forEach(button=>button.onclick=()=>$('#help-dialog').close());
-document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('#help-dialog').open){selection=null;render();}});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('#help-dialog').open&&!$('#trait-dialog').open&&!$('#shop-dialog').open){selection=null;render();}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&campaign.phase==='combat'&&!paused){paused=true;say('Battle paused while you were away.');render();}lastTime=performance.now();});
 function frame(now){
   const dt=Math.min(.1,Math.max(0,(now-(lastTime||now))/1000));lastTime=now;
@@ -275,9 +280,10 @@ function frame(now){
 }
 render();requestAnimationFrame(frame);
 registerGameTools({
-  snapshot,catalog:()=>Object.values(ARCHETYPES).map(c=>({id:c.id,name:c.name,cost:c.cost,traits:c.traits,combatRole:c.combatRole,hp:c.hp,damage:c.damage,damageType:c.damageType,attackInterval:c.attackTicks/10})),
+  snapshot,catalog:()=>Object.values(SHOP_CHAMPIONS).map(c=>({id:c.id,name:c.name,cost:c.cost,traits:c.traits,combatRole:c.combatRole,hp:c.hp,damage:c.damage,damageType:c.damageType,attackInterval:c.attackTicks/10})),
   buy:slot=>{campaign.buy(slot);render();return snapshot();},
   refresh:()=>{campaign.refresh();render();return snapshot();},
+  lock:locked=>{campaign.setShopLocked(locked);render();return snapshot();},
   levelUp:()=>{campaign.levelUp();render();return snapshot();},
   move:(id,position)=>{dragging.cancel();campaign.move(id,position);render();return snapshot();},
   start:()=>{dragging.cancel();campaign.start();paused=false;selection=null;lastTime=performance.now();render();return snapshot();},

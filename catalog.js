@@ -52,6 +52,25 @@ for(const element of ELEMENTS){
   const [name,role]=legendary[element];champion(`${element}-legendary`,name,element,role,5);
 }
 export const CHAMPIONS=Object.freeze(champions);
+// Air/Water keep their full roster until Augments can supply the rare counts.
+const fullElementRoster=[...Object.keys(ARCHETYPES).flatMap(role=>[1,2,3,4].map(cost=>`${role}-${cost}`)),'legendary'];
+// Retired definitions remain available to saved rosters.
+const naturalRoster={
+  fire:['sentinel-1','duelist-1','sentinel-2','ranger-2','duelist-3','ranger-4','legendary'],
+  water:fullElementRoster,
+  mountain:['sentinel-1','duelist-2','ranger-3','sentinel-4','duelist-4','legendary'],
+  electric:['duelist-1','sentinel-2','ranger-2','duelist-3','ranger-3','sentinel-4','legendary'],
+  air:fullElementRoster
+};
+export const SHOP_CHAMPIONS=Object.freeze(Object.fromEntries(Object.entries(naturalRoster).flatMap(([element,ids])=>ids.map(id=>{const key=`${element}-${id}`;return [key,CHAMPIONS[key]];}))));
+export function virtualTraitCounts(input={}){
+  const counts=Object.fromEntries(ELEMENTS.map(element=>[element,0]));
+  for(const [element,count] of Object.entries(input)){
+    if(!ELEMENTS.includes(element)||!Number.isInteger(count)||count<0)throw new Error('Virtual trait counts must be non-negative whole numbers for an element.');
+    counts[element]=count;
+  }
+  return counts;
+}
 
 // Stars add the same element and role's 1-cost HP/attack bonus.
 export function championStats(type,stars=1,catalog=CHAMPIONS){
@@ -65,14 +84,18 @@ export function championStats(type,stars=1,catalog=CHAMPIONS){
 export const sellValue = unit => CHAMPIONS[unit.type].cost * 3 ** ((unit.stars||1)-1);
 
 // Distinct champion identities count; multiple copies of one champion count once.
-export function teamTraits(units,catalog=CHAMPIONS){
+export function teamTraits(units,catalog=CHAMPIONS,virtual={}){
   const counts=Object.fromEntries([...ELEMENTS,...Object.keys(ARCHETYPES)].map(t=>[t,0]));
   const unique=new Set();
-  for(const u of units){if(unique.has(u.type))continue;unique.add(u.type);for(const trait of catalog[u.type]?.traits||[])counts[trait]++;}
+  for(const u of units){if(u.position?.bench!==undefined||unique.has(u.type))continue;unique.add(u.type);for(const trait of catalog[u.type]?.traits||[])counts[trait]++;}
+  const boardCounts={...counts},virtualCounts=virtualTraitCounts(virtual);
+  for(const element of ELEMENTS)counts[element]+=virtualCounts[element];
   const fire=counts.fire,water=counts.water,mountain=counts.mountain,electric=counts.electric,air=counts.air;
-  return {counts,burnPercent:fire>=8?.2:fire>=6?.15:fire>=4?.1:fire>=2?.05:0,
-    healPercent:water>=9?.25:water>=6?.15:water>=3?.05:0,meteor:fire>=10,tsunami:water>=10,
-    shieldPercent:mountain>=7?1:mountain>=5?.5:mountain>=3?.25:mountain>=1?.1:0,goldenShield:mountain>=9,
-    electricPercent:electric>=9?.2:electric>=6?.1:electric>=3?.05:0,thunder:electric>=10,
-    coinChance:air>=4?.5:air>=1?.25:0,windWall:air>=10};
+  return {counts,boardCounts,virtualCounts,burnPercent:fire>=5?.1:fire>=3?.07:fire>=1?.05:0,
+    healPercent:water>=9?.25:water>=6?.15:water>=3?.05:0,meteor:fire>=7,tsunami:water>=10,
+    shieldPercent:mountain>=6?1:mountain>=4?.5:mountain>=2?.25:mountain>=1?.1:0,goldenShield:mountain>=6,
+    reflectPercent:mountain>=6?.3:mountain>=4?.2:mountain>=2?.1:0,
+    inheritancePercent:electric>=5?.1:electric>=3?.05:0,thunder:electric>=7,
+    coinChance:air===1?.01:air===4?.025:air===8||air===10?.05:0,
+    dodgeChance:air===4?.05:air===8||air===10?.1:0,criticalEvery:air===4?10:air===8?8:air===10?5:0,windWall:air===10};
 }

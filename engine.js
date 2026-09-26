@@ -1,13 +1,15 @@
 // Pure simulation. UI, audio and animation never decide combat outcomes.
-import { CHAMPIONS, ARCHETYPES, championStats } from './catalog.js';
+import { CHAMPIONS, ARCHETYPES, championStats, virtualTraitCounts } from './catalog.js';
 import { TraitEffects } from './trait-effects.js';
+import { resolveCombat } from './combat-resolution.js';
 export { ARCHETYPES } from './catalog.js';
 export const distance = (a,b) => Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
 const key = p => `${p.x},${p.y}`;
 const clone = value => JSON.parse(JSON.stringify(value));
 export class Battle {
-  constructor({width=8,height=8,cap=10,timeout=600,catalog=CHAMPIONS,seed=1,random,onGold}={}) {
-    this.width=width; this.height=height; this.cap=cap; this.timeout=timeout; this.catalog=catalog;
+  constructor({width=8,height=8,cap=10,timeout=600,catalog=CHAMPIONS,seed=1,random,onGold,traitCounts={}}={}) {
+    this.width=width; this.height=height; this.cap=Math.min(10,cap); this.timeout=timeout; this.catalog=catalog;
+    this.traitCounts=Object.fromEntries(['azure','ember'].map(team=>[team,virtualTraitCounts(traitCounts[team])]));
     this.units=[]; this.nextId=1; this.phase='preparation'; this.outcome=null;
     this.tick=0; this.accumulator=0; this.events=[]; this.roster=null;
     this.traits=null;
@@ -31,7 +33,7 @@ export class Battle {
     this.validate(team,x,y);
     const stats=championStats(type,stars,this.catalog);
     if(this.living(team).length>=this.cap) throw new Error(`Your squad is full. Remove a champion first (${this.cap} maximum).`);
-    const u={id:this.nextId++,type,team,x,y,stars,hp:stats.hp,maxHp:stats.hp,attackDamage:stats.damage,damageType:stats.damageType||'physical',shield:0,maxShield:0,goldenUntil:0,stunnedUntil:0,airBoosted:false,targetId:null,attackReady:0,moveReady:0,damageDealt:0,kills:0};
+    const u={id:this.nextId++,type,team,x,y,stars,hp:stats.hp,maxHp:stats.hp,attackDamage:stats.damage,damageType:stats.damageType||'physical',shield:0,maxShield:0,goldenUntil:0,stunnedUntil:0,basicAttacks:0,targetId:null,attackReady:0,moveReady:0,damageDealt:0,kills:0};
     this.units.push(u); return u;
   }
   move(id,x,y) {
@@ -80,7 +82,7 @@ export class Battle {
     const range=this.catalog[unit.type].range;
     for(let i=0;i<queue.length;i++) {
       const cell=queue[i];
-      const targets=enemies.filter(e=>(!this.traits||this.traits.canTarget(unit,e))&&distance(cell,e)<=range).sort((a,b)=>distance(unit,a)-distance(unit,b)||a.id-b.id);
+      const targets=enemies.filter(e=>(!this.traits||this.traits.canTarget(unit,e,cell))&&distance(cell,e)<=range).sort((a,b)=>distance(unit,a)-distance(unit,b)||a.id-b.id);
       if(targets.length) return {target:targets[0],next:cell.first};
       for(const [dx,dy] of dirs) {
         const p={x:cell.x+dx,y:cell.y+dy},k=key(p);
@@ -119,36 +121,11 @@ export class Battle {
         .sort((a,b)=>(a.id===u.targetId?-1:b.id===u.targetId?1:distance(u,a)-distance(u,b)||a.id-b.id));
       if(candidates.length)u.targetId=candidates[0].id;
       if(candidates.length&&this.tick>=u.attackReady) {
-        const target=candidates[0];hits.push({attacker:u,target,amount:u.attackDamage});
+        const target=candidates[0];hits.push(this.traits.prepareAttack(u,target));
         u.attackReady=this.tick+stats.attackTicks;
       }
     }
-    // All attacks are committed together: a mutual knockout is a real draw.
-    const damage=new Map(), healing=new Map(),executions=new Set();
-    for(const {attacker,target,amount} of hits) {
-      attacker.damageDealt+=amount;damage.set(target.id,(damage.get(target.id)||0)+amount);
-      this.events.push({type:'attack',id:attacker.id,targetId:target.id,amount,damageType:attacker.damageType});
-      const heal=this.traits.onAttack(attacker,target);
-      if(heal)healing.set(attacker.id,(healing.get(attacker.id)||0)+heal);
-    }
-    for(const effect of this.traits.damageIntents()){
-      if(effect.execute)executions.add(effect.targetId);
-      damage.set(effect.targetId,(damage.get(effect.targetId)||0)+effect.amount);
-      const source=this.units.find(u=>u.id===effect.sourceId);if(source)source.damageDealt+=effect.amount;
-      this.events.push({type:effect.kind,id:effect.targetId,amount:effect.amount,execute:!!effect.execute});
-    }
-    for(const u of this.living()) {
-      // Water heals on a committed attack, before this tick's simultaneous damage.
-      const restored=Math.min(u.maxHp-u.hp,healing.get(u.id)||0);
-      if(restored)this.events.push({type:'heal',id:u.id,amount:restored});
-      const incoming=damage.get(u.id)||0,absorbed=Math.min(u.shield,incoming);u.shield-=absorbed;
-      u.hp=executions.has(u.id)?0:Math.max(0,Math.min(u.maxHp,u.hp+restored)-(incoming-absorbed));
-      if(executions.has(u.id))u.eliminatedBy='thunder';
-      if(u.hp===0) {
-        this.events.push({type:'death',id:u.id});
-        const killer=hits.find(h=>h.target.id===u.id);if(killer)killer.attacker.kills++;
-      }
-    }
+    resolveCombat(this,hits);
     for(const u of this.living()) if(!this.units.some(t=>t.id===u.targetId&&t.hp>0&&!t.sweptBy)) u.targetId=null;
     const azure=this.living('azure').length,ember=this.living('ember').length;
     if(!azure||!ember||this.tick>=this.timeout) {

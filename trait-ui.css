@@ -1,0 +1,86 @@
+.campaign-game .arena-stage{padding:12px 16px}
+.battlefield-layout{display:grid;grid-template-columns:148px minmax(0,1fr);gap:16px;align-items:center;max-width:650px;margin:auto}
+.battlefield-main{min-width:0;width:100%}
+.campaign-game .battlefield-main .board-shell{width:100%;max-width:470px;box-sizing:border-box;--board-inset:8px}
+.board-traits{min-width:0;align-self:start;padding-top:14px}
+.trait-rail-heading{font:600 12px var(--heading);letter-spacing:1.3px;color:#d6e0db;margin-bottom:12px}
+.trait-rail-heading span{display:block;color:var(--muted);letter-spacing:0;font:12px var(--body);margin-top:5px}
+.campaign-game .board-traits #trait-list{display:grid;grid-template-columns:1fr;gap:8px}
+.trait-chip{display:grid;grid-template-columns:27px minmax(0,1fr) 22px;grid-template-rows:auto auto;align-items:center;gap:3px 5px;width:100%;padding:8px;text-align:left;background:#111e27;border:1px solid #35444d;border-radius:7px;color:#8ea0a8;min-height:66px;position:relative}
+.trait-logo{width:25px;height:27px;display:grid;place-items:center;color:var(--element);opacity:.6}
+.trait-logo svg{width:24px;height:24px}
+.trait-name{font-size:13px;font-weight:500;color:#bdc9ce;letter-spacing:-.2px}
+.trait-count{display:grid;place-items:center;min-width:22px;height:24px;font:600 14px var(--heading);background:#23323c;border-radius:4px;color:#a0aeb5}
+.trait-steps{grid-column:1/-1;display:flex;gap:4px;align-items:center;justify-content:center;font-size:13px;line-height:1.5}
+.trait-steps b{font-weight:500;min-width:16px;text-align:center;border-radius:3px}
+.trait-steps i{font-style:normal;color:#536671;font-size:11px}
+.trait-chip.active{border-color:color-mix(in srgb,var(--element) 55%,#253844);background:color-mix(in srgb,var(--element) 9%,#101e28)}
+.trait-chip.active .trait-logo{opacity:1;filter:drop-shadow(0 0 5px color-mix(in srgb,var(--element) 40%,transparent))}
+.trait-chip.active .trait-name{color:#eff5f2}.trait-chip.active .trait-count{background:var(--element);color:#12222c}
+.trait-steps b.reached{color:var(--element)}.trait-steps b.current{background:var(--element);color:#10202a;font-weight:700;padding-inline:3px}
+.trait-chip.maxed{box-shadow:0 0 16px color-mix(in srgb,var(--element) 14%,transparent),inset 0 0 0 1px color-mix(in srgb,var(--element) 20%,transparent)}
+.trait-chip:hover{border-color:var(--element);background:color-mix(in srgb,var(--element) 12%,#11232b)}
+.trait-dialog{max-width:490px;padding:24px;max-height:calc(100dvh - 40px);overflow-y:auto}
+.trait-dialog .close-trait{border:0;background:none;font-size:28px;color:var(--muted);width:40px;height:40px;border-radius:5px}
+.trait-dialog .close-trait:hover{background:#2a3943;color:white}
+.trait-dialog #trait-dialog-title{display:flex;align-items:center;gap:12px;font:500 30px var(--heading);margin:4px 0 8px;color:var(--element)}
+#trait-dialog-title svg{width:34px;height:34px}
+.trait-dialog #trait-dialog-status{font-size:14px;color:#b2c5c9;margin:0 0 18px}
+#trait-detail-list{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+#trait-detail-list li{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid #344651;border-radius:6px;background:#111e28}
+#trait-detail-list li.current{border-color:var(--element);background:color-mix(in srgb,var(--element) 9%,#11202a)}
+.detail-tier{display:grid;place-items:center;align-content:center;min-width:38px;min-height:38px;color:var(--element);font:600 21px var(--heading);border-right:1px solid #334550;padding-right:10px}
+.detail-tier small{font:600 9px var(--body);letter-spacing:.8px;margin-top:3px}
+#trait-detail-list p{margin:0;font-size:14px;line-height:1.5;color:#e3ece7}
+.trait-dialog #trait-dialog-note{font-size:13px;line-height:1.5;color:#becdd0;margin:17px 0 0}
+.trait-dialog .trait-count-note{font-size:12px;line-height:1.5;color:#8fa3ad;border-top:1px solid #31424c;padding-top:12px;margin:12px 0 0}
+/* Persistent marks identify active allies; the brief ring confirms placement/tier changes. */
+.trait-aura{position:absolute;inset:9%;border:1px solid var(--element);border-radius:50%;box-shadow:0 0 12px color-mix(in srgb,var(--element) 40%,transparent);opacity:0}
+.unit.trait-awakened .trait-aura{opacity:.8}
+.unit-trait-mark{position:absolute;bottom:20%;left:1%;z-index:4;display:grid;place-items:center;width:21%;aspect-ratio:1;color:var(--element);background:#0b1a23;border:1px solid var(--element);border-radius:4px;padding:2px;box-sizing:content-box}
+.unit-trait-mark svg{width:100%;height:100%}
+.trait-burst{position:absolute;inset:9%;border:3px solid var(--element);border-radius:50%;box-shadow:0 0 15px var(--element);animation:trait-activate 1s ease-out forwards;pointer-events:none}
+@keyframes trait-activate{0%{transform:scale(.7);opacity:1}65%{opacity:.5}100%{transform:scale(1.55);opacity:0}}
+.unit.dead .trait-aura,.unit.dead .trait-burst{display:none}
+/* Decorative artwork is clipped to the four home rows and cannot intercept input. */
+.territory-ambience{position:absolute;left:var(--board-inset);right:var(--board-inset);top:50%;bottom:var(--board-inset);pointer-events:none;overflow:hidden;z-index:1;border-radius:0 0 3px 3px}
+.max-scene{position:absolute;inset:0;background-image:url('elemental-board-atlas.png');background-size:500% 175%;background-repeat:no-repeat;opacity:.5;mix-blend-mode:screen;animation:territory-breathe 6s ease-in-out infinite alternate;transform-origin:50% 65%;mask-image:linear-gradient(transparent 0%,#000 10%,#000 96%,transparent)}
+.scene-fire{background-position:0% 40%}.scene-water{background-position:25% 40%;animation-duration:8s}.scene-mountain{background-position:50% 40%;animation-duration:10s}.scene-electric{background-position:75% 40%;animation-duration:3s}.scene-air{background-position:100% 40%;animation-duration:7s}
+@keyframes territory-breathe{from{opacity:.32;transform:scale(1)}to{opacity:.6;transform:scale(1.035)}}
+.max-territory-label{position:absolute;left:7px;bottom:5px;display:flex;align-items:center;gap:5px;color:#edeee3;font:600 10px var(--heading);letter-spacing:.8px;background:#07121cbf;padding:4px 6px;border-radius:3px}
+.max-territory-label svg{width:13px;height:13px}
+@media(max-width:1150px) and (min-width:821px){.battlefield-layout{grid-template-columns:130px minmax(0,1fr);gap:10px}.campaign-game .arena-stage{padding-inline:10px}.trait-chip{grid-template-columns:23px minmax(0,1fr) 20px;padding-inline:6px;gap:5px 3px}.trait-logo,.trait-logo svg{width:21px}.trait-name{font-size:12px}}
+@media(max-width:820px){
+  .board-traits{padding:6px 0;position:sticky;top:0;z-index:6;background:#192630;border-bottom:1px solid #31424c}
+  .campaign-game .arena-stage{padding:10px 8px}.battlefield-layout{grid-template-columns:1fr;gap:12px}
+  .trait-rail-heading{font-size:11px;display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}.trait-rail-heading span{margin:0;font-size:11px}
+  .campaign-game .board-traits #trait-list{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+  .trait-chip{display:flex;flex-direction:column;gap:3px;padding:7px 2px;min-height:84px;text-align:center;border-radius:5px}
+  .trait-logo,.trait-logo svg{width:23px;height:24px}.trait-count{position:absolute;right:3px;top:4px;min-width:15px;height:18px;font-size:11px}
+  .trait-name{font-size:12px}.trait-steps{font-size:12px;gap:1px;letter-spacing:-.4px}.trait-steps b{min-width:10px}.trait-steps i{font-size:10px}.trait-steps b.current{padding-inline:1px}
+  .trait-dialog{padding:18px}.trait-dialog #trait-dialog-title{font-size:26px}
+  .max-territory-label{font-size:9px}
+}
+@media(max-width:600px){.campaign-game .battlefield-main .board-shell{--board-inset:5px}}
+@media(prefers-reduced-motion:reduce){.trait-burst,.max-scene{animation:none}.trait-burst{opacity:.65}.max-scene{opacity:.45}}
+
+.board-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:39px;margin-bottom:7px}
+.board-toolbar .board-side-label{margin:0;font-size:10px;letter-spacing:1.4px}
+.board-shop-button{display:flex;align-items:center;gap:6px;background:#b8efce;color:#122c26;border:1px solid #d9fbe5;border-radius:5px;padding:7px 10px;font:600 14px var(--body);min-height:36px;white-space:nowrap}
+.board-shop-button>svg{width:19px;height:19px}.board-shop-button>b{font-size:12px;font-weight:500;border-left:1px solid #315e4944;padding-left:7px}
+#board-shop-lock{font-size:10px;color:#375b42}
+#shop-dialog{max-width:820px;padding:0;max-height:calc(100dvh - 28px);overflow:auto;border-color:#60776b}
+.campaign-game #shop-dialog .shop-panel{padding:24px;background:#16232b}
+.shop-dialog-head{display:flex;align-items:center;gap:16px;margin-bottom:20px}.shop-dialog-head>div{flex:1}.shop-dialog-head .eyebrow{font-size:11px;margin:0 0 5px}.shop-dialog-head h2{font:500 27px var(--heading);margin:0;letter-spacing:-.7px}
+#shop-gold{font:600 21px var(--heading);color:#f7d789;white-space:nowrap}
+.dialog-close-button{width:40px;height:40px;background:#20313a;color:#c4d6cd;border:1px solid #42574e;border-radius:5px;font-size:25px;line-height:1;flex-shrink:0}
+.shop-actions{display:flex;gap:10px;align-items:stretch;justify-content:space-between}
+.shop-actions .secondary-button{padding:10px 14px;font-size:14px;min-height:43px;display:flex;align-items:center;gap:8px}
+#shop-lock svg{width:19px;height:19px}#shop-lock[aria-pressed="true"]{color:#ffdf9c;border-color:#b99c57;background:#3d3525}
+#shop-dialog #refresh-button{color:var(--mint);background:#233c34;border-color:#567966}#shop-dialog #refresh-button span{font-size:13px;color:#f3d796;border-left:1px solid #4b6557;padding-left:9px}
+.campaign-game #shop-dialog #shop-caption{font-size:13px;line-height:1.5;color:#a9bbb9;margin:10px 0 18px}
+#shop-dialog #shop-feedback{font-size:14px;min-height:22px;line-height:1.5;margin:18px 0 0;color:#c0dbc9}
+#shop-dialog #shop-feedback.error{color:#ffac91}
+.shop-dialog-footer{display:flex;justify-content:space-between;align-items:center;gap:18px;border-top:1px solid #34483e;padding-top:16px;margin-top:16px}
+.shop-dialog-footer>span{font-size:12px;line-height:1.5;color:#98aca3}.shop-dialog-footer .primary-button{width:auto;min-height:42px;padding:10px 27px;font-size:14px}
+@media(max-width:600px){.campaign-game #shop-dialog .shop-panel{padding:16px}.shop-dialog-head{gap:9px;margin-bottom:14px}.shop-dialog-head h2{font-size:23px}#shop-gold{font-size:17px}.shop-actions .secondary-button{padding:9px;font-size:13px}.shop-dialog-footer{gap:12px}.shop-dialog-footer>span{max-width:185px}.board-toolbar .board-side-label{font-size:9px;letter-spacing:1px}}
