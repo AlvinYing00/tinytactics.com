@@ -24,10 +24,10 @@ export const TRAIT_DETAILS={
     '25% HP + 15% attack inheritance. Thunder once at 3s: 25% enemy max HP damage; execute targets already below 25% HP.'
   ],note:'Inherited bonuses never transfer again.'},
   air:{name:'Air',steps:[1,4,8,10],exact:true,rows:[
-    '1% chance to earn 1 gold per basic attack.',
-    '2.5% coin chance · 5% dodge · every 10th attack deals 2× damage.',
-    '5% coin chance · 10% dodge · every 8th attack deals 2× damage.',
-    '5% coins · 10% dodge · every 5th attack crits. A 5s Wind Wall blocks crossing and enemy attacks through it against Air. Air can attack through.'
+    '5% chance to earn 1 gold per basic attack.',
+    '7.5% coin chance · 5% dodge · every 10th attack deals 2× damage.',
+    '10% coin chance · 10% dodge · every 8th attack deals 2.5× damage.',
+    '15% coins · 15% dodge · every 5th attack deals 3× damage. A 5s Wind Wall blocks crossing and enemy attacks through it against Air. Air can attack through.'
   ],note:'Exact counts only. Other counts disable Air. Wind Wall does not block trait effects or grant stats.'}
 };
 const paths={

@@ -43,7 +43,7 @@ export class TraitEffects {
     const critical=!!every&&attacker.basicAttacks%every===0;
     const dodge=defendingAir?this.teams[target.team].dodgeChance:0;
     const dodged=!!dodge&&this.battle.random()<dodge;
-    return {attacker,target,critical,dodged,amount:dodged?0:attacker.attackDamage*(critical?2:1)};
+    return {attacker,target,critical,dodged,amount:dodged?0:attacker.attackDamage*(critical?this.teams[attacker.team].criticalMultiplier:1)};
   }
   onAttack(attacker,target,dodged=false){
     const stats=this.battle.catalog[attacker.type],team=this.teams[attacker.team];
