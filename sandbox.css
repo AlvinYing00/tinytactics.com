@@ -1,0 +1,30 @@
+.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.mode-picker select,.sandbox-filters select,.sandbox-tools select{font:500 14px var(--body);color:var(--text);background:#162a33;border:1px solid #536e65;border-radius:5px;padding:7px 9px;min-height:36px}
+.mode-picker{margin-left:8px}.mode-picker select{color:var(--mint);cursor:pointer}
+.sandbox-game #player-hp,.sandbox-game #enemy-hp,.sandbox-game .command-panel>.panel-heading,.sandbox-game #income-preview,.sandbox-game .level-panel,.sandbox-game #damage-preview,.sandbox-game #bench{display:none}
+.sandbox-game .bench-heading>strong{font-size:0!important}.sandbox-game #bench-count{font-size:12px;color:var(--muted)}
+.sandbox-game #level-button{opacity:1}.sandbox-game #board-shop-gold{display:none}
+#sandbox-summary p:last-child{font-size:14px;line-height:1.6;color:var(--muted);margin-bottom:0}
+#sandbox-summary h2{font-size:25px}
+.sandbox-tools{display:flex;gap:8px;align-items:center;min-height:48px;margin-top:4px}
+.sandbox-tools>span{flex:1;min-width:0;font-size:12px;color:var(--muted);line-height:1.4}
+.sandbox-tools label{display:flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap}
+.sandbox-tools select{padding-inline:5px}.sandbox-tools button{font-size:12px;padding-inline:8px}
+#sandbox-dialog{width:min(900px,calc(100% - 28px));max-width:900px;max-height:calc(100dvh - 24px);padding:22px;overflow:auto;border-color:#60776b}
+.sandbox-filters{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:10px}
+.sandbox-filters label{display:flex;flex-direction:column;gap:7px;font-size:14px;color:#becfc9}
+.sandbox-filters select{width:100%;min-width:0}
+#sandbox-capacity,#sandbox-feedback{font-size:14px;line-height:1.5;color:var(--muted)}
+#sandbox-feedback{min-height:42px;margin:12px 0}.error{color:#ffac91!important}
+.sandbox-catalog{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;max-height:44dvh;overflow:auto;padding:4px;scrollbar-width:thin}
+.sandbox-card{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:6px;border:1px solid #40525b;border-top:3px solid var(--element);border-radius:5px;padding:12px;background:#10212a;min-height:112px}
+.sandbox-card strong{font-size:14px;line-height:1.35}.sandbox-card span{font-size:12px;color:var(--element)}.sandbox-card small{font-size:12px;color:#adbfbd;line-height:1.4}
+#done-sandbox{min-height:42px;padding:10px 18px}
+@media(max-width:600px){
+ .campaign-game .app-header{height:auto;min-height:48px;flex-wrap:wrap;padding:6px 0;gap:4px 9px}
+ .mode-picker{margin-left:auto}.mode-picker select{font-size:12px;min-height:32px;padding:5px}
+ .header-round{margin-left:0}.campaign-game .header-actions{width:100%;justify-content:flex-end;gap:14px}
+ .campaign-game .header-actions .quiet-button{padding:3px 0;font-size:12px}
+ #sandbox-dialog{padding:16px}.sandbox-filters{grid-template-columns:1fr 1fr}.sandbox-catalog{grid-template-columns:1fr 1fr;max-height:38dvh}
+ .sandbox-tools{gap:5px}.sandbox-tools>span{font-size:11px}.sandbox-tools label{font-size:0}
+}

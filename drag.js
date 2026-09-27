@@ -1,5 +1,5 @@
 // Pointer capture keeps mouse, pen and touch dragging on the same code path.
-export function attachBoardDrag({board, getChampion, getView, onStart, onEnd, onDrop, onSell, onCancel, onTap}) {
+export function attachBoardDrag({board, getChampion, getView, canDrop=(id,x,y)=>y>=4, onStart, onEnd, onDrop, onSell, onCancel, onTap}) {
   let drag=null, suppressClick=false;
   const tileAt=(x,y)=>{
     const tile=document.elementFromPoint(x,y)?.closest('.tile,.bench-slot,[data-sell-zone]');
@@ -59,8 +59,9 @@ export function attachBoardDrag({board, getChampion, getView, onStart, onEnd, on
         target.classList.add(target.getAttribute('aria-disabled')==='true'?'drop-invalid':'drop-sell');return;
       }
       const x=Number(target.dataset.x),y=Number(target.dataset.y),other=getChampion(x,y);
-      target.classList.add(y<4?'drop-invalid':other&&other.id!==drag.id?'drop-swap':'drop-valid');
-      if(other&&other.id!==drag.id)getView(other.id)?.classList.add('swap-target');
+      const valid=canDrop(drag.id,x,y);
+      target.classList.add(!valid?'drop-invalid':other&&other.id!==drag.id?'drop-swap':'drop-valid');
+      if(valid&&other&&other.id!==drag.id)getView(other.id)?.classList.add('swap-target');
     }
   },{passive:false});
   board.addEventListener('pointerup',event=>{if(drag?.pointerId===event.pointerId){if(drag.active)event.preventDefault();finish(false,event);}});

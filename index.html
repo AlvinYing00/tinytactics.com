@@ -8,12 +8,14 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23101a23'/%3E%3Cpath d='M6 8h20v5h-7v13h-6V13H6z' fill='%23b8efce'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="trait-ui.css">
+<link rel="stylesheet" href="sandbox.css">
 </head>
 <body class="campaign-game">
 <div class="app-shell">
 <header class="app-header">
 <a href="./" class="brand" aria-label="Tiny Tactics home"><span class="brand-mark">T</span><span>TINY<span class="brand-light">TACTICS</span></span></a>
-<div class="round-pill header-round"><span class="eyebrow">ROUND</span><strong id="match-number">1-1</strong></div>
+<label class="mode-picker"><span class="visually-hidden">Game mode</span><select id="game-mode" aria-label="Game mode"><option value="fight">Fight</option><option value="sandbox">Sandbox</option></select></label>
+<div class="round-pill header-round"><span id="round-label" class="eyebrow">ROUND</span><strong id="match-number">1-1</strong></div>
 <div class="header-actions"><button id="sound-button" class="quiet-button" aria-pressed="false">Sound off</button><button id="help-button" class="quiet-button">How to play <span class="question-mark">?</span></button></div>
 </header>
 <main>
@@ -29,6 +31,7 @@
 <div class="board-shell"><div id="board" class="board" role="group" aria-label="8 by 8 battlefield. Your territory is in the lower four rows."></div><div id="enemy-territory-ambience" class="territory-ambience enemy-ambience" aria-hidden="true" hidden></div><div id="territory-ambience" class="territory-ambience" aria-hidden="true" hidden></div><div id="units" class="units"></div><div id="trait-effects" class="trait-effects" aria-hidden="true"></div><svg id="effects" class="effects" viewBox="0 0 800 800" aria-hidden="true"></svg><div id="floaters" class="floaters" aria-hidden="true"></div><div id="result" class="result-overlay" hidden></div></div>
 <div class="board-side-label own-territory">YOUR TERRITORY <span>◆</span></div>
 <section class="bench-panel" aria-label="Your bench"><div class="bench-heading"><strong>Bench <span id="bench-count">0 / 9</span></strong><div id="sell-zone" class="sell-zone" data-sell-zone role="group" aria-label="Champion sell area" aria-disabled="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg><span><strong id="sell-label">Drag here to sell</strong><small id="sell-caption">Board or bench champion</small></span></div></div><div id="bench" class="bench"></div></section>
+<div id="sandbox-tools" class="sandbox-tools" hidden><span id="sandbox-selected">Select a champion to edit stars.</span><label>Stars <select id="sandbox-unit-stars" aria-label="Selected champion star level"><option value="1">1★</option><option value="2">2★</option><option value="3">3★</option></select></label><button id="sandbox-reset" class="board-utility-button">Reset battle</button></div>
 </div></div>
 </div>
 <div class="arena-bottom"><div class="team-label friendly"><span class="team-emblem">A</span><div><strong>Azure company <span class="you-tag">YOU</span></strong><span id="player-count">0 / 3 deployed</span></div></div><span id="arena-hint" class="arena-hint">Recruit your first champion.</span><span class="team-total friendly" id="player-hp">100 HP</span></div>
@@ -36,6 +39,7 @@
 </div>
 </section>
 <aside class="command-panel" aria-label="Economy and battle controls">
+<section id="sandbox-summary" hidden><p class="eyebrow">SANDBOX</p><h2>Build both sides.</h2><p>Level 10 · No gold or player HP.<br>Choose champions, then drag to position.</p></section>
 <div class="panel-heading"><div><p class="eyebrow">YOUR TREASURY</p><h2><span id="gold-count">10</span> <span class="gold-label">gold</span></h2></div><span id="squad-count" class="count-badge">0<span>/3</span></span></div>
 <div class="income-preview" id="income-preview"></div>
 <div class="level-panel"><div><strong id="level-label">Level 3</strong><span id="level-caption">Deploy up to 3 champions</span></div><label id="xp-label" for="xp-bar">0 / 10 XP · +2 each round</label><progress id="xp-bar" max="10" value="0"></progress></div>
@@ -69,5 +73,6 @@
 <dialog id="trait-dialog" class="trait-dialog" aria-labelledby="trait-dialog-title" aria-describedby="trait-dialog-status"><div class="dialog-head"><p class="eyebrow">TRAIT BREAKPOINTS</p><button type="button" class="close-trait" aria-label="Close trait details">×</button></div><h2 id="trait-dialog-title"></h2><p id="trait-dialog-status"></p><ol id="trait-detail-list"></ol><p id="trait-dialog-note"></p><p class="trait-count-note">Only distinct champions on your board count. Combat effects reset each round.</p></dialog>
 <div class="mobile-playbar"><span id="mobile-status">0 / 3 ready</span><button id="mobile-start" class="primary-button"><span>Start battle</span><span aria-hidden="true">↗</span></button></div>
 <script type="module" src="app.js"></script>
+<dialog id="sandbox-dialog" aria-labelledby="sandbox-title"><div class="shop-dialog-head"><div><p class="eyebrow">FREE PLACEMENT</p><h2 id="sandbox-title">Choose champions</h2></div><button id="close-sandbox" class="dialog-close-button" aria-label="Close champion selection">×</button></div><div class="sandbox-filters"><label>Place on<select id="sandbox-team"><option value="azure">Azure (you)</option><option value="ember">Ember (enemy)</option></select></label><label>Star level<select id="sandbox-stars"><option value="1">1★</option><option value="2">2★</option><option value="3">3★ (MAX)</option></select></label><label>Element<select id="sandbox-element"><option value="all">All elements</option><option value="fire">Fire</option><option value="water">Water</option><option value="electric">Electric</option><option value="air">Air</option><option value="mountain">Mountain</option></select></label><label>Cost tier<select id="sandbox-cost"><option value="all">All costs</option><option value="1">1 cost</option><option value="2">2 cost</option><option value="3">3 cost</option><option value="4">4 cost</option><option value="5">5 cost</option></select></label></div><p id="sandbox-capacity"></p><div id="sandbox-catalog" class="sandbox-catalog"></div><p id="sandbox-feedback" role="status" aria-live="polite">Choose a card to add it. Drag it into position after closing.</p><button id="done-sandbox" class="primary-button">Done</button></dialog>
 </body>
 </html>
