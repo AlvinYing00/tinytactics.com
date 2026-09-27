@@ -1,12 +1,12 @@
 // Pointer capture keeps mouse, pen and touch dragging on the same code path.
-export function attachBoardDrag({board, getChampion, getView, onStart, onDrop, onCancel, onTap}) {
+export function attachBoardDrag({board, getChampion, getView, onStart, onEnd, onDrop, onSell, onCancel, onTap}) {
   let drag=null, suppressClick=false;
   const tileAt=(x,y)=>{
-    const tile=document.elementFromPoint(x,y)?.closest('.tile,.bench-slot');
+    const tile=document.elementFromPoint(x,y)?.closest('.tile,.bench-slot,[data-sell-zone]');
     return tile&&board.contains(tile)?tile:null;
   };
   function clearPreview(){
-    board.querySelectorAll('.drop-valid,.drop-swap,.drop-invalid,.drag-origin').forEach(el=>el.classList.remove('drop-valid','drop-swap','drop-invalid','drag-origin'));
+    board.querySelectorAll('.drop-valid,.drop-swap,.drop-invalid,.drop-sell,.drag-origin').forEach(el=>el.classList.remove('drop-valid','drop-swap','drop-invalid','drop-sell','drag-origin'));
     document.querySelectorAll('.swap-target').forEach(el=>el.classList.remove('swap-target'));
   }
   function finish(cancelled=false,event){
@@ -22,7 +22,12 @@ export function attachBoardDrag({board, getChampion, getView, onStart, onDrop, o
       return;
     }
     suppressClick=true;
+    onEnd?.();
     if(cancelled||!tile){onCancel();return;}
+    if(tile.hasAttribute('data-sell-zone')){
+      if(tile.getAttribute('aria-disabled')==='true')onCancel();else onSell(current.id);
+      return;
+    }
     onDrop(current.id,Number(tile.dataset.x),Number(tile.dataset.y));
   }
   board.addEventListener('pointerdown',event=>{
@@ -50,6 +55,9 @@ export function attachBoardDrag({board, getChampion, getView, onStart, onDrop, o
     clearPreview();drag.tile.classList.add('drag-origin');
     const target=tileAt(event.clientX,event.clientY);
     if(target){
+      if(target.hasAttribute('data-sell-zone')){
+        target.classList.add(target.getAttribute('aria-disabled')==='true'?'drop-invalid':'drop-sell');return;
+      }
       const x=Number(target.dataset.x),y=Number(target.dataset.y),other=getChampion(x,y);
       target.classList.add(y<4?'drop-invalid':other&&other.id!==drag.id?'drop-swap':'drop-valid');
       if(other&&other.id!==drag.id)getView(other.id)?.classList.add('swap-target');

@@ -43,17 +43,21 @@ export function traitTier(element,count){
   return t.exact?(t.steps.includes(count)?count:0):(t.steps.filter(n=>count>=n).at(-1)||0);
 }
 export const isMaxTrait=(element,count)=>traitTier(element,count)===TRAIT_DETAILS[element].steps.at(-1);
+export const maxTraits=traits=>Object.keys(TRAIT_DETAILS).filter(e=>isMaxTrait(e,traits?.counts[e]||0));
 
-export function createTraitHud({rail,dialog,ambience,onOpen,onClose}){
-  let latest=null,selected=null,lastCounts='',lastMax='',previousUnits=new Map();
+export function createTraitHud({rail,dialog,ambience,enemyAmbience,onOpen,onClose}){
+  let latest=null,selected=null,lastCounts='',previousUnits=new Map();
+  const lastMax=new Map();
   const buttons=new Map();
   for(const [element,t] of Object.entries(TRAIT_DETAILS)){
     const button=document.createElement('button');button.type='button';button.className=`trait-chip element-${element}`;
     button.dataset.trait=element;button.setAttribute('aria-haspopup','dialog');button.setAttribute('aria-controls',dialog.id);
-    button.innerHTML=`<span class="trait-logo">${traitIcon(element)}</span><span class="trait-name">${t.name}</span><span class="trait-count">0</span><span class="trait-steps">${t.steps.map(n=>`<b data-step="${n}">${n}</b>`).join('<i>/</i>')}</span>`;
+    button.hidden=true;
+    button.innerHTML=`<span class="trait-logo">${traitIcon(element)}</span><span class="trait-count">0</span>`;
     button.onclick=()=>{selected=element;onOpen();renderDetails();dialog.showModal();};
     rail.append(button);buttons.set(element,button);
   }
+  const empty=document.createElement('p');empty.className='traits-empty';empty.textContent='No active traits';rail.append(empty);
   dialog.querySelector('.close-trait').onclick=()=>dialog.close();
   dialog.addEventListener('close',onClose);
   dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();}});
@@ -66,19 +70,25 @@ export function createTraitHud({rail,dialog,ambience,onOpen,onClose}){
     dialog.querySelector('#trait-detail-list').innerHTML=t.steps.map((n,i)=>`<li${tier===n?' class="current" aria-current="true"':''}><span class="detail-tier">${n}${i===t.steps.length-1?'<small>MAX</small>':''}</span><p>${t.rows[i]}</p></li>`).join('');
     dialog.querySelector('#trait-dialog-note').textContent=t.note||'The highest reached tier applies to your Water champions.';
   }
-  function render(traits,units,views,preparation){
+  function renderAmbience(node,traits){
+    if(!node)return;
+    const max=maxTraits(traits),key=max.join();
+    if(lastMax.get(node)===key)return;
+    node.innerHTML=max.map(e=>`<div class="max-scene scene-${e}"></div>`).join('')+(max.length?`<span class="max-territory-label">${max.map(e=>traitIcon(e)+TRAIT_DETAILS[e].name.toUpperCase()).join(' + ')} · MAX</span>`:'');
+    node.hidden=!max.length;lastMax.set(node,key);
+  }
+  function render(traits,units,views,preparation,enemyTraits){
     latest=traits;
     const counts=JSON.stringify(traits.counts);
     if(counts!==lastCounts){
       for(const [element,button] of buttons){
         const count=traits.counts[element],tier=traitTier(element,count),t=TRAIT_DETAILS[element];
         button.classList.toggle('active',!!tier);button.classList.toggle('maxed',isMaxTrait(element,count));
+        button.hidden=!tier;button.title=`${t.name} ${count} · Tier ${tier}${isMaxTrait(element,count)?' MAX':''}`;
         button.querySelector('.trait-count').textContent=count;
         button.setAttribute('aria-label',`${t.name}: ${count} deployed. ${tier?`Tier ${tier} active.`:'Inactive.'} Show breakpoint details.`);
-        for(const step of button.querySelectorAll('[data-step]')){
-          const n=Number(step.dataset.step);step.classList.toggle('current',n===tier);step.classList.toggle('reached',!t.exact&&n<tier);
-        }
       }
+      empty.hidden=[...buttons.values()].some(button=>!button.hidden);
       lastCounts=counts;if(dialog.open)renderDetails();
     }
     const nextUnits=new Map();
@@ -96,11 +106,7 @@ export function createTraitHud({rail,dialog,ambience,onOpen,onClose}){
       nextUnits.set(u.id,{tier,position});
     }
     previousUnits=nextUnits;
-    const max=Object.keys(TRAIT_DETAILS).filter(e=>isMaxTrait(e,traits.counts[e]));
-    if(max.join()!==lastMax){
-      ambience.innerHTML=max.map(e=>`<div class="max-scene scene-${e}"></div>`).join('')+(max.length?`<span class="max-territory-label">${max.map(e=>traitIcon(e)+TRAIT_DETAILS[e].name.toUpperCase()).join(' + ')} · MAX</span>`:'');
-      ambience.hidden=!max.length;lastMax=max.join();
-    }
+    renderAmbience(ambience,traits);renderAmbience(enemyAmbience,enemyTraits);
   }
-  return {render,reset(){previousUnits.clear();lastCounts='';lastMax='';ambience.replaceChildren();ambience.hidden=true;}};
+  return {render,reset(){previousUnits.clear();lastCounts='';lastMax.clear();for(const node of [ambience,enemyAmbience])if(node){node.replaceChildren();node.hidden=true;}}};
 }
