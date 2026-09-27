@@ -89,5 +89,5 @@ export function teamTraits(units,catalog=CHAMPIONS,virtual={}){
     inheritanceAttackPercent:electric>=7?.15:electric>=5?.1:electric>=3?.05:0,thunder:electric>=7,
     coinChance:air===1?.05:air===4?.075:air===8?.1:air===10?.15:0,
     dodgeChance:air===4?.05:air===8?.1:air===10?.15:0,criticalEvery:air===4?10:air===8?8:air===10?5:0,
-    criticalMultiplier:air===4?2:air===8?2.5:air===10?3:1,windWall:air===10};
+    criticalMultiplier:air===4?2:air===8?2.5:air===10?3:1,windWall:air===10,windPiercePercent:air===10?.5:0};
 }

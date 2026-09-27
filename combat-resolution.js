@@ -13,7 +13,7 @@ export function applyDamage(target,amount,{source,execute=false}={}){
 
 export function resolveCombat(battle,hits){
   hits=hits.filter(({attacker,target})=>!attacker.eliminated&&!target.eliminated&&!attacker.sweptBy&&!target.sweptBy);
-  const traits=battle.traits,alive=battle.living(),healing=new Map(),reflections=[];
+  const traits=battle.traits,alive=battle.living(),healing=new Map(),reflections=[],pierces=[];
   for(const hit of hits){
     const heal=traits.onAttack(hit.attacker,hit.target,hit.dodged);
     if(heal)healing.set(hit.attacker.id,(healing.get(hit.attacker.id)||0)+heal);
@@ -28,6 +28,14 @@ export function resolveCombat(battle,hits){
     battle.events.push({type:'attack',id:attacker.id,targetId:target.id,amount,critical,dodged,damageType:attacker.damageType,...dealt});
     const reflected=traits.reflection(target,dealt.hpDamage);
     if(reflected)reflections.push({source:target,target:attacker,amount:reflected});
+    if(!dodged)pierces.push(...traits.windPierce(attacker,target,dealt.hpDamage+dealt.shieldDamage));
+  }
+  // Secondary trait damage cannot dodge, reflect, trigger on-hit effects or chain.
+  // Only damage actually absorbed by HP/shields counts; overkill adds no pierce.
+  for(const {attacker,target,through,amount} of pierces){
+    const dealt=applyDamage(target,amount,{source:attacker});
+    const total=dealt.hpDamage+dealt.shieldDamage;
+    if(total)battle.events.push({type:'pierce',id:target.id,sourceId:attacker.id,throughId:through.id,amount:total,...dealt});
   }
   // Thunder execution is checked against HP immediately before its damage lands.
   for(const effect of traits.damageIntents()){

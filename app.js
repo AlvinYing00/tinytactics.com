@@ -311,7 +311,15 @@ function effects(events){
   let played=false;
   for(const e of events){
     if(isSandbox()&&e.type==='gold')continue;
-    if(['burn','meteor','heal','ejected','thunder','gold','reflection','inheritance'].includes(e.type)){
+    if(e.type==='pierce'){
+      const from=battle.units.find(u=>u.id===e.throughId),to=battle.units.find(u=>u.id===e.id);
+      if(from&&to){
+        const line=document.createElementNS('http://www.w3.org/2000/svg','line');line.classList.add('shot','wind-pierce');
+        for(const [k,v] of Object.entries({x1:from.x*100+50,y1:from.y*100+50,x2:to.x*100+50,y2:to.y*100+50,stroke:'#d8d0ff','stroke-dasharray':'12 6'}))line.setAttribute(k,String(v));
+        $('#effects').append(line);setTimeout(()=>line.remove(),360);
+      }
+    }
+    if(['burn','meteor','heal','ejected','thunder','gold','reflection','inheritance','pierce'].includes(e.type)){
       const u=battle.units.find(v=>v.id===e.id);if(u){const n=document.createElement('span');n.className=`damage-number effect-${e.type}`;n.textContent=e.type==='gold'?'+1 GOLD':e.type==='inheritance'?'INHERITED':e.execute?'EXECUTED':e.type==='ejected'?'OUT':`${e.type==='heal'?'+':'−'}${Math.round(e.amount)}`;n.style.left=`${Math.min(7,u.sweepX??u.x)*12.5+6.25}%`;n.style.top=`${u.y*12.5+3}%`;$('#floaters').append(n);setTimeout(()=>n.remove(),820);}continue;
     }
     if(e.type!=='attack')continue;

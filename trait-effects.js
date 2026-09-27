@@ -60,6 +60,20 @@ export class TraitEffects {
   reflection(target,hpDamage){
     return this.battle.catalog[target.type].element==='mountain'?hpDamage*this.teams[target.team].reflectPercent:0;
   }
+  windPierce(attacker,target,damageDealt){
+    const rate=this.teams[attacker.team].windPiercePercent;
+    if(!rate||damageDealt<=0||this.battle.catalog[attacker.type].element!=='air')return [];
+    // Continue to the board edge in the attack's eight-way direction.
+    // Gaps and allies do not stop the ray; each enemy takes the same 50% hit.
+    const dx=Math.sign(target.x-attacker.x),dy=Math.sign(target.y-attacker.y);
+    if(!dx&&!dy)return [];
+    const hits=[];
+    for(let x=target.x+dx,y=target.y+dy;this.battle.inside(x,y);x+=dx,y+=dy){
+      const behind=this.battle.at(x,y);
+      if(behind&&behind.team!==attacker.team)hits.push({attacker,target:behind,through:target,amount:damageDealt*rate});
+    }
+    return hits;
+  }
   inherit(fallen){
     const fresh=fallen.filter(u=>u.hp<=0&&!u.eliminated&&!this.inheritedDeaths.has(u.id));
     for(const u of fresh)this.inheritedDeaths.add(u.id);

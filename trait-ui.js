@@ -27,7 +27,7 @@ export const TRAIT_DETAILS={
     '5% chance to earn 1 gold per basic attack.',
     '7.5% coin chance · 5% dodge · every 10th attack deals 2× damage.',
     '10% coin chance · 10% dodge · every 8th attack deals 2.5× damage.',
-    '15% coins · 15% dodge · every 5th attack deals 3× damage. A 5s Wind Wall blocks crossing and enemy attacks through it against Air. Air can attack through.'
+    '15% coins · 15% dodge · every 5th attack deals 3× damage. Wind Pierce: every enemy in the line behind the target takes 50% of the original hit’s damage. Reaches the board edge, including diagonals. A 5s Wind Wall blocks crossing and enemy attacks through it against Air. Air can attack through.'
   ],note:'Exact counts only. Other counts disable Air. Wind Wall does not block trait effects or grant stats.'}
 };
 const paths={
