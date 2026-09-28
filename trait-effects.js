@@ -41,9 +41,11 @@ export class TraitEffects {
     const attackingAir=this.battle.catalog[attacker.type].element==='air',defendingAir=this.battle.catalog[target.type].element==='air';
     const every=attackingAir?this.teams[attacker.team].criticalEvery:0;
     const critical=!!every&&attacker.basicAttacks%every===0;
-    const dodge=defendingAir?this.teams[target.team].dodgeChance:0;
+    const airDodge=defendingAir?this.teams[target.team].dodgeChance:0,assassinDodge=this.battle.classes?.dodge(target)||0;
+    const dodge=airDodge&&assassinDodge?1-(1-airDodge)*(1-assassinDodge):airDodge||assassinDodge;
     const dodged=!!dodge&&this.battle.random()<dodge;
-    return {attacker,target,critical,dodged,amount:dodged?0:attacker.attackDamage*(critical?this.teams[attacker.team].criticalMultiplier:1)};
+    this.battle.classes?.completedAttack(attacker);
+    return {attacker,target,critical,dodged,amount:dodged?0:attacker.attackDamage*(this.battle.classes?.basicMultiplier(attacker,target)||1)*(critical?this.teams[attacker.team].criticalMultiplier:1)};
   }
   onAttack(attacker,target,dodged=false){
     const stats=this.battle.catalog[attacker.type],team=this.teams[attacker.team];
@@ -146,6 +148,7 @@ export class TraitEffects {
     return hits;
   }
   finish(){
+    this.battle.classes?.finish();
     // Ending early cancels unfinished waves; it must not eject enemies early.
     for(const u of this.battle.units){
       const base=this.baseStats.get(u.id);u.maxHp=base.maxHp;u.attackDamage=base.attackDamage;u.hp=Math.min(u.hp,u.maxHp);

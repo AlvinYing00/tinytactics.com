@@ -1,6 +1,7 @@
 // Pure simulation. UI, audio and animation never decide combat outcomes.
 import { CHAMPIONS, ARCHETYPES, championStats, virtualTraitCounts } from './catalog.js';
 import { TraitEffects } from './trait-effects.js';
+import { ClassEffects } from './class-effects.js';
 import { resolveCombat } from './combat-resolution.js';
 export { ARCHETYPES } from './catalog.js';
 export const distance = (a,b) => Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
@@ -12,7 +13,7 @@ export class Battle {
     this.traitCounts=Object.fromEntries(['azure','ember'].map(team=>[team,virtualTraitCounts(traitCounts[team])]));
     this.units=[]; this.nextId=1; this.phase='preparation'; this.outcome=null;
     this.tick=0; this.accumulator=0; this.events=[]; this.roster=null;
-    this.traits=null;
+    this.traits=null;this.classes=null;
     this.seed=seed>>>0||1;this.randomState=this.seed;this.onGold=onGold;this.goldEarned={azure:0,ember:0};
     this.random=random||(()=>{let x=this.randomState;x^=x<<13;x^=x>>>17;x^=x<<5;this.randomState=x>>>0;return this.randomState/4294967296;});
   }
@@ -61,11 +62,12 @@ export class Battle {
     this.roster=clone(this.units); this.phase='combat'; this.tick=0; this.accumulator=0; this.outcome=null;this.events=[];
     this.randomState=this.seed;this.goldEarned={azure:0,ember:0};
     this.traits=new TraitEffects(this);
+    this.classes=new ClassEffects(this);
   }
   reset() {
     if(this.roster) this.units=clone(this.roster);
     this.phase='preparation';this.tick=0;this.accumulator=0;this.outcome=null;this.events=[];this.roster=null;
-    this.traits=null;
+    this.traits=null;this.classes=null;
     this.randomState=this.seed;this.goldEarned={azure:0,ember:0};
   }
   drainEvents() { const events=this.events;this.events=[];return events; }
@@ -79,7 +81,7 @@ export class Battle {
   route(unit, enemies, occupied) {
     const dirs=unit.team==='azure'?[[0,-1],[-1,0],[1,0],[0,1]]:[[0,1],[1,0],[-1,0],[0,-1]];
     const queue=[{x:unit.x,y:unit.y,first:null}], seen=new Set([key(unit)]);
-    const range=this.catalog[unit.type].range;
+    const range=this.attackRange(unit);
     for(let i=0;i<queue.length;i++) {
       const cell=queue[i];
       const targets=enemies.filter(e=>(!this.traits||this.traits.canTarget(unit,e,cell))&&distance(cell,e)<=range).sort((a,b)=>distance(unit,a)-distance(unit,b)||a.id-b.id);
@@ -95,6 +97,7 @@ export class Battle {
     // Keep decisecond timers; half ticks represent exact 1.25-second attacks.
     this.tick+=0.5;
     this.traits.sweep();
+    this.classes.update();
     const alive=this.living().filter(u=>!u.sweptBy), occupied=new Set(alive.map(key)), reserved=new Set();
     // Rotate initiative so contested movement is not always resolved for one team.
     const order=alive.slice(); const offset=Math.round(this.tick*2)%Math.max(1,order.length);
@@ -102,7 +105,9 @@ export class Battle {
     for(const u of order.slice(offset).concat(order.slice(0,offset))) {
       if(this.tick<u.stunnedUntil){u.targetId=null;continue;}
       const enemies=alive.filter(e=>e.team!==u.team);
-      const route=this.route(u,enemies,occupied);u.targetId=route?.target.id??null;
+      const opening=enemies.find(e=>e.id===u.openingTargetId&&this.traits.canTarget(u,e)&&distance(u,e)<=this.attackRange(u));
+      const route=opening?{target:opening,next:null}:this.route(u,enemies,occupied);u.targetId=route?.target.id??null;
+      u.openingTargetId=null;
       if(route?.next&&this.tick>=u.moveReady&&!reserved.has(key(route.next))) {
         reserved.add(key(route.next));moves.push({unit:u,next:route.next});
       }
@@ -116,13 +121,14 @@ export class Battle {
     const hits=[];
     for(const u of alive) {
       if(u.sweptBy||u.eliminated||u.hp<=0||this.tick<u.stunnedUntil)continue;
-      const stats=this.catalog[u.type];
-      const candidates=alive.filter(e=>!e.sweptBy&&!e.eliminated&&e.hp>0&&e.team!==u.team&&this.traits.canTarget(u,e)&&distance(u,e)<=stats.range)
+      const candidates=alive.filter(e=>!e.sweptBy&&!e.eliminated&&e.hp>0&&e.team!==u.team&&this.traits.canTarget(u,e)&&distance(u,e)<=this.attackRange(u))
         .sort((a,b)=>(a.id===u.targetId?-1:b.id===u.targetId?1:distance(u,a)-distance(u,b)||a.id-b.id));
       if(candidates.length)u.targetId=candidates[0].id;
       if(candidates.length&&this.tick>=u.attackReady) {
         const target=candidates[0];hits.push(this.traits.prepareAttack(u,target));
-        u.attackReady=this.tick+stats.attackTicks;
+        // Preserve fractional cooldown remainder while attacking continuously.
+        const deadline=u.lastBasicAttackTick!==undefined&&this.tick-u.attackReady<.5+1e-9?u.attackReady:this.tick;
+        u.attackReady=deadline+this.attackInterval(u);u.lastBasicAttackTick=this.tick;
       }
     }
     resolveCombat(this,hits);
@@ -134,6 +140,8 @@ export class Battle {
       this.events.push({type:'end',outcome:this.outcome});
     }
   }
+  attackRange(unit){return this.classes?this.classes.attackRange(unit):this.catalog[unit.type].range;}
+  attackInterval(unit){return this.classes?this.classes.attackInterval(unit):this.catalog[unit.type].attackTicks;}
 }
 export const FORMATIONS = [
   [['sentinel',2,2],['sentinel',5,2],['duelist',4,1],['ranger',1,0],['ranger',6,0]],

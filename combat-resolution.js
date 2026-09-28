@@ -1,10 +1,16 @@
 // All committed attacks resolve even if their source dies during this tick.
 // Damage categories stay separate so shield damage and trait damage never reflect.
-export function applyDamage(target,amount,{source,execute=false}={}){
+import {absorbShield} from './shields.js';
+export function applyDamage(target,amount,{source,execute=false,battle,category='trait'}={}){
   if(target.hp<=0||target.eliminated)return {hpDamage:0,shieldDamage:0};
+  const championOrigin=category==='basic'||category==='ability';
+  if(championOrigin&&battle?.classes){
+    if(source)amount*=battle.classes.championMultiplier(source,target);
+    amount*=1-battle.classes.reduction(target);
+  }
+  const bypass=category==='basic'&&source?(battle?.classes?.shieldBypass(source,target)||0):0;
   const before=target.hp;
-  const shieldDamage=execute?0:Math.min(target.shield,amount);
-  target.shield-=shieldDamage;
+  const shieldDamage=execute?0:absorbShield(target,amount*(1-bypass));
   target.hp=execute?0:Math.max(0,target.hp-(amount-shieldDamage));
   const hpDamage=before-target.hp;
   if(source){source.damageDealt+=hpDamage+shieldDamage;if(target.hp===0)source.kills++;}
@@ -24,8 +30,8 @@ export function resolveCombat(battle,hits){
   }
   // Stable attacker order defines shield/HP allocation when several hits coincide.
   for(const {attacker,target,amount,critical,dodged} of hits){
-    const dealt=applyDamage(target,amount,{source:attacker});
-    battle.events.push({type:'attack',id:attacker.id,targetId:target.id,amount,critical,dodged,damageType:attacker.damageType,...dealt});
+    const dealt=applyDamage(target,amount,{source:attacker,battle,category:'basic'});
+    battle.events.push({type:'attack',id:attacker.id,targetId:target.id,amount:dealt.hpDamage+dealt.shieldDamage,critical,dodged,damageType:attacker.damageType,...dealt});
     const reflected=traits.reflection(target,dealt.hpDamage);
     if(reflected)reflections.push({source:target,target:attacker,amount:reflected});
     if(!dodged)pierces.push(...traits.windPierce(attacker,target,dealt.hpDamage+dealt.shieldDamage));
