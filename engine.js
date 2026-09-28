@@ -159,7 +159,7 @@ export function applyTraitFormation(battle,element){
   battle.editable();
   if(!['fire','water'].includes(element))throw new Error('Choose the Fire or Water trait preset.');
   battle.living('azure').forEach(u=>battle.remove(u.id));
-  const roster=Object.values(CHAMPIONS).filter(c=>c.element===element&&c.cost<=3).concat(CHAMPIONS[`${element}-legendary`]);
+  const roster=Object.values(CHAMPIONS).filter(c=>c.element===element&&c.cost<=3&&['sentinel','duelist','ranger'].includes(c.combatRole)).concat(CHAMPIONS[`${element}-legendary`]);
   const positions={sentinel:[[1,4],[3,4],[5,4]],duelist:[[2,5],[4,5],[6,5]],ranger:[[1,7],[3,7],[5,7],[7,7]]};
   for(const champion of roster){const [x,y]=positions[champion.combatRole].shift();battle.place(champion.id,'azure',x,y);}
 }

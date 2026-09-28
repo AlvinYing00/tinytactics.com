@@ -20,6 +20,14 @@
 .sandbox-card{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:6px;border:1px solid #40525b;border-top:3px solid var(--element);border-radius:5px;padding:12px;background:#10212a;min-height:112px}
 .sandbox-card strong{font-size:14px;line-height:1.35}.sandbox-card span{font-size:12px;color:var(--element)}.sandbox-card small{font-size:12px;color:#adbfbd;line-height:1.4}
 #done-sandbox{min-height:42px;padding:10px 18px}
+.sandbox-empty{grid-column:1/-1;font-size:14px;line-height:1.5;color:var(--muted);padding:12px}
+/* Reuse established portraits with explicit class emblems for the new roles. */
+.art-support,.type-support .portrait-art{background-position-x:50%}
+.art-assassin,.type-assassin .portrait-art{background-position-x:100%}
+.card-art.has-art{position:relative}
+.role-mark{position:absolute;top:2px;right:2px;z-index:2;display:grid;place-items:center;width:17px;height:17px;border-radius:50%;background:#10212a;color:#d9ece5;border:1px solid #b7d4c7;pointer-events:none}
+.role-mark svg{width:12px;height:12px}.card-art>.role-mark{width:23px;height:23px}.card-art>.role-mark svg{width:17px;height:17px}
+.effect-jump{color:#d1a6e7}.effect-support-shield{color:#8be0c1}
 @media(max-width:600px){
  .campaign-game .app-header{height:auto;min-height:48px;flex-wrap:wrap;padding:6px 0;gap:4px 9px}
  .mode-picker{margin-left:auto}.mode-picker select{font-size:12px;min-height:32px;padding:5px}

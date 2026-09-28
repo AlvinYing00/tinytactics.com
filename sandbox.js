@@ -18,6 +18,11 @@ export class Sandbox {
   bench(){return [];}
   levelPrice(){return 0;}
   traits(team='azure'){return teamTraits(this.deployed(team),CHAMPIONS,this.players[team].virtualTraits);}
+  availableChampions(team='azure'){
+    if(!this.players[team])throw new Error('Choose Azure or Ember.');
+    const placed=new Set(this.deployed(team).map(u=>u.type));
+    return Object.values(CHAMPIONS).filter(c=>!placed.has(c.id));
+  }
   unit(id){return Object.values(this.players).flatMap(p=>p.roster).find(u=>u.id===id);}
   validPosition(team,position){
     return position&&position.bench===undefined&&Number.isInteger(position.x)&&Number.isInteger(position.y)&&position.x>=0&&position.x<8&&position.y>=0&&position.y<8&&(team==='azure'?position.y>=4:position.y<4);
@@ -26,8 +31,9 @@ export class Sandbox {
     this.editable();
     if(!this.players[team])throw new Error('Choose Azure or Ember.');
     const stats=championStats(type,stars),roster=this.deployed(team);
+    if(roster.some(u=>u.type===type))throw new Error('This champion is already on this team. Select it on the board to change its stars.');
     if(roster.length>=10)throw new Error('This side already has 10 champions. Remove one first.');
-    const ranged=stats.combatRole==='ranger';
+    const ranged=stats.range>1;
     const rows=team==='azure'?(ranged?[7,6,5,4]:[4,5,6,7]):(ranged?[0,1,2,3]:[3,2,1,0]);
     const position=rows.flatMap(y=>[3,4,2,5,1,6,0,7].map(x=>({x,y}))).find(pos=>!roster.some(u=>u.position.x===pos.x&&u.position.y===pos.y));
     const unit={id:this.nextId++,type,team,stars,position};

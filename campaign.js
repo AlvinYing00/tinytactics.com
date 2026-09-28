@@ -14,7 +14,7 @@ export const streakBonus = losses => losses>=5?3:losses===4?2:losses===3?1:0;
 const pool = Array.from({length:5},(_,i)=>Object.values(SHOP_CHAMPIONS).filter(c=>c.cost===i+1));
 const onBoard = u => u.position.bench===undefined;
 const samePosition = (a,b) => a.bench!==undefined ? a.bench===b.bench : b.bench===undefined&&a.x===b.x&&a.y===b.y;
-const traitScore=t=>t.burnPercent*70+t.healPercent*50+t.shieldPercent*6+t.reflectPercent*15+(t.inheritanceHpPercent+t.inheritanceAttackPercent)*25+t.coinChance*30+t.dodgeChance*20+(t.criticalEvery?12/t.criticalEvery:0)+(t.meteor?15:0)+(t.tsunami?25:0)+(t.goldenShield?6:0)+(t.thunder?15:0)+(t.windWall?15:0)+t.classes.sentinel.reduction*10+t.classes.duelist.cap*6+t.classes.ranger.damageBonus*8+t.classes.ranger.rangeBonus*2;
+const traitScore=t=>t.burnPercent*70+t.healPercent*50+t.shieldPercent*6+t.reflectPercent*15+(t.inheritanceHpPercent+t.inheritanceAttackPercent)*25+t.coinChance*30+t.dodgeChance*20+(t.criticalEvery?12/t.criticalEvery:0)+(t.meteor?15:0)+(t.tsunami?25:0)+(t.goldenShield?6:0)+(t.thunder?15:0)+(t.windWall?15:0)+t.classes.sentinel.reduction*10+t.classes.duelist.cap*6+t.classes.ranger.damageBonus*8+t.classes.ranger.rangeBonus*2+t.classes.support.targets*t.classes.support.healPercent*12+t.classes.support.shieldPercent*20+t.classes.assassin.damageBonus*6+t.classes.assassin.dodgeChance*6+t.classes.assassin.shieldBypass*4;
 
 function pickChampion(cost,random,excluded){
   const eligible=pool[cost].filter(c=>!excluded.has(c.id)),roll=random();
@@ -177,7 +177,7 @@ export class Campaign {
         return [matches,bonus,types.has(u.type)?0:1,c.hp/100+c.damage/10];
       };
       const choices=this.bench(team).sort((a,b)=>{const aa=score(a),bb=score(b);for(let i=0;i<aa.length;i++)if(aa[i]!==bb[i])return bb[i]-aa[i];return a.id-b.id;});
-      const u=choices[0],ranged=CHAMPIONS[u.type].combatRole==='ranger';
+      const u=choices[0],ranged=CHAMPIONS[u.type].range>1;
       const rows=team==='azure'?(ranged?[7,6,5,4]:[4,5,6,7]):(ranged?[0,1,2,3]:[3,2,1,0]);
       const columns=[3,4,2,5,1,6,0,7];
       const target=rows.flatMap(y=>columns.map(x=>({x,y}))).find(pos=>!deployed.some(v=>samePosition(v.position,pos)));
@@ -187,7 +187,7 @@ export class Campaign {
   }
   // Evaluate actual unlocked traits as well as stats and a mixed frontline/backline.
   teamScore(units) {
-    const traits=teamTraits(units.map(u=>({type:u.type})),CHAMPIONS,this.opponent.virtualTraits),front=units.filter(u=>CHAMPIONS[u.type].combatRole!=='ranger').length;
+    const traits=teamTraits(units.map(u=>({type:u.type})),CHAMPIONS,this.opponent.virtualTraits),front=units.filter(u=>CHAMPIONS[u.type].range===1).length;
     const ranged=units.length-front,distinct=new Set(units.map(u=>u.type));
     // Normalize the new HP/DPS scale so trait breakpoints still inform purchases.
     return units.reduce((n,u)=>{const c=championStats(u.type,u.stars||1);return n+c.hp/500+c.damage/c.attackTicks/5;},0)
@@ -249,7 +249,7 @@ export class Campaign {
     // Keep ranged carries behind the tanks, aligned with the player's occupied flank.
     chosen.sort((a,b)=>championStats(b.type,b.stars).hp-championStats(a.type,a.stars).hp);
     for(const u of chosen) {
-      if(CHAMPIONS[u.type].combatRole==='ranger'){const i=back++;u.position={x:columns[i%8],y:Math.floor(i/8)};}
+      if(CHAMPIONS[u.type].range>1){const i=back++;u.position={x:columns[i%8],y:Math.floor(i/8)};}
       else {const i=front++;u.position={x:columns[i%8],y:3-Math.floor(i/8)};}
     }
   }

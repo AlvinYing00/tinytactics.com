@@ -4,7 +4,9 @@ export const ELEMENT_LABELS={fire:'Fire',water:'Water',electric:'Electric',air:'
 export const ARCHETYPES=Object.freeze({
   sentinel:{name:'Tanker',role:'Frontline',hp:250,damage:20,attackTicks:6,moveTicks:5,range:1,glyph:'S',description:'Holds the frontline and absorbs champion attacks.'},
   ranger:{name:'Ranger',role:'Ranged',hp:150,damage:50,attackTicks:12,moveTicks:5,range:3,glyph:'R',description:'Strikes from three tiles away. Keep your Rangers behind the frontline.'},
-  duelist:{name:'Duelist',role:'Skirmisher',hp:200,damage:35,attackTicks:8,moveTicks:3,range:1,glyph:'D',description:'Quick feet and faster blades. Closes the gap and attacks rapidly.'}
+  duelist:{name:'Duelist',role:'Skirmisher',hp:200,damage:35,attackTicks:8,moveTicks:3,range:1,glyph:'D',description:'Quick feet and faster blades. Closes the gap and attacks rapidly.'},
+  support:{name:'Support',role:'Backline utility',hp:180,damage:18,attackTicks:17.5,moveTicks:5,range:3,glyph:'+',description:'Attacks from the backline. Support traits heal and protect the team every five seconds.'},
+  assassin:{name:'Assassin',role:'Backline hunter',hp:150,damage:70,attackTicks:12.5,moveTicks:3,range:1,glyph:'A',description:'Attempts one opening jump toward Rangers and Supports. Wind Wall blocks crossing; blocked jumps never retry.'}
 });
 const names={
   fire:{sentinel:['Coalkeeper','Cinder Warden','Furnace Knight','Pyre Colossus'],ranger:['Spark Slinger','Ember Scout','Flare Archer','Sunfire Marksman'],duelist:['Ashblade','Cinder Fencer','Pyre Dancer','Inferno Reaver']},
@@ -14,9 +16,16 @@ const names={
   mountain:{sentinel:['Pebble Keeper','Granite Warden','Crag Bastion','Summit Colossus'],ranger:['Flint Slinger','Ridge Scout','Quartz Archer','Peak Marksman'],duelist:['Shaleblade','Slate Fencer','Obsidian Dancer','Avalanche Reaver']}
 };
 const legendary={fire:['Solkyr','ranger'],water:['Neruvia','ranger'],electric:['Voltrenne','duelist'],air:['Aeralune','ranger'],mountain:['Dolmarok','sentinel']};
+const newRoleNames={
+  fire:{support:['Ember Tender','Cinder Oracle','Flame Cantor','Dawn Hierophant'],assassin:['Coal Stalker','Cinder Fang','Pyre Shade','Infernal Reaper']},
+  water:{support:['Spring Tender','Tide Oracle','Coral Cantor','Ocean Hierophant'],assassin:['Mist Stalker','Tide Fang','Abyss Shade','Undertow Reaper']},
+  mountain:{support:['Moss Tender','Stone Oracle','Crystal Cantor','Peak Hierophant'],assassin:['Gravel Stalker','Obsidian Fang','Crag Shade','Faultline Reaper']},
+  electric:{support:['Charge Tender','Pulse Oracle','Arc Cantor','Storm Hierophant'],assassin:['Spark Stalker','Volt Fang','Arc Shade','Thunder Reaper']},
+  air:{support:['Breeze Tender','Gale Oracle','Cloud Cantor','Sky Hierophant'],assassin:['Zephyr Stalker','Gale Fang','Cloud Shade','Tempest Reaper']}
+};
+for(const element of ELEMENTS)Object.assign(names[element],newRoleNames[element]);
 const champions={};
 // Entries are ordered by cost 1–5. Tankers use the Sentinel combat role.
-// Support and Assassin are stored for future champions, not active roster roles.
 const statLine=(hp,damage,seconds)=>Object.freeze({hp:Object.freeze(hp),damage:Object.freeze(damage),attackTicks:seconds*10});
 export const ELEMENT_STATS=Object.freeze({
   fire:Object.freeze({
@@ -57,14 +66,14 @@ export const ELEMENT_STATS=Object.freeze({
 });
 function champion(id,name,element,combatRole,cost){
   const base=ARCHETYPES[combatRole],stats=ELEMENT_STATS[element][combatRole];
-  champions[id]=Object.freeze({...base,id,name,element,combatRole,cost,sideTrait:cost===5?null:combatRole,traits:Object.freeze(cost===5?[element]:[element,combatRole]),hp:stats.hp[cost-1],damage:stats.damage[cost-1],attackTicks:stats.attackTicks,damageType:element==='electric'?'true':'physical',legendary:cost===5});
+  champions[id]=Object.freeze({...base,id,name,element,combatRole,cost,sideTrait:combatRole,traits:Object.freeze([element,combatRole]),hp:stats.hp[cost-1],damage:stats.damage[cost-1],attackTicks:stats.attackTicks,damageType:element==='electric'?'true':'physical',legendary:cost===5});
 }
 for(const element of ELEMENTS){
   for(const role of Object.keys(ARCHETYPES))names[element][role].forEach((name,index)=>champion(`${element}-${role}-${index+1}`,name,element,role,index+1));
   const [name,role]=legendary[element];champion(`${element}-legendary`,name,element,role,5);
 }
 export const CHAMPIONS=Object.freeze(champions);
-// Every element offers all three roles at costs 1–4 and one 5-cost legendary.
+// Every element offers all five roles at costs 1–4 and its existing 5-cost legendary.
 export const SHOP_CHAMPIONS=CHAMPIONS;
 export function virtualTraitCounts(input={}){
   const counts=Object.fromEntries(ELEMENTS.map(element=>[element,0]));
