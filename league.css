@@ -1,0 +1,17 @@
+
+.view-strip{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:25px;margin-bottom:6px;color:var(--muted);font-size:12px}
+.view-strip button{color:var(--mint);padding:2px 0;font-size:13px}
+.standings-panel{margin-bottom:20px;border-bottom:1px solid var(--line);padding-bottom:18px}
+.standings-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;font-size:12px;letter-spacing:1px}
+.standings-heading>span{color:var(--muted);letter-spacing:0}
+#standings{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.standing{min-width:0;padding:9px 8px;text-align:left;border:1px solid #344950;border-radius:5px;background:#12212a;color:var(--text);cursor:pointer}
+.standing.selected{background:#244039;border-color:#b8efce}.standing:hover{border-color:#b8efce}.standing.out{opacity:.55}
+.standing>span{display:flex;justify-content:space-between;gap:5px;align-items:center;font-size:13px}.standing b{font-size:12px;color:#b8efce;white-space:nowrap}
+.standing small{display:block;color:var(--muted);font-size:12px;margin:5px 0 3px}.standing em{display:block;font-size:11px;font-style:normal;color:#9bb2bf;line-height:1.35}
+.round-recap{margin:4px 0 10px;padding:10px;background:#263c36;color:var(--mint);font-size:14px;border-left:2px solid var(--mint)}
+.monster-unit .portrait-art{display:none}.monster-unit .unit-portrait{background:#3b302d}.monster-unit .unit-glyph{display:grid!important;position:absolute;inset:0;place-items:center;font-size:clamp(20px,3vw,40px);background:none;border:0}
+.campaign-game .command-panel{padding-top:16px}.campaign-game .panel-heading h2{font-size:30px}.campaign-game .income-preview{margin-top:14px;padding-bottom:14px}.campaign-game .selection-panel{margin-top:15px;padding-top:15px}.campaign-game .scouting-panel{margin-top:15px;padding-top:15px}
+#start-button:disabled,#mobile-start:disabled{opacity:.75;cursor:default}
+@media(max-width:820px){.standings-panel{margin-bottom:16px}#standings{grid-template-columns:repeat(4,minmax(0,1fr))}.standing>span{flex-wrap:wrap}.standing em{display:none}}
+@media(max-width:500px){#standings{grid-template-columns:1fr 1fr}.view-strip{font-size:12px}.standing em{display:block}.campaign-game .result-overlay h2{font-size:25px}}

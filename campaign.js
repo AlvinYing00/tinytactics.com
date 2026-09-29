@@ -32,9 +32,10 @@ export function rollShop(level,random=Math.random,excluded=new Set()) {
 
 // Owned champions and economy survive rounds; Battle holds only combat state.
 export class Campaign {
-  constructor({random=Math.random}={}) {
+  constructor({random=Math.random,initialize=true}={}) {
     this.random=random;this.round=1;this.phase='preparation';this.nextId=1;this.result=null;
     this.players={};
+    if(!initialize)return;
     for(const team of ['azure','ember'])this.players[team]={team,hp:100,gold:10,level:3,xp:0,lossStreak:0,virtualTraits:{},roster:[],shop:rollShop(3,random),shopLocked:false,retainShop:false,lastIncome:null};
     this.botElement=random()<.5?'fire':'water';
     this.prepareBot();this.rebuildBattle();
@@ -93,13 +94,14 @@ export class Campaign {
     p.gold-=cost;p.level++;p.xp=0;return p.level;
   }
   levelPrice(team='azure'){
-    const p=this.players[team];return p.level<10?Math.max(0,LEVEL_COSTS[p.level]-p.xp):0;
+    const p=this.players[team];return p.level<10?Math.max(0,(this.levelCosts||LEVEL_COSTS)[p.level]-p.xp):0;
   }
   gainExperience(team,amount){
     const p=this.players[team],before=p.level;
     if(p.level===10)return {gained:0,levels:0,level:10,xp:0};
     p.xp+=amount;
-    while(p.level<10&&p.xp>=LEVEL_COSTS[p.level]){p.xp-=LEVEL_COSTS[p.level];p.level++;}
+    const costs=this.levelCosts||LEVEL_COSTS;
+    while(p.level<10&&p.xp>=costs[p.level]){p.xp-=costs[p.level];p.level++;}
     if(p.level===10)p.xp=0;
     return {gained:amount,levels:p.level-before,level:p.level,xp:p.xp};
   }

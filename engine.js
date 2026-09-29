@@ -78,7 +78,13 @@ export class Battle {
     while(this.accumulator+1e-9>=0.05&&this.phase==='combat') { this.accumulator-=0.05;this.step(); }
   }
   // BFS considers every reachable cell; a blocked nearest enemy cannot trap targeting.
-  route(unit, enemies, occupied) {
+  targetPlan(unit,enemies,occupied){
+    const preferred=this.classes?.priorityTargets(unit,enemies)||[];
+    if(preferred.length){const route=this.routeToGroup(unit,preferred,occupied);if(route)return {route,enemies:preferred};}
+    return {route:this.routeToGroup(unit,enemies,occupied),enemies};
+  }
+  route(unit,enemies,occupied){return this.targetPlan(unit,enemies,occupied).route;}
+  routeToGroup(unit, enemies, occupied) {
     const dirs=unit.team==='azure'?[[0,-1],[-1,0],[1,0],[0,1]]:[[0,1],[1,0],[-1,0],[0,-1]];
     const queue=[{x:unit.x,y:unit.y,first:null}], seen=new Set([key(unit)]);
     const range=this.attackRange(unit);
@@ -119,9 +125,13 @@ export class Battle {
     // A unit walking into the moving wave is caught during the same tick.
     this.traits.sweep();
     const hits=[];
+    const occupiedAfterMoves=new Set(this.living().filter(u=>!u.sweptBy).map(key));
     for(const u of alive) {
       if(u.sweptBy||u.eliminated||u.hp<=0||this.tick<u.stunnedUntil)continue;
-      const candidates=alive.filter(e=>!e.sweptBy&&!e.eliminated&&e.hp>0&&e.team!==u.team&&this.traits.canTarget(u,e)&&distance(u,e)<=this.attackRange(u))
+      const targets=alive.filter(e=>!e.sweptBy&&!e.eliminated&&e.hp>0&&e.team!==u.team);
+      const preferred=this.classes.priorityTargets(u,targets);
+      const allowed=preferred.length?this.targetPlan(u,targets,occupiedAfterMoves).enemies:targets;
+      const candidates=allowed.filter(e=>this.traits.canTarget(u,e)&&distance(u,e)<=this.attackRange(u))
         .sort((a,b)=>(a.id===u.targetId?-1:b.id===u.targetId?1:distance(u,a)-distance(u,b)||a.id-b.id));
       if(candidates.length)u.targetId=candidates[0].id;
       if(candidates.length&&this.tick>=u.attackReady) {

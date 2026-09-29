@@ -6,7 +6,7 @@ export class ClassEffects {
   constructor(battle){
     this.battle=battle;this.teams=Object.fromEntries(['azure','ember'].map(team=>[team,battle.traits.teams[team].classes]));
     this.nextSupport={azure:50,ember:50};
-    for(const unit of battle.units){unit.duelistStacks=0;unit.attackSpeedBonus=0;unit.assassinDodgeUntil=0;unit.openingTargetId=null;}
+    for(const unit of battle.units){unit.duelistStacks=0;unit.attackSpeedBonus=0;unit.assassinDodgeUntil=0;unit.openingTargetId=null;unit.completedOpeningJump=false;}
     this.openingJumps();
   }
   has(unit,role){return hasClass(unit,role,this.battle.catalog);}
@@ -19,6 +19,10 @@ export class ClassEffects {
   reduction(unit){return this.active()&&this.has(unit,'sentinel')?this.teams[unit.team].sentinel.reduction:0;}
   shieldBypass(unit,target){return this.active()&&this.has(unit,'assassin')&&this.vulnerable(target)?this.teams[unit.team].assassin.shieldBypass:0;}
   dodge(unit){return this.active()&&this.has(unit,'assassin')&&this.battle.tick<unit.assassinDodgeUntil?this.teams[unit.team].assassin.dodgeChance:0;}
+  priorityTargets(unit,enemies){
+    if(!this.active()||!this.vulnerable(unit)||!enemies.some(e=>this.has(e,'assassin')&&e.completedOpeningJump))return [];
+    return enemies.filter(e=>this.has(e,'sentinel')||this.has(e,'duelist'));
+  }
   completedAttack(unit){
     if(!this.has(unit,'duelist'))return;
     const rule=this.teams[unit.team].duelist;if(!rule.perAttack)return;
@@ -39,6 +43,7 @@ export class ClassEffects {
         if(!cells.length)continue;
         const from={x:unit.x,y:unit.y},to=cells[0];unit.x=to.x;unit.y=to.y;unit.targetId=unit.openingTargetId=target.id;
         unit.assassinDodgeUntil=this.teams[unit.team].assassin.dodgeChance?b.tick+50:0;
+        unit.completedOpeningJump=true;
         b.events.push({type:'jump',id:unit.id,from,to:{...to},targetId:target.id});break;
       }
     }
@@ -60,6 +65,6 @@ export class ClassEffects {
     }
   }
   finish(){
-    for(const unit of this.battle.units){unit.duelistStacks=0;unit.attackSpeedBonus=0;unit.assassinDodgeUntil=0;unit.openingTargetId=null;removeSupportShield(unit);}
+    for(const unit of this.battle.units){unit.duelistStacks=0;unit.attackSpeedBonus=0;unit.assassinDodgeUntil=0;unit.openingTargetId=null;unit.completedOpeningJump=false;removeSupportShield(unit);}
   }
 }

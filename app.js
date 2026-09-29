@@ -1,6 +1,7 @@
 import { distance } from './engine.js';
-import { CHAMPIONS as ARCHETYPES, SHOP_CHAMPIONS, ARCHETYPES as ROLES, ELEMENT_LABELS, championStats, sellValue } from './catalog.js';
-import { Campaign, LEVEL_COSTS, BENCH_SIZE, shopOdds, stageDamage, streakBonus } from './campaign.js';
+import { CHAMPIONS as ARCHETYPES, SHOP_CHAMPIONS, ARCHETYPES as ROLES, ELEMENT_LABELS, championStats, sellValue, teamTraits } from './catalog.js';
+import { BENCH_SIZE, shopOdds } from './campaign.js';
+import { League, LEVEL_COSTS, stageDamage, streakBonus } from './league.js';
 import { registerGameTools } from './webmcp.js';
 import { attachBoardDrag } from './drag.js';
 import { createTraitHud,traitIcon } from './trait-ui.js';
@@ -9,30 +10,31 @@ import { Sandbox } from './sandbox.js';
 
 const $=selector=>document.querySelector(selector);
 const board=$('#board'),unitLayer=$('#units'),shell=$('.board-shell');
-let campaign=new Campaign(),battle=campaign.battle,selection=null,paused=false,speed=1;
+let campaign=new League(),battle=campaign.battle,selection=null,paused=false,speed=1;
 let fightCampaign=campaign,sandboxCampaign=null;
 const isSandbox=()=>campaign.mode==='sandbox';
 let lastTime=0,sound=false,audio=null,shopKey='',draggedId=null;
 const tiles=[],views=new Map(),benchTiles=[];
 const resultReveal=new ResultReveal();
 let scoutingKey='',resumeAfterScout=false;
-let resumeAfterTrait=false;
+let resumeAfterTrait=false,seenPreparation=0,standingsKey='',selectionKey='',lastViewBattle=null,uiElapsed=0;
+const sideTraits=team=>battle.traits?.teams[team]||teamTraits(battle.units.filter(u=>u.team===team),battle.catalog);
 const traitHud=createTraitHud({rail:$('#trait-list'),dialog:$('#trait-dialog'),ambience:$('#territory-ambience'),enemyAmbience:$('#enemy-territory-ambience'),
-  onOpen:()=>{resumeAfterTrait=campaign.phase==='combat'&&!paused;if(resumeAfterTrait){paused=true;render();}},
+  onOpen:()=>{resumeAfterTrait=isSandbox()&&campaign.phase==='combat'&&!paused;if(resumeAfterTrait){paused=true;render();}},
   onClose:()=>{if(resumeAfterTrait&&campaign.phase==='combat'&&!document.hidden){paused=false;lastTime=performance.now();render();}resumeAfterTrait=false;}
 });
 const coordinate=(x,y)=>y===8?'Bench '+(x+1):String.fromCharCode(65+x)+(8-y);
 const starLabel=u=>'★'.repeat(u.stars||1);
 const roleMarker=c=>['support','assassin'].includes(c.combatRole)?`<span class="role-mark" title="${ROLES[c.combatRole].name}">${traitIcon(c.combatRole)}</span>`:'';
-const editable=()=>campaign.phase==='preparation';
+const editable=()=>campaign.phase==='preparation'&&(isSandbox()||(campaign.player.hp>0&&campaign.viewId==='azure'));
 const owned=id=>isSandbox()?campaign.unit(id):campaign.player.roster.find(u=>u.id===id);
 const atPosition=(x,y)=>y===8?campaign.bench().find(u=>u.position.bench===x):battle.at(x,y);
 const snapshot=()=>({
   mode:isSandbox()?'sandbox':'fight',phase:campaign.phase,round:campaign.roundLabel,paused,outcome:battle.outcome,seconds:battle.tick/10,
-  players:Object.fromEntries(Object.entries(campaign.players).map(([team,p])=>[team,{hp:p.hp,gold:p.gold,level:p.level,xp:p.xp,levelPrice:campaign.levelPrice(team),lossStreak:p.lossStreak,roster:p.roster,shop:team==='azure'?p.shop:undefined,shopLocked:p.shopLocked,retainedShop:p.retainShop}])),
+  players:Object.fromEntries(Object.entries(campaign.players).map(([team,p])=>[team,{hp:p.hp,gold:team==='azure'||isSandbox()?p.gold:undefined,level:p.level,xp:team==='azure'||isSandbox()?p.xp:undefined,levelPrice:team==='azure'||isSandbox()?campaign.levelPrice(team):undefined,lossStreak:p.lossStreak,roster:team==='azure'||isSandbox()?p.roster:campaign.deployed(team),shop:team==='azure'?p.shop:undefined,shopLocked:team==='azure'?p.shopLocked:undefined,retainedShop:team==='azure'?p.retainShop:undefined}])),
   odds:shopOdds(campaign.player.level),result:campaign.result,
   airGold:{...battle.goldEarned},
-  traits:Object.fromEntries(['azure','ember'].map(team=>[team,battle.traits?.teams[team]||campaign.traits(team)])),
+  traits:Object.fromEntries(['azure','ember'].map(team=>[team,sideTraits(team)])),
   units:battle.units.map(u=>({id:u.id,type:u.type,stars:u.stars,team:u.team,x:u.x,y:u.y,hp:u.hp,maxHp:u.maxHp,shield:u.shield,eliminated:!!u.eliminated,swept:!!u.sweptBy,goldenShield:!!battle.traits?.isGolden(u),basicAttacks:u.basicAttacks,attackDamage:u.attackDamage,damageType:u.damageType,attackInterval:battle.attackInterval(u)/10,range:battle.attackRange(u),attackSpeedBonus:u.attackSpeedBonus||0}))
 });
 function say(message,error=false){$('#notice').textContent=message;$('#notice').classList.toggle('error',error);for(const prefix of ['shop','sandbox'])if($('#'+prefix+'-dialog').open){$('#'+prefix+'-feedback').textContent=message;$('#'+prefix+'-feedback').classList.toggle('error',error);}}
@@ -70,10 +72,10 @@ function tileAction(x,y){
   perform(()=>{
     const u=atPosition(x,y);
     selection=u?{id:u.id}:null;
-    say(isSandbox()?(u?'Drag to position or choose its stars below the board.':'Use Champions to add to either side.'):u?.team==='azure'?'Drag to move, swap, or sell.':u?'Scouting Ember’s formation.':'Drag a champion here to deploy.');
+    say(isSandbox()?(u?'Drag to position or choose its stars below the board.':'Use Champions to add to either side.'):u?.team==='azure'?'Drag to move, swap, or sell.':u?'Inspecting this company’s formation.':'Drag a champion here to deploy.');
   });
 }
-function buy(slot){return perform(()=>{dragging.cancel();const u=campaign.buy(slot);selection={id:u.id};say(u.stars>1?ARCHETYPES[u.type].name+' combined to '+u.stars+' stars!':ARCHETYPES[u.type].name+' joined your bench. Drag to deploy, or start battle to auto-deploy.');});}
+function buy(slot){return perform(()=>{dragging.cancel();const u=campaign.buy(slot);selection={id:u.id};say(u.stars>1?battle.catalog[u.type].name+' combined to '+u.stars+' stars!':battle.catalog[u.type].name+' joined your bench. Drag to deploy, or start battle to auto-deploy.');});}
 function refresh(){return perform(()=>{dragging.cancel();campaign.refresh();say('Shop refreshed. Spent 2 gold.');});}
 function setShopLock(locked){return perform(()=>{campaign.setShopLocked(locked);say(locked?'Offers locked for next round. The lock resets at round end.':'Shop unlocked. New offers arrive next round.');});}
 function openShop(){if(!editable())return;dragging.cancel();if(isSandbox()){renderSandboxCatalog();$('#sandbox-dialog').showModal();return;}$('#shop-feedback').textContent='Recruit to your bench. Close the shop to place champions.';$('#shop-feedback').classList.remove('error');$('#shop-dialog').showModal();}
@@ -87,12 +89,13 @@ function sellUnit(id){return perform(()=>{
 function switchMode(mode){
   if(!['fight','sandbox'].includes(mode))return;
   cleanEffects();resumeAfterScout=false;resumeAfterTrait=false;
+  delete $('#result').dataset.league;selectionKey='';
   document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());
   campaign=mode==='sandbox'?(sandboxCampaign??=new Sandbox()):fightCampaign;
-  battle=campaign.battle;paused=campaign.phase==='combat';selection=null;draggedId=null;
+  battle=campaign.battle;paused=isSandbox()&&campaign.phase==='combat';selection=null;draggedId=null;
   shopKey='';scoutingKey='';traitHud.reset();resultReveal.sync(null,performance.now());$('#result').hidden=true;
   lastTime=performance.now();render();
-  say(isSandbox()?'Choose Champions to build both teams. Drag to position; click a unit to change its stars.':paused?'Fight match restored and paused.':'Fight match restored.');
+  say(isSandbox()?'Choose Champions to build both teams. Drag to position; click a unit to change its stars.':paused?'Fight match restored.':'Fight match restored.');
 }
 function renderSandboxCatalog(){
   const team=$('#sandbox-team').value,stars=Number($('#sandbox-stars').value),element=$('#sandbox-element').value,cost=$('#sandbox-cost').value;
@@ -121,6 +124,7 @@ function renderSandbox(){
   $('#new-match').textContent=active?'Clear formations':'Start a new match';
   $('#new-match').disabled=active&&!editable();
   if(!active)return;
+  $('#standings-panel').hidden=true;$('#return-home').hidden=true;$('#round-recap').hidden=true;$('#view-caption').textContent='Build both teams';$('#enemy-name').textContent='Ember company';$('#friendly-name').textContent='Azure company · You';$('#territory-label').textContent='YOUR TERRITORY';
   if(!editable()&&$('#sandbox-dialog').open)$('#sandbox-dialog').close();
   $('#level-button').textContent='Level 10';$('#level-button').title='Both teams can place up to 10 champions.';
   $('#level-button').setAttribute('aria-label',$('#level-button').title);
@@ -179,22 +183,32 @@ function renderBench(){
   }
 }
 function renderTraits(){
-  const traits=battle.traits?.teams.azure||campaign.traits();
-  traitHud.render(traits,battle.units,views,editable(),battle.traits?.teams.ember||campaign.traits('ember'));
+  traitHud.render(sideTraits('azure'),battle.units,views,campaign.phase==='preparation',sideTraits('ember'));
 }
 function renderScouting(){
-  const p=campaign.opponent,traits=battle.traits?.teams.ember||campaign.traits('ember');
-  const scout=scoutOpponent(p.roster,traits,battle.units.filter(u=>u.team==='ember').map(u=>({...u,effectiveAttackTicks:battle.attackInterval(u),effectiveRange:battle.attackRange(u)})));
-  const key=JSON.stringify([p.level,p.gold,scout]);if(key===scoutingKey)return;scoutingKey=key;
+  let p=campaign.opponent,scoutedBattle=battle,side='ember';
+  if(!isSandbox()){
+    const view=campaign.view();
+    const selected=view.watching?view.viewed:campaign.phase==='preparation'?campaign.opponentFor('azure'):null;
+    if(selected){
+      p=selected;const match=campaign.matchFor(p.team);
+      scoutedBattle=match?.battle||campaign.previewFor(p.team);
+      side=match&&match.emberId===p.team&&!match.ghost?'ember':'azure';
+    }
+  }
+  const units=scoutedBattle.units.filter(u=>u.team===side),traits=scoutedBattle.traits?.teams[side]||teamTraits(units,scoutedBattle.catalog);
+  const scout=scoutOpponent(units.map(u=>({...u,position:{x:u.x,y:u.y}})),traits,units.map(u=>({...u,effectiveAttackTicks:scoutedBattle.attackInterval(u),effectiveRange:scoutedBattle.attackRange(u)})),scoutedBattle.catalog);
+  const key=JSON.stringify([p.name,p.level,scout]);if(key===scoutingKey)return;scoutingKey=key;
   const allTraits=[...scout.elements,...scout.classes],active=allTraits.filter(t=>t.tier).map(t=>`${t.name} ${t.count}${t.max?' MAX':''}`);
   $('#bot-plan').textContent=(active.join(' · ')||'No active traits')+`. ${scout.frontline} melee / ${scout.ranged} ranged · ${scout.upgraded} upgraded.`;
-  $('#scout-summary').textContent=`Level ${p.level} · ${scout.champions.length} deployed`+(isSandbox()?' · Your custom formation':` · ${p.gold} gold`);
+  $('#scout-title').textContent=p.name||'Ember company';
+  $('#scout-summary').textContent=`Level ${p.level} · ${scout.champions.length} deployed`+(isSandbox()?' · Your custom formation':' · Scoutable board only');
   $('#scout-traits').innerHTML=allTraits.map(t=>`<span class="scout-trait element-${t.element}${t.tier?' active':''}">${traitIcon(t.element)}<span>${t.name} ${t.count}<small>${t.max?'MAX active':t.tier?'Tier '+t.tier+' active':'Inactive'}${!t.max&&t.next?' · next '+t.next:''}</small></span></span>`).join('')||'<p>No traits on the board.</p>';
   $('#scout-threat').textContent=scout.threat?`Highest basic DPS: ${scout.threat.name} ${starLabel(scout.threat)} · ${Math.round(scout.threat.attack/scout.threat.seconds)}/s`:'No enemies remaining on the board.';
-  $('#scout-roster').innerHTML=scout.champions.map(c=>`<div class="scout-card element-${c.element}"><span class="scout-avatar"><span class="card-art has-art art-${c.role}">${roleMarker({combatRole:c.role})}</span></span><div><strong>${c.name} <em>${starLabel(c)}</em></strong><small>${ROLES[c.role].name} · Cost ${c.cost} · ${c.status==='OUT'?'':coordinate(c.x,c.y)+' · '}${c.status}</small><span>${Math.ceil(c.hp)}/${Math.ceil(c.maxHp)} HP · ${Math.round(c.attack)} ATK · ${Number(c.seconds.toFixed(3))}s · ${c.range} range</span></div></div>`).join('');
+  $('#scout-roster').innerHTML=scout.champions.map(c=>`<div class="scout-card element-${c.element}"><span class="scout-avatar"><span class="card-art has-art art-${c.role}">${roleMarker({combatRole:c.role})}</span></span><div><strong>${c.name} <em>${starLabel(c)}</em></strong><small>${ROLES[c.role]?.name||'Monster'} · Cost ${c.cost} · ${c.status==='OUT'?'':coordinate(c.x,c.y)+' · '}${c.status}</small><span>${Math.ceil(c.hp)}/${Math.ceil(c.maxHp)} HP · ${Math.round(c.attack)} ATK · ${Number(c.seconds.toFixed(3))}s · ${c.range} range</span></div></div>`).join('');
 }
 function openScout(){
-  dragging.cancel();resumeAfterScout=campaign.phase==='combat'&&!paused;
+  dragging.cancel();resumeAfterScout=isSandbox()&&campaign.phase==='combat'&&!paused;
   if(resumeAfterScout)paused=true;render();$('#scout-dialog').showModal();
 }
 function renderHazards(){
@@ -216,8 +230,10 @@ function renderHazards(){
 
 function renderSelection(){
   const own=owned(selection?.id),u=battle.units.find(v=>v.id===selection?.id),type=own?.type||u?.type,panel=$('#selection-panel');
+  const nextKey=JSON.stringify([isSandbox(),editable(),selection?.id,type,own?.stars,own?.position,u&&[u.stars,u.x,u.y,u.hp,u.maxHp,u.attackDamage,u.shield,u.eliminated,u.sweptBy,u.basicAttacks,battle.attackInterval(u),battle.attackRange(u),battle.traits?.isGolden(u)]]);
+  if(selectionKey===nextKey)return;selectionKey=nextKey;
   if(!type){panel.innerHTML='<span class="selection-kicker">FORMATION TIP</span><p>Frontline first. Rangers behind.</p><span class="tip-caption">'+(isSandbox()?'Control either team. Choose Champions to add units at any star level.':'Drag between the board and bench. Drop on a teammate to swap.')+'</span>';return;}
-  const c=championStats(type,(own||u).stars),location=u?.eliminated?'OUT':own?.position.bench!==undefined?'Bench':u?coordinate(u.x,u.y):'';
+  const c=championStats(type,(own||u).stars,battle.catalog),location=u?.eliminated?'OUT':own?.position.bench!==undefined?'Bench':u?coordinate(u.x,u.y):'';
   if(u){c.hp=u.maxHp;c.damage=Math.round(u.attackDamage*100)/100;c.attackTicks=Number(battle.attackInterval(u).toFixed(2));c.range=battle.attackRange(u);}
   panel.innerHTML='<span class="selection-kicker">'+starLabel(own||u)+' · COST '+c.cost+' · '+c.traits.map(t=>ELEMENT_LABELS[t]||ROLES[t].name).join(' + ')+'</span><p>'+c.name+' <span class="selection-coordinate">'+location+'</span></p><span class="tip-caption">'+(c.legendary?'Legendary '+ROLES[c.combatRole].name+'. ':'')+c.description+' Attacks every '+c.attackTicks/10+'s.</span><div class="stat-row"><span>HP <strong>'+Math.ceil(u?.hp??c.hp)+'/'+c.hp+'</strong></span><span>'+(c.damageType==='true'?'TRUE DMG':'ATK')+' <strong>'+c.damage+'</strong></span><span>RANGE <strong>'+c.range+'</strong></span></div>'+(own&&editable()?'<div class="unit-actions">'+(!isSandbox()&&own.position.bench===undefined?'<button id="bench-unit" class="secondary-button">To bench</button>':'')+'<button id="sell-unit" class="secondary-button">'+(isSandbox()?'Remove champion':'Sell · '+sellValue(own)+' gold')+'</button></div>':'');
   const benchButton=$('#bench-unit');if(benchButton)benchButton.onclick=()=>perform(()=>{const slot=campaign.freeBench('azure');if(slot===undefined)throw new Error('Bench is full. Drag onto a bench champion to swap.');campaign.move(own.id,{bench:slot});say(c.name+' moved to the bench.');});
@@ -226,33 +242,33 @@ function renderSelection(){
 }
 function render(){
   battle=campaign.battle;
-  if(battle.phase==='finished'&&campaign.phase==='combat'){
+  if(isSandbox()&&battle.phase==='finished'&&campaign.phase==='combat'){
     const result=campaign.settle();
     if(result.loser){const hp=$('#'+(result.loser==='azure'?'player':'enemy')+'-hp');hp.classList.add('hp-hit');setTimeout(()=>hp.classList.remove('hp-hit'),900);}
   }
-  resultReveal.sync(campaign.result,performance.now());
+  resultReveal.sync(isSandbox()?campaign.result:null,performance.now());
   const pendingResult=resultReveal.pending(performance.now());
   const editing=editable(),p=campaign.player,enemy=campaign.opponent;
   shell.classList.toggle('placing',editing&&!!selection);
   for(const [id,el] of views)if(!battle.units.some(u=>u.id===id)){el.remove();views.delete(id);}
   for(const u of battle.units){
-    const c=ARCHETYPES[u.type];let el=views.get(u.id);
+    const c=battle.catalog[u.type];let el=views.get(u.id);
     // Fight and Sandbox can reuse IDs for different champions.
     if(el&&el.dataset.championType!==u.type){el.remove();views.delete(u.id);el=null;}
     if(!el){el=document.createElement('div');el.dataset.unitId=u.id;el.innerHTML='<span class="trait-aura" aria-hidden="true"></span><div class="unit-portrait"><span class="portrait-art"></span><span class="unit-glyph"></span>'+roleMarker(c)+'</div><span class="unit-trait-mark" aria-hidden="true" hidden></span><span class="unit-stars"></span><div class="shield-track"><div class="shield-fill"></div></div><div class="health-track"><div class="health-fill"></div></div>';views.set(u.id,el);unitLayer.append(el);}
     el.dataset.championType=u.type;
-    el.className='unit has-art '+u.team+' type-'+c.combatRole+' element-'+c.element+(u.hp<=0?' dead':'')+(u.eliminated?' eliminated':'')+(selection?.id===u.id?' selected':'')+(battle.traits?.burns[u.id]?' burning':'')+(u.sweptBy?' swept':'')+(u.shield>0?' shielded':'')+(battle.traits?.isGolden(u)?' golden':'');
+    el.className='unit '+(c.monster?'monster-unit ':'has-art ')+u.team+' type-'+c.combatRole+' element-'+c.element+(u.hp<=0?' dead':'')+(u.eliminated?' eliminated':'')+(selection?.id===u.id?' selected':'')+(battle.traits?.burns[u.id]?' burning':'')+(u.sweptBy?' swept':'')+(u.shield>0?' shielded':'')+(battle.traits?.isGolden(u)?' golden':'');
     el.style.left=((u.sweepX??u.x)*12.5)+'%';el.style.top=(u.y*12.5)+'%';el.style.transitionDuration=(.22/speed)+'s';
-    el.querySelector('.unit-glyph').textContent=c.element[0].toUpperCase()+c.cost;
-    el.querySelector('.unit-stars').textContent=starLabel(u);
+    el.querySelector('.unit-glyph').textContent=c.monster?c.glyph:c.element[0].toUpperCase()+c.cost;
+    el.querySelector('.unit-stars').textContent=c.monster?'':starLabel(u);
     el.querySelector('.health-fill').style.width=(u.hp/u.maxHp*100)+'%';
     el.querySelector('.shield-fill').style.width=(u.maxShield?u.shield/u.maxShield*100:0)+'%';
   }
   const selected=battle.units.find(u=>u.id===selection?.id);
   tiles.forEach((tile,index)=>{
     const x=index%8,y=Math.floor(index/8),u=battle.at(x,y);
-    tile.setAttribute('aria-label',coordinate(x,y)+', '+(y<4?'enemy':'your')+' territory'+(u?', '+u.team+' '+ARCHETYPES[u.type].name+', '+u.stars+' stars, '+Math.ceil(u.hp)+' health':', empty'));
-    tile.title=u?ARCHETYPES[u.type].name+' '+starLabel(u)+' · '+Math.ceil(u.hp)+'/'+u.maxHp+' HP'+(u.shield?' · '+Math.ceil(u.shield)+' shield':''):coordinate(x,y);
+    tile.setAttribute('aria-label',coordinate(x,y)+', '+(y<4?'enemy':'your')+' territory'+(u?', '+u.team+' '+battle.catalog[u.type].name+', '+u.stars+' stars, '+Math.ceil(u.hp)+' health':', empty'));
+    tile.title=u?battle.catalog[u.type].name+' '+starLabel(u)+' · '+Math.ceil(u.hp)+'/'+u.maxHp+' HP'+(u.shield?' · '+Math.ceil(u.shield)+' shield':''):coordinate(x,y);
     tile.classList.toggle('selected',!!u&&u.id===selection?.id);
     tile.classList.toggle('draggable',editing&&!!u&&(isSandbox()||u.team==='azure'));
     tile.classList.toggle('in-range',!!selected&&selected.hp>0&&!selected.eliminated&&!selected.sweptBy&&distance(selected,{x,y})<=battle.attackRange(selected));
@@ -282,10 +298,61 @@ function render(){
   $('#income-preview').innerHTML='<span>Next income <strong>5 base + '+interest+' interest</strong></span><span>Loss streak <strong>'+p.lossStreak+' · +'+streakBonus(p.lossStreak)+' gold</strong></span><small>Win bonus +1 · Interest caps at 50 gold</small>';
   $('#damage-preview').textContent='Stage '+campaign.stage+': the loser takes '+stageDamage(campaign.stage)+' HP damage.';
   renderShop();renderBench();renderSelection();renderTraits();renderHazards();renderScouting();renderSandbox();
-  if(resultReveal.ready(performance.now()))showResult();else $('#result').hidden=true;
+  if(isSandbox()){if(resultReveal.ready(performance.now()))showResult();else $('#result').hidden=true;}else renderLeague();
+}
+function scoutPlayer(id){
+  if(isSandbox())return;
+  cleanEffects();selection=null;traitHud.reset();campaign.scout(id);render();
+  say(id==='azure'?'Your board.':'Watching '+campaign.players[id].name+'. All fights continue.');
+}
+function renderLeague(){
+  const view=campaign.view(),p=campaign.player,phase=campaign.phase;
+  if(lastViewBattle!==battle){$('#effects').replaceChildren();$('#floaters').replaceChildren();lastViewBattle=battle;}
+  $('#standings-panel').hidden=false;
+  const key=JSON.stringify([phase,campaign.viewId,...Object.values(campaign.players).map(p=>[p.team,p.hp,p.level,p.placement,campaign.playerStatus(p.team)])]);
+  if(key!==standingsKey){standingsKey=key;
+    $('#standings').innerHTML=Object.values(campaign.players).sort((a,b)=>b.hp-a.hp||(a.placement||0)-(b.placement||0)).map(p=>`<button class="standing ${p.team===campaign.viewId?'selected':''} ${p.hp<=0?'out':''}" data-player="${p.team}" aria-pressed="${p.team===campaign.viewId}" title="${p.style?.name||'Your company'}"><span><strong>${p.name}${p.bot?'':' · You'}</strong><b>${p.hp} HP</b></span><small>${campaign.playerStatus(p.team)} · Lv ${p.level}${p.placement?' · #'+p.placement:''}</small><em>${p.style?.name||'Your company'}</em></button>`).join('');
+    $('#standings').querySelectorAll('[data-player]').forEach(b=>b.onclick=()=>scoutPlayer(b.dataset.player));
+  }
+  const waiting=phase==='combat'&&battle.phase==='finished';
+  $('#phase-label').textContent=phase==='lobby'?'EIGHT-PLAYER LOBBY':phase==='preparation'?'PREPARATION':waiting?'WAITING · '+campaign.pendingFights+' FIGHTS':phase==='intermission'?'NEXT ROUND':phase==='finished'?'MATCH COMPLETE':'IN COMBAT';
+  const seconds=phase==='preparation'?Math.ceil(campaign.preparationRemaining):phase==='intermission'?campaign.intermissionRemaining:Math.floor(battle.tick/10);
+  $('#timer').textContent=phase==='intermission'?seconds.toFixed(1)+'s':String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(Math.floor(seconds%60)).padStart(2,'0');
+  $('#enemy-name').textContent=view.ember.name;
+  $('#friendly-name').textContent=view.azure.name+(view.azure.team==='azure'?' · You':'');
+  $('#player-hp').textContent=view.azure.hp+' HP';$('#enemy-hp').textContent=view.ember.hp===null?'':view.ember.hp+' HP';
+  $('#player-count').textContent='Level '+view.azure.level+' · '+battle.living('azure').length+(phase==='preparation'?' deployed':' remaining');
+  $('#enemy-count').textContent=phase==='preparation'||phase==='lobby'?'':view.ember.monster?'Monster encounter':'Level '+view.ember.level+' · '+battle.living('ember').length+' remaining';
+  $('#territory-label').textContent=view.azure.team==='azure'?'YOUR TERRITORY':view.azure.name.toUpperCase()+' TERRITORY';
+  $('#return-home').hidden=!view.watching;
+  $('#view-caption').textContent=view.watching?'Watching '+view.viewed.name:p.hp<=0?'You finished #'+p.placement+' · Scout the remaining fights.':campaign.isMonsterRound?'Monster round':'Your board';
+  const label=phase==='lobby'?'Start a game':phase==='finished'?'New match':phase==='preparation'?'Combat in '+Math.ceil(campaign.preparationRemaining)+'s':phase==='intermission'?'Next round in '+campaign.intermissionRemaining.toFixed(1)+'s':waiting?'Waiting for other fights':'Battles in progress';
+  for(const selector of ['#start-button','#mobile-start']){$(selector).textContent=label;$(selector).disabled=!['lobby','finished'].includes(phase);}
+  $('#mobile-status').textContent=p.gold+' gold · '+campaign.livingPlayers.length+'/8 remaining';
+  $('#arena-hint').textContent=view.watching?'Scouting · Your team keeps fighting':waiting?'Waiting for every board to finish.':phase==='preparation'?'Drag to position. Combat starts automatically.':'All battles run independently.';
+  $('#income-preview').innerHTML='<span>Next income <strong>5 base + '+Math.min(5,Math.floor(p.gold/10))+' interest</strong></span><span>'+(p.streak>=0?'Win':'Loss')+' streak <strong>'+Math.abs(p.streak)+' · +'+streakBonus(p.streak)+' gold</strong></span><small>Win +1 · Streak 2–4: +1 / 5: +2 / 6+: +3</small>';
+  $('#damage-preview').textContent=campaign.isMonsterRound?'Monster win restores HP; a loss deals fixed stage damage.':'Loss: '+stageDamage(campaign.stage)+' base + 1 per enemy survivor. Draw: base damage to both.';
+  $('#shop-dialog-title').textContent='Shop · '+Math.ceil(campaign.preparationRemaining)+'s to prepare';
+  $('#result').hidden=true;
+  if(phase==='lobby'||phase==='finished'){
+    const result=$('#result'),title=phase==='lobby'?'Eight companies. One winner.':campaign.players[campaign.winnerId].name+' wins.';
+    const marker=phase+':'+campaign.winnerId;
+    if(result.dataset.league!==marker){result.dataset.league=marker;result.className='result-overlay';result.innerHTML='<span class="eyebrow">TINY TACTICS · FIGHT</span><h2>'+title+'</h2><p>'+(phase==='lobby'?'You and seven rivals. Build your team in 20 seconds.':'Your placement: #'+p.placement+' of 8.')+'</p><button id="league-start" class="primary-button">'+(phase==='lobby'?'Start a game':'Play again')+'</button>';$('#league-start').onclick=startOrPause;}
+    result.hidden=false;
+  }
+  if(phase==='intermission'){
+    const r=campaign.results[campaign.viewId];
+    $('#round-recap').hidden=false;$('#round-recap').textContent=r?(r.outcome==='win'?'Round won':r.outcome==='draw'?'Draw':'Round lost')+' · '+(r.healing?'+'+r.healing+' HP':r.damage?'−'+r.damage+' HP':'No HP lost')+' · +'+r.income.total+' gold · +'+r.xp.gained+' XP':'Next round shortly';
+  }else $('#round-recap').hidden=true;
+  if(seenPreparation!==campaign.preparationSerial){
+    seenPreparation=campaign.preparationSerial;selection=null;traitHud.reset();
+    document.querySelectorAll('dialog[open]').forEach(d=>d.close());
+    if(phase==='preparation'&&p.hp>0){$('#shop-dialog').showModal();say('Round '+campaign.roundLabel+' · 20 seconds to prepare.');}
+  }
 }
 function cleanEffects(){dragging.cancel();$('#effects').replaceChildren();$('#floaters').replaceChildren();}
 function startOrPause(){perform(()=>{
+  if(!isSandbox()){if(campaign.phase==='lobby'){campaign.startGame();selection=null;lastTime=performance.now();say('20 seconds to prepare. Drag champions to position.');}else if(campaign.phase==='finished')restartMatch();return;}
   if(resultReveal.pending(performance.now()))return;
   dragging.cancel();
   if(editable()){campaign.start();paused=false;selection=null;lastTime=performance.now();say(campaign.lastAutoDeployed.length?'Auto-deployed '+campaign.lastAutoDeployed.length+' champion(s) from your bench. Battle underway.':campaign.deployed().length?'Battle underway.':'No champions owned. Ember claims this round.');tone(390,.12);}
@@ -293,9 +360,10 @@ function startOrPause(){perform(()=>{
   else if(campaign.phase==='finished')restartMatch();
   else{paused=!paused;say(paused?'Battle paused.':'Battle resumed.');}
 });}
-function restartMatch(){cleanEffects();traitHud.reset();campaign=fightCampaign=new Campaign();battle=campaign.battle;selection=null;paused=false;shopKey='';$('#result').hidden=true;say('New match. Buy a champion, then drag from your bench onto the board.');}
+function restartMatch(){cleanEffects();traitHud.reset();campaign=fightCampaign=new League();battle=campaign.battle;selection=null;paused=false;shopKey='';$('#result').hidden=true;seenPreparation=0;standingsKey='';campaign.startGame();lastTime=performance.now();say('20 seconds to prepare your team.');}
 function showResult(){
   const result=$('#result');if(!result.hidden)return;
+  delete result.dataset.league;
   const r=campaign.result,won=r.outcome==='azure',draw=r.outcome==='draw';
   if(isSandbox()){
     result.className='result-overlay';result.innerHTML='<span class="eyebrow">SANDBOX · TEST '+r.round+'</span><h2>'+(draw?'Draw.':won?'Azure wins.':'Ember wins.')+'</h2><p>No player damage. Both formations are kept.</p><button id="result-next" class="primary-button">Edit formations <span>↗</span></button>';
@@ -335,7 +403,7 @@ function effects(events){
     for(const [k,v] of Object.entries({x1:from.x*100+50,y1:from.y*100+50,x2:to.x*100+50,y2:to.y*100+50,stroke:from.team==='azure'?'#b8efce':'#ee9d8d'}))line.setAttribute(k,String(v));
     $('#effects').append(line);setTimeout(()=>line.remove(),360);
     const number=document.createElement('span');number.className='damage-number'+(e.dodged?' effect-dodge':e.critical?' effect-critical':'');number.textContent=e.dodged?'DODGE':`${e.critical?'CRIT ':''}−${Math.round(e.amount)}`;number.style.left=`${to.x*12.5+6.25}%`;number.style.top=`${to.y*12.5+3}%`;$('#floaters').append(number);setTimeout(()=>number.remove(),820);
-    if(!played){tone(ARCHETYPES[from.type].combatRole==='ranger'?600:160,.035);played=true;}
+    if(!played){tone(battle.catalog[from.type].combatRole==='ranger'?600:160,.035);played=true;}
   }
 }
 function tone(frequency,duration){
@@ -356,6 +424,7 @@ $('#close-sandbox').onclick=$('#done-sandbox').onclick=()=>$('#sandbox-dialog').
 $('#sandbox-unit-stars').onchange=event=>perform(()=>{campaign.setStars(selection?.id,Number(event.target.value));say('Star level updated.');});
 $('#sandbox-reset').onclick=resetSandbox;
 $('#scout-button').onclick=$('#scout-details-button').onclick=openScout;
+$('#return-home').onclick=()=>scoutPlayer('azure');
 $('#close-scout').onclick=()=>$('#scout-dialog').close();
 $('#scout-dialog').addEventListener('close',()=>{
   if(resumeAfterScout&&campaign.phase==='combat'&&!document.hidden){paused=false;lastTime=performance.now();render();}
@@ -364,21 +433,22 @@ $('#scout-dialog').addEventListener('close',()=>{
 $('#shop-lock').onclick=()=>setShopLock(!campaign.player.shopLocked);
 $('#close-shop').onclick=$('#done-shop').onclick=()=>$('#shop-dialog').close();
 $('#shop-dialog').addEventListener('click',event=>{if(event.target===$('#shop-dialog')){const r=event.target.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)event.target.close();}});
-$('#new-match').onclick=()=>{if(campaign.phase==='combat'){paused=true;render();}$('#restart-dialog h2').textContent=isSandbox()?'Clear both formations?':'Start a new match?';$('#restart-dialog p').textContent=isSandbox()?'Remove all Sandbox champions. Your Fight match is kept.':'Your current match will end. Both companies restart with 100 HP, level 3 and 10 gold.';$('#confirm-restart').textContent=isSandbox()?'Clear formations':'Start new match';$('#restart-dialog').showModal();};
+$('#new-match').onclick=()=>{if(isSandbox()&&campaign.phase==='combat'){paused=true;render();}$('#restart-dialog h2').textContent=isSandbox()?'Clear both formations?':'Start a new match?';$('#restart-dialog p').textContent=isSandbox()?'Remove all Sandbox champions. Your Fight match is kept.':'Your current match will end. All eight companies restart with 100 HP, level 3, 10 gold and three 1-cost champions.';$('#confirm-restart').textContent=isSandbox()?'Clear formations':'Start new match';$('#restart-dialog').showModal();};
 $('#cancel-restart').onclick=()=>$('#restart-dialog').close();
 $('#confirm-restart').onclick=()=>{$('#restart-dialog').close();perform(()=>{if(isSandbox()){campaign.clear();selection=null;cleanEffects();traitHud.reset();say('Formations cleared. Choose Champions to build both teams.');}else restartMatch();});};
 document.querySelectorAll('[data-speed]').forEach(button=>button.onclick=()=>{
   speed=Number(button.dataset.speed);document.querySelectorAll('[data-speed]').forEach(b=>{b.classList.toggle('active',b===button);b.setAttribute('aria-pressed',String(b===button));});render();
 });
-$('#help-button').onclick=()=>{if(campaign.phase==='combat'&&!paused){paused=true;say('Battle paused while you read the field guide.');render();}$('#help-dialog').showModal();};
+$('#help-button').onclick=()=>{if(isSandbox()&&campaign.phase==='combat'&&!paused){paused=true;say('Battle paused while you read the field guide.');render();}$('#help-dialog').showModal();};
 document.querySelectorAll('.close-dialog').forEach(button=>button.onclick=()=>$('#help-dialog').close());
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('#help-dialog').open&&!$('#trait-dialog').open&&!$('#shop-dialog').open){selection=null;render();}});
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&campaign.phase==='combat'&&!paused){paused=true;say('Battle paused while you were away.');render();}lastTime=performance.now();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&isSandbox()&&campaign.phase==='combat'&&!paused){paused=true;say('Battle paused while you were away.');render();}if(isSandbox())lastTime=performance.now();});
 function frame(now){
-  const dt=Math.min(.1,Math.max(0,(now-(lastTime||now))/1000));lastTime=now;
-  if(campaign.phase==='combat'&&!paused){const previous=battle.tick;battle.advance(dt*speed);if(battle.tick!==previous){render();effects(battle.drainEvents());}}
-  if(campaign.phase==='combat')renderHazards();
-  if(campaign.result&&$('#result').hidden&&resultReveal.ready(now))render();
+  const dt=Math.max(0,(now-(lastTime||now))/1000);lastTime=now;
+  fightCampaign.advance(dt,speed);
+  if(isSandbox()&&campaign.phase==='combat'&&!paused)battle.advance(Math.min(.1,dt)*speed);
+  uiElapsed+=dt;
+  if(uiElapsed>=.05){uiElapsed=0;render();effects(isSandbox()?battle.drainEvents():campaign.drainViewEvents());if(isSandbox())fightCampaign.drainViewEvents();}
   requestAnimationFrame(frame);
 }
 render();requestAnimationFrame(frame);
