@@ -2,9 +2,8 @@ import { SHOP_CHAMPIONS } from './catalog.js';
 
 export const SHOP_SIZE = 5;
 export const POOL_COPIES = Object.freeze({1:30,2:25,3:18,4:10,5:9});
-// Future roster targets; bag capacities already apply to every current champion.
-export const PLANNED_CHAMPION_COUNTS = Object.freeze({1:14,2:13,3:14,4:14,5:10});
-export const PLANNED_POOL_TOTAL = Object.entries(PLANNED_CHAMPION_COUNTS).reduce((sum,[cost,count])=>sum+count*POOL_COPIES[cost],0);
+export const CHAMPION_COUNTS = Object.freeze(Object.fromEntries([1,2,3,4,5].map(cost=>[cost,Object.values(SHOP_CHAMPIONS).filter(c=>c.cost===cost).length])));
+export const POOL_TOTAL = Object.entries(CHAMPION_COUNTS).reduce((sum,[cost,count])=>sum+count*POOL_COPIES[cost],0);
 const LEVEL_ODDS = Object.freeze([
   [100,0,0,0,0], [100,0,0,0,0], [75,25,0,0,0],
   [55,30,15,0,0], [45,33,20,2,0], [30,40,25,5,0],

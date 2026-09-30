@@ -168,16 +168,16 @@ export const FORMATIONS = [
 ];
 export function createSkirmish(formation=0) {
   const b=new Battle();
-  const elements=['mountain','fire','electric','water','air'];
-  FORMATIONS[formation%FORMATIONS.length].forEach(([type,x,y],i)=>b.place(`${elements[i]}-${type}-${1+formation%2}`,'ember',x,y));
-  [['sentinel',2,5],['sentinel',5,5],['duelist',4,6],['ranger',1,7],['ranger',6,7]].forEach(([type,x,y],i)=>b.place(`${elements[i]}-${type}-1`,'azure',x,y));
+  const pick=(role,index)=>{const choices=Object.values(CHAMPIONS).filter(c=>c.combatRole===role&&c.cost<=3);return choices[index%choices.length].id;};
+  FORMATIONS[formation%FORMATIONS.length].forEach(([type,x,y],i)=>b.place(pick(type,i+formation),'ember',x,y));
+  [['sentinel',2,5],['sentinel',5,5],['duelist',4,6],['ranger',1,7],['ranger',6,7]].forEach(([type,x,y],i)=>b.place(pick(type,i),'azure',x,y));
   return b;
 }
 export function applyTraitFormation(battle,element){
   battle.editable();
   if(!['fire','water'].includes(element))throw new Error('Choose the Fire or Water trait preset.');
   battle.living('azure').forEach(u=>battle.remove(u.id));
-  const roster=Object.values(CHAMPIONS).filter(c=>c.element===element&&c.cost<=3&&['sentinel','duelist','ranger'].includes(c.combatRole)).concat(CHAMPIONS[`${element}-legendary`]);
-  const positions={sentinel:[[1,4],[3,4],[5,4]],duelist:[[2,5],[4,5],[6,5]],ranger:[[1,7],[3,7],[5,7],[7,7]]};
-  for(const champion of roster){const [x,y]=positions[champion.combatRole].shift();battle.place(champion.id,'azure',x,y);}
+  const roster=Object.values(CHAMPIONS).filter(c=>c.element===element).slice(0,battle.cap);
+  let front=0,back=0;const columns=[3,4,2,5,1,6,0,7];
+  for(const champion of roster){const ranged=champion.range>1,index=ranged?back++:front++;battle.place(champion.id,'azure',columns[index%8],ranged?7-Math.floor(index/8):4+Math.floor(index/8));}
 }

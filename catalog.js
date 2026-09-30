@@ -15,7 +15,16 @@ const names={
   air:{sentinel:['Gust Keeper','Breeze Warden','Cloud Bastion','Tempest Bulwark'],ranger:['Breeze Slinger','Gale Scout','Sky Archer','Tempest Marksman'],duelist:['Gustblade','Gale Fencer','Cyclone Dancer','Sky Reaver']},
   mountain:{sentinel:['Pebble Keeper','Granite Warden','Crag Bastion','Summit Colossus'],ranger:['Flint Slinger','Ridge Scout','Quartz Archer','Peak Marksman'],duelist:['Shaleblade','Slate Fencer','Obsidian Dancer','Avalanche Reaver']}
 };
-const legendary={fire:['Solkyr','ranger'],water:['Neruvia','ranger'],electric:['Voltrenne','duelist'],air:['Aeralune','ranger'],mountain:['Dolmarok','sentinel']};
+const legendary={fire:{duelist:'Solkyr'},water:{sentinel:'Neruvia',duelist:'Thalassor'},electric:{duelist:'Voltrenne',assassin:'Raivex'},air:{ranger:'Aeralune',support:'Caelora'},mountain:{sentinel:'Dolmarok',support:'Orithia'}};
+const primaryLegendary={fire:'duelist',water:'sentinel',electric:'duelist',air:'ranger',mountain:'sentinel'};
+export const ROSTER_DESIGN=Object.freeze({
+  mountain:[[1,'sentinel'],[2,'sentinel'],[3,'support'],[3,'ranger'],[5,'sentinel'],[5,'support']],
+  fire:[[1,'assassin'],[2,'ranger'],[2,'duelist'],[3,'assassin'],[4,'sentinel'],[4,'ranger'],[5,'duelist']],
+  water:[[1,'sentinel'],[1,'support'],[2,'assassin'],[3,'support'],[4,'ranger'],[5,'sentinel'],[5,'duelist']],
+  electric:[[2,'ranger'],[3,'sentinel'],[3,'assassin'],[4,'ranger'],[5,'duelist'],[5,'assassin']],
+  air:[[1,'duelist'],[2,'duelist'],[2,'sentinel'],[3,'assassin'],[3,'ranger'],[4,'support'],[5,'ranger'],[5,'support']]
+});
+for(const slots of Object.values(ROSTER_DESIGN)){slots.forEach(Object.freeze);Object.freeze(slots);}
 const newRoleNames={
   fire:{support:['Ember Tender','Cinder Oracle','Flame Cantor','Dawn Hierophant'],assassin:['Coal Stalker','Cinder Fang','Pyre Shade','Infernal Reaper']},
   water:{support:['Spring Tender','Tide Oracle','Coral Cantor','Ocean Hierophant'],assassin:['Mist Stalker','Tide Fang','Abyss Shade','Undertow Reaper']},
@@ -70,11 +79,13 @@ function champion(id,name,element,combatRole,cost){
   champions[id]=Object.freeze({...base,id,name,element,combatRole,cost,sideTrait:combatRole,traits:Object.freeze([element,combatRole]),hp:stats.hp[cost-1],damage:stats.damage[cost-1],attackTicks:stats.attackTicks,damageType:element==='electric'?'true':'physical',legendary:cost===5});
 }
 for(const element of ELEMENTS){
-  for(const role of Object.keys(ARCHETYPES))names[element][role].forEach((name,index)=>champion(`${element}-${role}-${index+1}`,name,element,role,index+1));
-  const [name,role]=legendary[element];champion(`${element}-legendary`,name,element,role,5);
+  for(const [cost,role] of ROSTER_DESIGN[element]){
+    const id=cost===5&&role===primaryLegendary[element]?`${element}-legendary`:`${element}-${role}-${cost}`;
+    champion(id,cost===5?legendary[element][role]:names[element][role][cost-1],element,role,cost);
+  }
 }
 export const CHAMPIONS=Object.freeze(champions);
-// Every element offers all five roles at costs 1–4 and its existing 5-cost legendary.
+// Only the authored identities enter Fight shops and the Sandbox catalog.
 export const SHOP_CHAMPIONS=CHAMPIONS;
 export function virtualTraitCounts(input={}){
   const counts=Object.fromEntries(ELEMENTS.map(element=>[element,0]));
