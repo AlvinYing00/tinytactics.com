@@ -7,12 +7,13 @@ const mean=units=>units.length?units.reduce((sum,u)=>sum+u.position.x,0)/units.l
 
 // Only deployed identities, stars and positions enter this evaluator.
 // Enemy shops, gold, benches and future random rolls are never consulted.
-export function chooseFormation(roster,scouted=[]){
+export function chooseFormation(roster,scouted=[],{difficulty='strong'}={}){
   const enemies=scouted.filter(u=>u.position.bench===undefined).map(u=>({...u,position:{x:u.position.x,y:7-u.position.y}}));
   const ownTraits=teamTraits(roster.map(u=>({...u,position:{x:0,y:4}}))),enemyTraits=teamTraits(enemies),enemyFront=enemies.filter(u=>CHAMPIONS[u.type].range===1),enemyCarries=enemies.filter(isCarry);
   const wall=ownTraits.windWall||enemyTraits.windWall,enemyAssassins=enemies.filter(u=>CHAMPIONS[u.type].combatRole==='assassin');
   const formations=[];
-  for(const name of ['Balanced','Spread','Left flank','Right flank','Rear guard','Forward range']){
+  const candidates=difficulty==='easy'?['Balanced','Spread']:difficulty==='normal'?['Balanced','Spread','Left flank','Right flank']:['Balanced','Spread','Left flank','Right flank','Rear guard','Forward range'];
+  for(const name of candidates){
     const positions=new Map(),occupied=new Set();
     const order=roster.slice().sort((a,b)=>Number(!isTank(a))-Number(!isTank(b))||Number(isCarry(a))-Number(isCarry(b))||championStats(b.type,b.stars).hp-championStats(a.type,a.stars).hp);
     let guardPlaced=false,frontCount=0,backCount=0;
@@ -39,7 +40,7 @@ export function chooseFormation(roster,scouted=[]){
           if(c.combatRole==='support'&&!covered&&d<=CHAMPIONS[nearest.type].range)reasons.protection-=10;
           if(CHAMPIONS[nearest.type].element==='mountain'&&isTank(nearest))reasons.matchup+=c.element==='fire'?4:-2;
         }
-        if(enemyAssassins.length&&!wall){
+        if(difficulty==='strong'&&enemyAssassins.length&&!wall){
           const adjacent=[[0,-1],[1,0],[0,1],[-1,0]].map(([x,y])=>({x:pos.x+x,y:pos.y+y})).filter(p=>p.x>=0&&p.x<8&&p.y>=0&&p.y<8&&!occupied.has(key(p)));
           const guarded=adjacent.filter(p=>tanks.some(t=>distance(t.position,p)<=1)).length;
           reasons.assassins+=guarded*4-(adjacent.length-guarded)*3;
@@ -51,8 +52,8 @@ export function chooseFormation(roster,scouted=[]){
         reasons.assassins+=wall?(pos.y>=5?2:-5):access?10-Math.abs(pos.x-mean(targets)):0;
       }
     }
-    if(enemyTraits.meteor)for(let i=0;i<units.length;i++)for(let j=i+1;j<units.length;j++)if(distance(units[i].position,units[j].position)<=1)reasons.spacing-=12;
-    if(enemyTraits.windPiercePercent)for(const enemy of enemies.filter(e=>CHAMPIONS[e.type].element==='air'))for(const front of units){
+    if(difficulty!=='easy'&&enemyTraits.meteor)for(let i=0;i<units.length;i++)for(let j=i+1;j<units.length;j++)if(distance(units[i].position,units[j].position)<=1)reasons.spacing-=12;
+    if(difficulty==='strong'&&enemyTraits.windPiercePercent)for(const enemy of enemies.filter(e=>CHAMPIONS[e.type].element==='air'))for(const front of units){
       const dx=Math.sign(front.position.x-enemy.position.x),dy=Math.sign(front.position.y-enemy.position.y);if(!dx&&!dy)continue;
       for(let x=front.position.x+dx,y=front.position.y+dy;x>=0&&x<8&&y>=0&&y<8;x+=dx,y+=dy)if(occupied.has(`${x},${y}`))reasons.spacing-=6;
     }

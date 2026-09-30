@@ -45,6 +45,8 @@ export class Campaign {
   get player(){return this.players.azure;}
   get opponent(){return this.players.ember;}
   editable(){if(this.phase!=='preparation')throw new Error('Make purchases and formation changes between battles.');}
+  canTrade(){return this.phase==='preparation';}
+  economyEditable(){this.editable();}
   deployed(team='azure'){return this.players[team].roster.filter(onBoard);}
   bench(team='azure'){return this.players[team].roster.filter(u=>!onBoard(u));}
   traits(team='azure'){return teamTraits(this.deployed(team),CHAMPIONS,this.players[team].virtualTraits);}
@@ -56,10 +58,10 @@ export class Campaign {
   }
   canBuy(slot,team='azure'){
     const p=this.players[team],type=p.shop[slot];
-    return this.phase==='preparation'&&!!type&&!this.maxedTypes(team).has(type)&&p.gold>=CHAMPIONS[type].cost&&this.purchasePlan(type,team).roster.filter(u=>!onBoard(u)).length<=BENCH_SIZE;
+    return this.canTrade()&&!!type&&!this.maxedTypes(team).has(type)&&p.gold>=CHAMPIONS[type].cost&&this.purchasePlan(type,team).roster.filter(u=>!onBoard(u)).length<=BENCH_SIZE;
   }
   buy(slot,team='azure') {
-    this.editable();const p=this.players[team];
+    this.economyEditable();const p=this.players[team];
     if(!Number.isInteger(slot)||slot<0||slot>=SHOP_SIZE||!p.shop[slot])throw new Error('That shop card is no longer available.');
     const type=p.shop[slot],champion=CHAMPIONS[type];
     if(this.maxedTypes(team).has(type))throw new Error(`${champion.name} is already at 3 stars.`);
@@ -78,12 +80,12 @@ export class Campaign {
     return p.roster.find(u=>u.id===plan.unit.id);
   }
   refresh(team='azure') {
-    this.editable();const p=this.players[team];
+    this.economyEditable();const p=this.players[team];
     if(p.gold<2)throw new Error('You need 2 gold to refresh the shop.');
     p.gold-=2;p.shop=rollShop(p.level,this.random,this.maxedTypes(team));
   }
   setShopLocked(locked,team='azure'){
-    this.editable();
+    this.economyEditable();
     if(typeof locked!=='boolean')throw new Error('Choose whether to lock the shop.');
     this.players[team].shopLocked=locked;return locked;
   }
@@ -119,7 +121,7 @@ export class Campaign {
     this.rebuildBattle();return other||null;
   }
   sell(id,team='azure') {
-    this.editable();const p=this.players[team],index=p.roster.findIndex(u=>u.id===id);
+    this.economyEditable();const p=this.players[team],index=p.roster.findIndex(u=>u.id===id);
     if(index<0)throw new Error('Select one of your champions.');
     const [u]=p.roster.splice(index,1);p.gold+=sellValue(u);
     if(team==='azure')this.rebuildBattle();return u;

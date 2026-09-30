@@ -26,14 +26,8 @@ const newRoleNames={
 for(const element of ELEMENTS)Object.assign(names[element],newRoleNames[element]);
 const champions={};
 // Entries are ordered by cost 1–5. Tankers use the Sentinel combat role.
-const HP_MULTIPLIER = 2;
-
-const statLine = (hp, damage, seconds) => Object.freeze({
-  hp: Object.freeze(hp.map(v => Math.round(v * HP_MULTIPLIER))),
-  damage: Object.freeze(damage),
-  attackTicks: seconds * 10
-});
-
+export const HP_MULTIPLIER=2;
+const statLine=(hp,damage,seconds)=>Object.freeze({hp:Object.freeze(hp.map(v=>Math.round(v*HP_MULTIPLIER))),damage:Object.freeze(damage),attackTicks:seconds*10});
 export const ELEMENT_STATS=Object.freeze({
   fire:Object.freeze({
     sentinel:statLine([200,450,850,1200,2000],[25,50,75,100,150],2),

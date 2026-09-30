@@ -34,20 +34,24 @@ export class ClassEffects {
     // Opening movement is attempted exactly once, never queued until a wall expires.
     if(this.openingAttempted)return;
     this.openingAttempted=true;
-    // Reserve each destination immediately. Both teams follow the same deterministic rule.
+    // Both sides plan from the same opening positions, then land simultaneously.
+    const snapshot=b.living().map(u=>({...u})),occupied=new Set(snapshot.map(u=>u.x+','+u.y)),reserved=new Set(),plans=[];
     for(const unit of b.units.filter(u=>this.has(u,'assassin'))){
       const priority=u=>this.has(u,'ranger')?0:this.has(u,'support')?1:2;
-      const enemies=b.living().filter(u=>u.team!==unit.team).sort((a,c)=>priority(a)-priority(c)||distance(unit,c)-distance(unit,a)||a.id-c.id);
+      const enemies=snapshot.filter(u=>u.team!==unit.team).sort((a,c)=>priority(a)-priority(c)||distance(unit,c)-distance(unit,a)||a.id-c.id);
       for(const target of enemies){
-        const cells=[[0,-1],[-1,0],[1,0],[0,1]].map(([dx,dy])=>({x:target.x+dx,y:target.y+dy})).filter(p=>b.inside(p.x,p.y)&&!b.at(p.x,p.y)&&b.traits.canStep(unit,unit,p)&&b.traits.canTarget(unit,target,p)).sort((a,c)=>distance(unit,a)-distance(unit,c)||a.y-c.y||a.x-c.x);
+        const cells=[[0,-1],[-1,0],[1,0],[0,1]].map(([dx,dy])=>({x:target.x+dx,y:target.y+dy})).filter(p=>b.inside(p.x,p.y)&&!occupied.has(p.x+','+p.y)&&!reserved.has(p.x+','+p.y)&&b.traits.canStep(unit,unit,p)&&b.traits.canTarget(unit,target,p)).sort((a,c)=>distance(unit,a)-distance(unit,c)||a.y-c.y||a.x-c.x);
         if(!cells.length)continue;
-        const from={x:unit.x,y:unit.y},to=cells[0];unit.x=to.x;unit.y=to.y;unit.targetId=unit.openingTargetId=target.id;
-        unit.assassinDodgeUntil=this.teams[unit.team].assassin.dodgeChance?b.tick+50:0;
-        unit.completedOpeningJump=true;
-        b.events.push({type:'jump',id:unit.id,from,to:{...to},targetId:target.id});break;
+        const to=cells[0];reserved.add(to.x+','+to.y);plans.push({unit,target,to,from:{x:unit.x,y:unit.y}});break;
       }
     }
+    for(const {unit,target,to,from} of plans){
+      unit.x=to.x;unit.y=to.y;unit.targetId=unit.openingTargetId=target.id;
+      unit.assassinDodgeUntil=this.teams[unit.team].assassin.dodgeChance?b.tick+50:0;unit.completedOpeningJump=true;
+      b.events.push({type:'jump',id:unit.id,from,to:{...to},targetId:target.id});
+    }
   }
+
   update(){
     const b=this.battle;
     for(const unit of b.units)if(unit.supportShieldUntil&&b.tick>=unit.supportShieldUntil)removeSupportShield(unit);

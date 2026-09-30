@@ -16,7 +16,7 @@ const clone=value=>JSON.parse(JSON.stringify(value));
 
 // Reuse the same purchase/combination rules as the human. No free cards or gold.
 export function planBot(league,player,opponent,{positionOnly=false}={}){
-  const style=player.style,p=clone(player);
+  const style=player.style,p=clone(player),difficulty=p.difficulty||'normal',easy=difficulty==='easy',strong=difficulty==='strong';
   const ctx=Object.create(Campaign.prototype);
   Object.assign(ctx,{players:{azure:opponent||{roster:[]},ember:p},phase:'preparation',round:league.round,random:league.random,nextId:league.nextId,levelCosts:league.levelCosts,botElement:style.element});
   ctx.teamScore=units=>{
@@ -34,16 +34,23 @@ export function planBot(league,player,opponent,{positionOnly=false}={}){
     return power+elements+tiers*.65+preference+Math.min(melee,Math.ceil(units.length/3))*2-(units.length-distinct.size)*1.5;
   };
   if(!positionOnly){
-    const urgent=p.hp<=30,styleId=style.id;
-    const reserve=urgent?0:styleId==='economist'?50:styleId==='late'?30:styleId==='reroller'?30:styleId==='hybrid'?20:styleId==='vertical'?10:styleId==='flexible'?10:0;
+    const urgent=p.hp<=(strong?45:30)||(strong&&p.lossStreak>=2),styleId=style.id;
+    let reserve=urgent?0:styleId==='economist'?50:styleId==='late'?30:styleId==='reroller'?30:styleId==='hybrid'?20:styleId==='vertical'?10:styleId==='flexible'?10:0;
+    if(easy)reserve=Math.floor(reserve*.6/10)*10;
     const mayLevel=()=>styleId!=='reroller'||p.level<5||p.roster.some(u=>u.stars===3)||league.stage>=4;
     const levelReserve=styleId==='leveler'?2:styleId==='late'?(p.level<8?10:30):reserve;
-    while(p.level<10&&mayLevel()&&p.gold>=ctx.levelPrice('ember')+levelReserve)ctx.levelUp('ember');
+    const huntUpgrade=p.shop.some(type=>type&&p.roster.filter(u=>u.type===type&&u.stars===1).length>=2);
+    const levelNow=!strong||!huntUpgrade||p.gold>=ctx.levelPrice('ember')+levelReserve+5;
+    while(levelNow&&p.level<10&&mayLevel()&&p.gold>=ctx.levelPrice('ember')+levelReserve){
+      if(easy&&league.random()<.3)break;
+      ctx.levelUp('ember');
+    }
     const buyBest=()=>{
+      const skipped=new Set();
       for(let attempt=0;attempt<SHOP_SIZE;attempt++){
         const before=ctx.teamScore(ctx.bestTeam());
         const choices=p.shop.map((type,slot)=>{
-          if(!type||!ctx.canBuy(slot,'ember'))return null;
+          if(!type||skipped.has(slot)||!ctx.canBuy(slot,'ember'))return null;
           const c=CHAMPIONS[type],copies=p.roster.filter(u=>u.type===type),plan=ctx.purchasePlan(type,'ember');
           const gain=ctx.teamScore(ctx.bestTeam(plan.roster))-before;
           const collecting=copies.length&&copies.some(deployed)&&copies.every(u=>u.stars<3);
@@ -52,7 +59,9 @@ export function planBot(league,player,opponent,{positionOnly=false}={}){
           const maySpend=urgent||needs||p.gold-c.cost>=reserve||gain>4;
           return maySpend&&gain+copyBonus>.05?{slot,gain:gain+copyBonus}:null;
         }).filter(Boolean).sort((a,b)=>b.gain-a.gain||a.slot-b.slot);
-        if(!choices.length)break;ctx.buy(choices[0].slot,'ember');
+        if(!choices.length)break;
+        if(easy&&league.random()<.25){skipped.add(choices[0].slot);continue;}
+        ctx.buy(choices[0].slot,'ember');
       }
       const ids=new Set(ctx.bestTeam().map(u=>u.id));let bench=0;
       for(const u of p.roster)u.position=ids.has(u.id)?{x:bench++%8,y:4}:{bench:0};
@@ -62,7 +71,8 @@ export function planBot(league,player,opponent,{positionOnly=false}={}){
       }
     };
     buyBest();
-    const maxRolls=styleId==='reroller'?8:urgent?5:styleId==='vertical'?3:styleId==='late'&&p.level>=8?5:2;
+    const styleRolls=styleId==='reroller'?8:urgent?5:styleId==='vertical'?3:styleId==='late'&&p.level>=8?5:2;
+    const maxRolls=easy?Math.min(3,styleRolls):styleRolls+(strong&&urgent?2:0);
     for(let roll=0;roll<maxRolls&&p.gold>=2;roll++){
       const lacks=p.roster.filter(deployed).length<p.level;
       if(!lacks&&p.gold-2<reserve)break;
@@ -72,7 +82,7 @@ export function planBot(league,player,opponent,{positionOnly=false}={}){
   }
   const chosen=ctx.bestTeam(),ids=new Set(chosen.map(u=>u.id));let slot=0;
   for(const u of p.roster)if(!ids.has(u.id))u.position={bench:slot++};
-  const formation=chooseFormation(chosen,opponent?.roster||[]);
+  const formation=chooseFormation(chosen,opponent?.roster||[],{difficulty});
   const positions=new Map(formation.units.map(u=>[u.id,u.position]));
   for(const u of p.roster)if(positions.has(u.id))u.position=positions.get(u.id);
   player.lastFormation=formation.decision;

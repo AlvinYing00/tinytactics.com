@@ -92,7 +92,11 @@ export class Battle {
       const cell=queue[i];
       const targets=enemies.filter(e=>(!this.traits||this.traits.canTarget(unit,e,cell))&&distance(cell,e)<=range).sort((a,b)=>distance(unit,a)-distance(unit,b)||a.id-b.id);
       if(targets.length) return {target:targets[0],next:cell.first};
-      for(const [dx,dy] of dirs) {
+      // Break equal-length paths toward the largest remaining gap. After a jump,
+      // a team's normal forward direction may point away from every opponent.
+      const nearest=enemies.slice().sort((a,b)=>distance(cell,a)-distance(cell,b)||a.id-b.id)[0];
+      const directions=nearest?dirs.slice().sort(([ax,ay],[bx,by])=>Math.max(Math.abs(cell.x+ax-nearest.x),Math.abs(cell.y+ay-nearest.y))-Math.max(Math.abs(cell.x+bx-nearest.x),Math.abs(cell.y+by-nearest.y))):dirs;
+      for(const [dx,dy] of directions) {
         const p={x:cell.x+dx,y:cell.y+dy},k=key(p);
         if(this.inside(p.x,p.y)&&!seen.has(k)&&!occupied.has(k)&&(!this.traits||this.traits.canStep(unit,cell,p))) {seen.add(k);queue.push({...p,first:cell.first||p});}
       }
@@ -107,15 +111,19 @@ export class Battle {
     const alive=this.living().filter(u=>!u.sweptBy), occupied=new Set(alive.map(key)), reserved=new Set();
     // Rotate initiative so contested movement is not always resolved for one team.
     const order=alive.slice(); const offset=Math.round(this.tick*2)%Math.max(1,order.length);
-    const moves=[];
+    const moves=[],planned=alive.map(u=>({...u})),plannedById=new Map(planned.map(u=>[u.id,u]));
     for(const u of order.slice(offset).concat(order.slice(0,offset))) {
       if(this.tick<u.stunnedUntil){u.targetId=null;continue;}
-      const enemies=alive.filter(e=>e.team!==u.team);
+      // Later movers see already-reserved destinations, so two enemies stop
+      // when they meet instead of endlessly chasing each other's old tile.
+      const enemies=planned.filter(e=>e.team!==u.team);
       const opening=enemies.find(e=>e.id===u.openingTargetId&&this.traits.canTarget(u,e)&&distance(u,e)<=this.attackRange(u));
       const route=opening?{target:opening,next:null}:this.route(u,enemies,occupied);u.targetId=route?.target.id??null;
       u.openingTargetId=null;
       if(route?.next&&this.tick>=u.moveReady&&!reserved.has(key(route.next))) {
         reserved.add(key(route.next));moves.push({unit:u,next:route.next});
+        occupied.delete(key(u));occupied.add(key(route.next));
+        Object.assign(plannedById.get(u.id),route.next);
       }
     }
     for(const {unit:u,next} of moves) {
