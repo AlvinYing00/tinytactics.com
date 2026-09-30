@@ -1,4 +1,5 @@
-import {Campaign,rollShop} from './campaign.js';
+import {Campaign} from './campaign.js';
+import {drawChampion} from './shop.js';
 import {Battle} from './engine.js';
 import {CHAMPIONS,championStats,teamTraits} from './catalog.js';
 import {BOT_STYLES,planBot} from './bot-planner.js';
@@ -29,11 +30,18 @@ export class League extends Campaign {
       const id=i===0?'azure':`bot-${i}`;
       const p={team:id,name:names[i],bot:i>0,style:i?BOT_STYLES[i-1]:null,difficulty:i?difficulties[i-1]:null,hp:100,gold:10,level:3,xp:0,lossStreak:0,winStreak:0,streak:0,virtualTraits:{},roster:[],shop:[],shopLocked:false,retainShop:false,lastIncome:null,placement:null};
       this.players[id]=p;
-      if(withRoster){
-        const pool=Object.values(CHAMPIONS).filter(c=>c.cost===1);
-        for(let n=0;n<3;n++){const c=pool.splice(Math.min(pool.length-1,Math.floor(this.random()*pool.length)),1)[0];p.roster.push({id:this.nextId++,type:c.id,stars:1,team:id,position:{bench:n}});}
-        this.autoDeploy(id);p.shop=rollShop(3,this.random);
+    }
+    if(withRoster){
+      const stock=this.poolStock();
+      for(const p of Object.values(this.players)){
+        const selected=new Set();
+        for(let n=0;n<3;n++){
+          const type=drawChampion(1,this.random,selected,stock);
+          if(type){selected.add(type);p.roster.push({id:this.nextId++,type,stars:1,team:p.team,position:{bench:n}});}
+        }
+        this.autoDeploy(p.team);
       }
+      this.refreshRoundShops();
     }
   }
   startGame(){
@@ -77,7 +85,7 @@ export class League extends Campaign {
     this.phase='preparation';this.preparationRemaining=PREPARATION_SECONDS;this.preparationSerial++;this.botsPrepared=false;this.matches=[];this.results={};this.result=null;
     if(this.player.hp>0)this.viewId='azure';
     this.pairs=this.isMonsterRound?this.livingPlayers.map(p=>({azureId:p.team,monster:true})):this.makePairs();
-    for(const p of this.livingPlayers){if(this.round>1&&!p.retainShop)p.shop=rollShop(p.level,this.random,this.maxedTypes(p.team));p.retainShop=false;if(this.round>1)p.shopLocked=false;}
+    if(this.round>1){this.refreshRoundShops();for(const p of this.livingPlayers)p.shopLocked=false;}
     this.botActions=this.livingPlayers.filter(p=>p.bot).flatMap(p=>{
       const times=p.difficulty==='easy'?[[18,false]]:p.difficulty==='normal'?[[10,false],[22,true]]:[[5,false],[15,true],[24,false],[29,true]];
       return times.map(([at,positionOnly])=>({id:p.team,at,positionOnly,done:false}));

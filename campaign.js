@@ -1,34 +1,16 @@
 import { Battle } from './engine.js';
-import { CHAMPIONS, SHOP_CHAMPIONS, teamTraits, championStats, sellValue } from './catalog.js';
+import { CHAMPIONS, teamTraits, championStats, sellValue } from './catalog.js';
 import { combineCopies } from './combinations.js';
+import { SHOP_SIZE, rollShop, availablePool, drawChampion } from './shop.js';
+export { SHOP_SIZE, shopOdds, rollShop } from './shop.js';
 
 export const LEVEL_COSTS = Object.freeze({3:10,4:20,5:30,6:40,7:55,8:65,9:80});
 export const BENCH_SIZE = 9;
-export const SHOP_SIZE = 5;
-export function shopOdds(level) {
-  if (!Number.isInteger(level)||level<1||level>10) throw new Error('Level must be between 1 and 10.');
-  return level<=3?[100,0,0,0,0]:level<=5?[50,30,20,0,0]:level<=7?[25,40,30,5,0]:level===8?[20,25,40,10,5]:level===9?[10,15,30,30,15]:[5,10,20,40,25];
-}
 export const stageDamage = stage => Math.min(6,stage+1);
 export const streakBonus = losses => losses>=5?3:losses===4?2:losses===3?1:0;
-const pool = Array.from({length:5},(_,i)=>Object.values(SHOP_CHAMPIONS).filter(c=>c.cost===i+1));
 const onBoard = u => u.position.bench===undefined;
 const samePosition = (a,b) => a.bench!==undefined ? a.bench===b.bench : b.bench===undefined&&a.x===b.x&&a.y===b.y;
 const traitScore=t=>t.burnPercent*70+t.healPercent*50+t.shieldPercent*6+t.reflectPercent*15+(t.inheritanceHpPercent+t.inheritanceAttackPercent)*25+t.coinChance*30+t.dodgeChance*20+(t.criticalEvery?12/t.criticalEvery:0)+(t.meteor?15:0)+(t.tsunami?25:0)+(t.goldenShield?6:0)+(t.thunder?15:0)+(t.windWall?15:0)+t.classes.sentinel.reduction*10+t.classes.duelist.cap*6+t.classes.ranger.damageBonus*8+t.classes.ranger.rangeBonus*2+t.classes.support.targets*t.classes.support.healPercent*12+t.classes.support.shieldPercent*20+t.classes.assassin.damageBonus*6+t.classes.assassin.dodgeChance*6+t.classes.assassin.shieldBypass*4;
-
-function pickChampion(cost,random,excluded){
-  const eligible=pool[cost].filter(c=>!excluded.has(c.id)),roll=random();
-  return eligible[Math.min(eligible.length-1,Math.floor(roll*eligible.length))]?.id??null;
-}
-export function rollShop(level,random=Math.random,excluded=new Set()) {
-  const odds=shopOdds(level);
-  return Array.from({length:SHOP_SIZE},()=>{
-    const roll=random()*100;let sum=0,cost=0;
-    for(;cost<4;cost++){sum+=odds[cost];if(roll<sum)break;}
-    // Keep the requested cost odds, even if every identity at that cost is maxed.
-    return pickChampion(cost,random,excluded);
-  });
-}
 
 // Owned champions and economy survive rounds; Battle holds only combat state.
 export class Campaign {
@@ -36,7 +18,8 @@ export class Campaign {
     this.random=random;this.round=1;this.phase='preparation';this.nextId=1;this.result=null;
     this.players={};
     if(!initialize)return;
-    for(const team of ['azure','ember'])this.players[team]={team,hp:100,gold:10,level:3,xp:0,lossStreak:0,virtualTraits:{},roster:[],shop:rollShop(3,random),shopLocked:false,retainShop:false,lastIncome:null};
+    for(const team of ['azure','ember'])this.players[team]={team,hp:100,gold:10,level:3,xp:0,lossStreak:0,virtualTraits:{},roster:[],shop:[],shopLocked:false,retainShop:false,lastIncome:null};
+    this.refreshRoundShops();
     this.botElement=random()<.5?'fire':'water';
     this.prepareBot();this.rebuildBattle();
   }
@@ -51,6 +34,19 @@ export class Campaign {
   bench(team='azure'){return this.players[team].roster.filter(u=>!onBoard(u));}
   traits(team='azure'){return teamTraits(this.deployed(team),CHAMPIONS,this.players[team].virtualTraits);}
   maxedTypes(team='azure'){return new Set(this.players[team].roster.filter(u=>u.stars===3).map(u=>u.type));}
+  poolPlayers(){return Object.values(this.players);}
+  poolStock(returnedShops=new Set()){return availablePool(this.poolPlayers(),returnedShops);}
+  rollOffers(team='azure'){
+    const p=this.players[team];
+    p.shop=rollShop(p.level,this.random,this.maxedTypes(team),this.poolStock(new Set([p])));
+    return p.shop;
+  }
+  refreshRoundShops(){
+    const players=Object.values(this.players).filter(p=>p.hp>0);
+    // Return all unlocked offers before drawing any new round's offers.
+    for(const p of players)if(!p.retainShop)p.shop=[];
+    for(const p of players){if(!p.retainShop)this.rollOffers(p.team);p.retainShop=false;}
+  }
   freeBench(team){const used=new Set(this.bench(team).map(u=>u.position.bench));return Array.from({length:BENCH_SIZE},(_,i)=>i).find(i=>!used.has(i));}
   purchasePlan(type,team='azure'){
     const candidate={id:this.nextId,type,team,stars:1,position:{bench:this.freeBench(team)??BENCH_SIZE}};
@@ -73,8 +69,11 @@ export class Campaign {
     this.nextId++;p.gold-=champion.cost;p.shop[slot]=null;
     if(plan.unit.stars===3){
       const excluded=this.maxedTypes(team);
-      // Replace other copies already in the shop without charging a refresh.
-      p.shop=p.shop.map(offer=>offer&&excluded.has(offer)?pickChampion(CHAMPIONS[offer].cost-1,this.random,excluded):offer);
+      // Return forbidden reservations together before drawing same-cost replacements.
+      const replacements=p.shop.map((offer,slot)=>offer&&excluded.has(offer)?{slot,cost:CHAMPIONS[offer].cost}:null).filter(Boolean);
+      for(const {slot} of replacements)p.shop[slot]=null;
+      const stock=this.poolStock();
+      for(const {slot,cost} of replacements)p.shop[slot]=drawChampion(cost,this.random,excluded,stock);
     }
     if(team==='azure')this.rebuildBattle();
     return p.roster.find(u=>u.id===plan.unit.id);
@@ -82,7 +81,7 @@ export class Campaign {
   refresh(team='azure') {
     this.economyEditable();const p=this.players[team];
     if(p.gold<2)throw new Error('You need 2 gold to refresh the shop.');
-    p.gold-=2;p.shop=rollShop(p.level,this.random,this.maxedTypes(team));
+    p.gold-=2;this.rollOffers(team);
   }
   setShopLocked(locked,team='azure'){
     this.economyEditable();
@@ -163,10 +162,7 @@ export class Campaign {
   nextRound() {
     if(this.phase!=='result')throw new Error(this.phase==='finished'?'The match is over. Start a new match.':'Finish this round first.');
     this.round++;this.result=null;this.phase='preparation';
-    for(const p of Object.values(this.players)){
-      if(!p.retainShop)p.shop=rollShop(p.level,this.random,this.maxedTypes(p.team));
-      p.retainShop=false;
-    }
+    this.refreshRoundShops();
     this.prepareBot();this.rebuildBattle();
   }
   autoDeploy(team='azure'){
