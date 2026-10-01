@@ -6,10 +6,11 @@ export function combineCopies(roster,type,trackedId){
     let matches;
     while((matches=result.filter(u=>u.type===type&&u.stars===stars)).length>=3){
       // A deployed copy survives on its existing tile; otherwise retain the oldest copy.
-      matches.sort((a,b)=>Number(a.position.bench!==undefined)-Number(b.position.bench!==undefined)||a.id-b.id);
+      matches.sort((a,b)=>Number(!!a.overflow)-Number(!!b.overflow)||Number(a.position.bench!==undefined)-Number(b.position.bench!==undefined)||a.id-b.id);
       const [survivor,...consumed]=matches.slice(0,3),removed=new Set(consumed.map(u=>u.id));
       if(removed.has(trackedId))trackedId=survivor.id;
-      survivor.stars++;
+      const copies=[survivor,...consumed].reduce((n,u)=>n+(u.poolCopies??3**(u.stars-1)),0);
+      survivor.stars++;survivor.poolCopies=copies;
       for(let i=result.length-1;i>=0;i--)if(removed.has(result[i].id))result.splice(i,1);
       upgrades.push({id:survivor.id,type,stars:survivor.stars});
     }

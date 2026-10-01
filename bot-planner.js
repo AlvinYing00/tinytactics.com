@@ -11,14 +11,16 @@ export const BOT_STYLES=[
   {id:'flexible',name:'Flexible strongest-board',element:'electric',class:'duelist'},
   {id:'late',name:'High-cost late-game',element:'fire',class:'ranger'}
 ];
-const deployed=u=>u.position.bench===undefined;
+const deployed=u=>u.position.bench===undefined&&!u.overflow;
 const clone=value=>JSON.parse(JSON.stringify(value));
 
 // Reuse the same purchase/combination rules as the human. No free cards or gold.
 export function planBot(league,player,opponent,{positionOnly=false}={}){
   const style=player.style,p=clone(player),difficulty=p.difficulty||'normal',easy=difficulty==='easy',strong=difficulty==='strong';
   const ctx=Object.create(Campaign.prototype);
-  Object.assign(ctx,{players:{azure:opponent||{roster:[]},ember:p},phase:'preparation',round:league.round,random:league.random,nextId:league.nextId,levelCosts:league.levelCosts,botElement:style.element});
+  Object.assign(ctx,{players:{azure:opponent||{roster:[]},ember:p},mode:league.mode,phase:'preparation',round:league.round,random:league.random,nextId:league.nextId,levelCosts:league.levelCosts,botElement:style.element});
+  const arrangeOverflow=()=>ctx.arrangeGifts(p.roster,new Set(p.roster.filter(u=>u.overflow).map(u=>u.id)));
+  arrangeOverflow();
   // Only the shop system sees shared ownership; strategic scoring still uses scoutable units.
   ctx.poolPlayers=()=>Object.values(league.players).map(owner=>owner===player?p:owner);
   ctx.teamScore=units=>{
@@ -42,8 +44,10 @@ export function planBot(league,player,opponent,{positionOnly=false}={}){
     const mayLevel=()=>styleId!=='reroller'||p.level<5||p.roster.some(u=>u.stars===3)||league.stage>=4;
     const levelReserve=styleId==='leveler'?2:styleId==='late'?(p.level<8?10:30):reserve;
     const huntUpgrade=p.shop.some(type=>type&&p.roster.filter(u=>u.type===type&&u.stars===1).length>=2);
-    const levelNow=!strong||!huntUpgrade||p.gold>=ctx.levelPrice('ember')+levelReserve+5;
-    while(levelNow&&p.level<10&&mayLevel()&&p.gold>=ctx.levelPrice('ember')+levelReserve){
+    const paysHP=ctx.levelCurrency('ember')==='HP';
+    const levelNow=!strong||!huntUpgrade||paysHP||p.gold>=ctx.levelPrice('ember')+levelReserve+5;
+    const canInvestInLevel=()=>ctx.canLevelUp('ember')&&(paysHP?p.hp-ctx.levelPrice('ember')>=(urgent?20:40):p.gold>=ctx.levelPrice('ember')+levelReserve);
+    while(levelNow&&mayLevel()&&canInvestInLevel()){
       if(easy&&league.random()<.3)break;
       ctx.levelUp('ember');
     }
@@ -66,28 +70,32 @@ export function planBot(league,player,opponent,{positionOnly=false}={}){
         ctx.buy(choices[0].slot,'ember');
       }
       const ids=new Set(ctx.bestTeam().map(u=>u.id));let bench=0;
-      for(const u of p.roster)u.position=ids.has(u.id)?{x:bench++%8,y:4}:{bench:0};
-      let slot=0;for(const u of [...p.roster].filter(u=>!ids.has(u.id))){
+      for(const u of p.roster.filter(u=>!u.overflow))u.position=ids.has(u.id)?{x:bench++%8,y:4+Math.floor((bench-1)/8)}:{bench:0};
+      let slot=0;for(const u of [...p.roster].filter(u=>!u.overflow&&!ids.has(u.id))){
         const useful=p.roster.some(v=>ids.has(v.id)&&v.type===u.type&&v.stars<3);
         if(useful&&slot<6)u.position={bench:slot++};else ctx.sell(u.id,'ember');
       }
+      arrangeOverflow();
     };
     buyBest();
     const styleRolls=styleId==='reroller'?8:urgent?5:styleId==='vertical'?3:styleId==='late'&&p.level>=8?5:2;
     const maxRolls=easy?Math.min(3,styleRolls):styleRolls+(strong&&urgent?2:0);
-    for(let roll=0;roll<maxRolls&&p.gold>=2;roll++){
+    for(let roll=0;roll<maxRolls&&p.gold>=ctx.refreshPrice('ember');roll++){
+      const price=ctx.refreshPrice('ember');
       const lacks=p.roster.filter(deployed).length<p.level;
-      if(!lacks&&p.gold-2<reserve)break;
-      if(styleId==='economist'&&!urgent&&!lacks&&p.gold<52)break;
+      if(price>0&&!lacks&&p.gold-price<reserve)break;
+      if(price>0&&styleId==='economist'&&!urgent&&!lacks&&p.gold<50+price)break;
       ctx.refresh('ember');buyBest();
     }
   }
   const chosen=ctx.bestTeam(),ids=new Set(chosen.map(u=>u.id));let slot=0;
-  for(const u of p.roster)if(!ids.has(u.id))u.position={bench:slot++};
+  for(const u of p.roster)if(!u.overflow&&!ids.has(u.id))u.position={bench:slot++};
   const formation=chooseFormation(chosen,opponent?.roster||[],{difficulty});
   const positions=new Map(formation.units.map(u=>[u.id,u.position]));
   for(const u of p.roster)if(positions.has(u.id))u.position=positions.get(u.id);
+  arrangeOverflow();
   player.lastFormation=formation.decision;
   player.roster=p.roster.map(u=>({...u,team:player.team}));player.gold=p.gold;player.level=p.level;player.xp=p.xp;player.shop=p.shop;
+  player.hp=p.hp;player.freeRerolls=p.freeRerolls;player.purchaseBoosts=p.purchaseBoosts;
   league.nextId=ctx.nextId;
 }

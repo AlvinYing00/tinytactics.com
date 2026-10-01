@@ -125,7 +125,7 @@ export function createTraitHud({rail,dialog,ambience,enemyAmbience,onOpen,onClos
     const nextUnits=new Map();
     for(const u of units){
       const view=views.get(u.id);if(!view||u.team!=='azure')continue;
-      const active=u.hp>0&&!u.eliminated?(CHAMPIONS[u.type]?.traits||[]).filter(t=>traitTier(t,traits.counts[t])):[];
+      const active=u.hp>0&&!u.eliminated&&!u.overflow?(CHAMPIONS[u.type]?.traits||[]).filter(t=>traitTier(t,traits.counts[t])):[];
       const element=active[0],tier=active.map(t=>`${t}:${traitTier(t,traits.counts[t])}`).join();
       const position=preparation?`${u.x},${u.y}`:'combat',prior=previousUnits.get(u.id);
       view.classList.toggle('trait-awakened',!!tier);

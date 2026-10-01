@@ -4,13 +4,14 @@ import {Battle} from './engine.js';
 import {CHAMPIONS,championStats,teamTraits} from './catalog.js';
 import {BOT_STYLES,planBot} from './bot-planner.js';
 import {COMBAT_CATALOG,encounter} from './encounters.js';
+import {AUGMENT_ROUNDS,createChoice,selectAugment,rerollAugment,chooseBotAugment,augmentRoundStart,augmentBeforeFight,augmentRoundEnd,interestFor} from './augments.js';
 
-export const LEVEL_COSTS=Object.freeze({3:6,4:10,5:20,6:36,7:60,8:68,9:68});
+export const LEVEL_COSTS=Object.freeze({3:6,4:10,5:20,6:36,7:60,8:68,9:68,10:76});
 export const stageDamage=stage=>[2,2,5,8,10,12,17][Math.min(6,Math.max(0,stage-1))];
 export const streakBonus=count=>Math.abs(count)>=6?3:Math.abs(count)>=5?2:Math.abs(count)>=2?1:0;
 export const PREPARATION_SECONDS=30,FACEOFF_SECONDS=3,INTERMISSION_SECONDS=1.5;
 const clone=value=>JSON.parse(JSON.stringify(value));
-const onBoard=u=>u.position.bench===undefined;
+const onBoard=u=>u.position.bench===undefined&&!u.overflow;
 const names=['Azure','Cinder','Pearl','Volt','Granite','Zephyr','Prism','Solstice'];
 const blankOpponent={team:'neutral',name:'Opponent arrives at combat',hp:null,level:0,roster:[],virtualTraits:{},gold:0};
 
@@ -28,7 +29,7 @@ export class League extends Campaign {
     for(let i=difficulties.length-1;i>0;i--){const j=Math.floor(this.random()*(i+1));[difficulties[i],difficulties[j]]=[difficulties[j],difficulties[i]];}
     for(let i=0;i<8;i++){
       const id=i===0?'azure':`bot-${i}`;
-      const p={team:id,name:names[i],bot:i>0,style:i?BOT_STYLES[i-1]:null,difficulty:i?difficulties[i-1]:null,hp:100,gold:10,level:3,xp:0,lossStreak:0,winStreak:0,streak:0,virtualTraits:{},roster:[],shop:[],shopLocked:false,retainShop:false,lastIncome:null,placement:null};
+      const p={team:id,name:names[i],bot:i>0,style:i?BOT_STYLES[i-1]:null,difficulty:i?difficulties[i-1]:null,hp:100,gold:10,level:3,xp:0,lossStreak:0,winStreak:0,streak:0,virtualTraits:{},roster:[],shop:[],shopLocked:false,retainShop:false,lastIncome:null,placement:null,augments:[],augmentChoice:null,freeRerolls:0,purchaseBoosts:{}};
       this.players[id]=p;
     }
     if(withRoster){
@@ -57,6 +58,10 @@ export class League extends Campaign {
   }
   canTrade(){return ['preparation','faceoff','combat','intermission'].includes(this.phase)&&this.player.hp>0;}
   economyEditable(){if(!this.canTrade())throw new Error('Trading is available while you are still in the match.');}
+  movementEditable(unit,target){
+    if(this.phase==='preparation')return this.editable();
+    if(!this.canTrade()||unit?.position.bench===undefined||target.bench===undefined)throw new Error('During fights, rearrange your bench or sell champions. Board positions change during preparation.');
+  }
   setShopLocked(locked,team='azure'){
     super.setShopLocked(locked,team);
     if(this.phase==='intermission')this.players[team].retainShop=locked;
@@ -86,12 +91,21 @@ export class League extends Campaign {
     if(this.player.hp>0)this.viewId='azure';
     this.pairs=this.isMonsterRound?this.livingPlayers.map(p=>({azureId:p.team,monster:true})):this.makePairs();
     if(this.round>1){this.refreshRoundShops();for(const p of this.livingPlayers)p.shopLocked=false;}
+    for(const p of this.livingPlayers){
+      augmentRoundStart(this,p);
+      if(AUGMENT_ROUNDS.includes(this.round)&&p.augmentOfferRound!==this.round){
+        p.augmentOfferRound=this.round;p.augmentChoice=createChoice(this,p);
+        if(p.bot&&p.augmentChoice)chooseBotAugment(this,p);
+      }
+    }
     this.botActions=this.livingPlayers.filter(p=>p.bot).flatMap(p=>{
       const times=p.difficulty==='easy'?[[18,false]]:p.difficulty==='normal'?[[10,false],[22,true]]:[[5,false],[15,true],[24,false],[29,true]];
       return times.map(([at,positionOnly])=>({id:p.team,at,positionOnly,done:false}));
     }).sort((a,b)=>a.at-b.at);
     this.rebuildBattle();
   }
+  chooseAugment(id,team='azure'){return selectAugment(this,team,id);}
+  rerollAugment(slot,team='azure'){return rerollAugment(this,team,slot);}
   opponentFor(id){const pair=this.pairs.find(p=>p.azureId===id||(!p.ghost&&p.emberId===id));return pair?.monster?null:this.players[pair?.azureId===id?pair.emberId:pair?.azureId];}
   visibleOpponent(id){const p=this.opponentFor(id);return p?{team:p.team,roster:clone(p.roster.filter(onBoard))}:null;}
   prepareBots(positionOnly=false,ids=null){
@@ -101,13 +115,22 @@ export class League extends Campaign {
     this.botsPrepared=true;this.rebuildBattle();
   }
   revealOpponents(){
+    // Augments share preparation's deadline. Timeout selects from the current cards.
+    for(const p of this.livingPlayers){
+      const choice=p.augmentChoice;
+      if(choice?.round===this.round&&!choice.selected){
+        const id=choice.offers[Math.min(choice.offers.length-1,Math.floor(this.random()*choice.offers.length))];
+        this.chooseAugment(id,p.team);
+      }
+    }
     if(!this.botsPrepared)this.prepareBots();
+    for(const p of this.livingPlayers)augmentBeforeFight(this,p);
     this.lastAutoDeployed=this.player.hp>0?this.autoDeploy('azure'):[];
     const roundRosters=Object.fromEntries(this.livingPlayers.map(p=>[p.team,clone(p.roster.filter(onBoard))]));
     this.matches=this.pairs.map((pair,index)=>{
       const monster=pair.monster?encounter(this.stage,this.random):null;
       const sides={azure:pair.azureId,ember:pair.emberId};
-      const b=new Battle({catalog:COMBAT_CATALOG,cap:10,timeout:Infinity,seed:(this.round*2654435761+index*7919)>>>0,
+      const b=new Battle({catalog:COMBAT_CATALOG,teamCaps:{azure:this.maxLevel(pair.azureId),ember:pair.monster?10:this.maxLevel(pair.emberId)},timeout:Infinity,seed:(this.round*2654435761+index*7919)>>>0,
         traitCounts:{azure:this.players[pair.azureId].virtualTraits,ember:pair.monster?{}:this.players[pair.emberId].virtualTraits},
         onGold:(team,amount)=>{if(team==='ember'&&(pair.ghost||pair.monster))return;this.players[sides[team]].gold+=amount;}});
       for(const side of ['azure','ember'])for(const owned of side==='ember'&&monster?monster.roster:roundRosters[sides[side]]){
@@ -131,8 +154,8 @@ export class League extends Campaign {
   matchFor(id){return this.matches.find(m=>m.azureId===id||(!m.ghost&&!m.monster&&m.emberId===id));}
   previewFor(id){
     if(!this.previewBoards.has(id)){
-      const b=new Battle({catalog:COMBAT_CATALOG,cap:10});
-      for(const own of this.players[id].roster.filter(onBoard)){const u=b.place(own.type,'azure',own.position.x,own.position.y,own.stars);u.id=own.id;}
+      const b=new Battle({catalog:COMBAT_CATALOG,previewOnly:true,teamCaps:{azure:this.maxLevel(id)}});
+      for(const own of this.players[id].roster.filter(u=>u.position.bench===undefined)){const u=b.place(own.type,'azure',own.position.x,own.position.y,own.stars);u.id=own.id;u.overflow=!!own.overflow;}
       this.previewBoards.set(id,b);
     }
     return this.previewBoards.get(id);
@@ -167,8 +190,9 @@ export class League extends Campaign {
         const healthBefore=p.hp,healing=m.monster&&win?Math.min(100-p.hp,m.monster.reward):0;
         p.hp=Math.max(0,Math.min(100,p.hp-damage+healing));
         const loss=m.monster?!win:!win&&!draw;p.winStreak=win?p.winStreak+1:0;p.lossStreak=loss?p.lossStreak+1:0;p.streak=p.winStreak||-p.lossStreak;
-        const income={base:5,interest:Math.min(5,Math.floor(p.gold/10)),win:win?1:0,streak:streakBonus(p.streak)};income.total=income.base+income.interest+income.win+income.streak;
+        const income={base:5,interest:interestFor(p),win:win?1:0,streak:streakBonus(p.streak)};income.total=income.base+income.interest+income.win+income.streak;
         p.gold+=income.total;p.lastIncome=income;const xp=this.gainExperience(id,2);p.retainShop=p.shopLocked;p.shopLocked=false;
+        augmentRoundEnd(p);
         this.results[id]={outcome:win?'win':loss?'loss':'draw',damage,healing,survivors,income,xp,healthBefore,finalHealth:healthBefore-damage,monster:!!m.monster,ghost:!!m.ghost,opponent:other==='ember'?m.emberId:m.azureId};
       }
     }

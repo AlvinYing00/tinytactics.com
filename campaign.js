@@ -2,13 +2,14 @@ import { Battle } from './engine.js';
 import { CHAMPIONS, teamTraits, championStats, sellValue } from './catalog.js';
 import { combineCopies } from './combinations.js';
 import { SHOP_SIZE, rollShop, availablePool, drawChampion } from './shop.js';
+import {maxLevel,levelCurrency,hasAugment,refreshPrice,freeRoundRerolls} from './augments.js';
 export { SHOP_SIZE, shopOdds, rollShop } from './shop.js';
 
 export const LEVEL_COSTS = Object.freeze({3:10,4:20,5:30,6:40,7:55,8:65,9:80});
 export const BENCH_SIZE = 9;
 export const stageDamage = stage => Math.min(6,stage+1);
 export const streakBonus = losses => losses>=5?3:losses===4?2:losses===3?1:0;
-const onBoard = u => u.position.bench===undefined;
+const onBoard = u => u.position.bench===undefined&&!u.overflow;
 const samePosition = (a,b) => a.bench!==undefined ? a.bench===b.bench : b.bench===undefined&&a.x===b.x&&a.y===b.y;
 const traitScore=t=>t.burnPercent*70+t.healPercent*50+t.shieldPercent*6+t.reflectPercent*15+(t.inheritanceHpPercent+t.inheritanceAttackPercent)*25+t.coinChance*30+t.dodgeChance*20+(t.criticalEvery?12/t.criticalEvery:0)+(t.meteor?15:0)+(t.tsunami?25:0)+(t.goldenShield?6:0)+(t.thunder?15:0)+(t.windWall?15:0)+t.classes.sentinel.reduction*10+t.classes.duelist.cap*6+t.classes.ranger.damageBonus*8+t.classes.ranger.rangeBonus*2+t.classes.support.targets*t.classes.support.healPercent*12+t.classes.support.shieldPercent*20+t.classes.assassin.damageBonus*6+t.classes.assassin.dodgeChance*6+t.classes.assassin.shieldBypass*4;
 
@@ -31,7 +32,8 @@ export class Campaign {
   canTrade(){return this.phase==='preparation';}
   economyEditable(){this.editable();}
   deployed(team='azure'){return this.players[team].roster.filter(onBoard);}
-  bench(team='azure'){return this.players[team].roster.filter(u=>!onBoard(u));}
+  bench(team='azure'){return this.players[team].roster.filter(u=>u.position.bench!==undefined);}
+  overflow(team='azure'){return this.players[team].roster.filter(u=>u.overflow);}
   traits(team='azure'){return teamTraits(this.deployed(team),CHAMPIONS,this.players[team].virtualTraits);}
   maxedTypes(team='azure'){return new Set(this.players[team].roster.filter(u=>u.stars===3).map(u=>u.type));}
   poolPlayers(){return Object.values(this.players);}
@@ -48,13 +50,51 @@ export class Campaign {
     for(const p of players){if(!p.retainShop)this.rollOffers(p.team);p.retainShop=false;}
   }
   freeBench(team){const used=new Set(this.bench(team).map(u=>u.position.bench));return Array.from({length:BENCH_SIZE},(_,i)=>i).find(i=>!used.has(i));}
+  maxLevel(team='azure'){return maxLevel(this.players[team]);}
+  levelCurrency(team='azure'){return levelCurrency(this.players[team]);}
+  xpRequired(team='azure'){const p=this.players[team];return (this.levelCosts||LEVEL_COSTS)[p.level]??(p.level===10?76:0);}
+  refreshPrice(team='azure'){return refreshPrice(this,this.players[team]);}
+  canLevelUp(team='azure'){
+    const p=this.players[team],cost=this.levelPrice(team);return p.level<this.maxLevel(team)&&(this.levelCurrency(team)==='HP'?p.hp>cost:p.gold>=cost);
+  }
+  arrangeGifts(roster,newIds){
+    const used=new Set(roster.filter(u=>!newIds.has(u.id)&&u.position.bench!==undefined).map(u=>u.position.bench));
+    const occupied=new Set(roster.filter(u=>!newIds.has(u.id)&&u.position.bench===undefined).map(u=>`${u.position.x},${u.position.y}`));
+    for(const u of roster.filter(u=>newIds.has(u.id))){
+      const slot=Array.from({length:BENCH_SIZE},(_,i)=>i).find(i=>!used.has(i));
+      if(slot!==undefined){u.position={bench:slot};delete u.overflow;used.add(slot);}
+      else{const tile=[7,6,5,4].flatMap(y=>Array.from({length:8},(_,x)=>({x,y}))).find(t=>!occupied.has(`${t.x},${t.y}`));
+        if(!tile)throw new Error('Make room for the gifted champions first.');u.position=tile;u.overflow=true;occupied.add(`${tile.x},${tile.y}`);}
+    }
+    return roster;
+  }
+  giftChampion(team,{type,cost,element,combatRole}){
+    const p=this.players[team];
+    if(!type){
+      const choices=Object.values(CHAMPIONS).filter(c=>c.cost===cost&&(!element||c.element===element)&&(!combatRole||c.combatRole===combatRole));
+      const nonMax=choices.filter(c=>!this.maxedTypes(team).has(c.id)),eligible=nonMax.length?nonMax:choices;
+      type=eligible[Math.min(eligible.length-1,Math.floor(this.random()*eligible.length))]?.id;
+    }
+    if(!CHAMPIONS[type])throw new Error('No champion matches this gift.');
+    // Augment gifts are generated copies: they neither need nor reserve bag stock.
+    const id=this.nextId++,unit={id,type,team:p.team,stars:1,poolCopies:0,position:{bench:BENCH_SIZE},overflow:true};
+    const plan=combineCopies([...p.roster,unit],type,id);p.roster=this.arrangeGifts(plan.roster,new Set([id]));
+    this.replaceMaxedOffers(team);this.rebuildBattle();return p.roster.find(u=>u.id===plan.unit.id);
+  }
+  sellOverflow(team){
+    const p=this.players[team],sold=this.overflow(team);p.gold+=sold.reduce((n,u)=>n+sellValue(u),0);p.roster=p.roster.filter(u=>!u.overflow);return sold;
+  }
   purchasePlan(type,team='azure'){
-    const candidate={id:this.nextId,type,team,stars:1,position:{bench:this.freeBench(team)??BENCH_SIZE}};
-    return combineCopies([...this.players[team].roster,candidate],type,candidate.id);
+    const p=this.players[team],boost=p.purchaseBoosts?.[CHAMPIONS[type].cost],count=boost?.count||1,stars=boost?.stars||1;
+    // Only the purchased card comes from the shop. Every bonus copy is gifted.
+    const candidates=Array.from({length:count},(_,i)=>({id:this.nextId+i,type,team:p.team,stars,...(boost?{poolCopies:i===0?1:0,overflow:true}:{}),position:{bench:(this.freeBench(team)??BENCH_SIZE)+i}}));
+    const plan=combineCopies([...p.roster,...candidates],type,candidates[0].id);plan.added=count;plan.boost=boost;
+    if(boost)this.arrangeGifts(plan.roster,new Set(candidates.map(u=>u.id)));
+    return plan;
   }
   canBuy(slot,team='azure'){
     const p=this.players[team],type=p.shop[slot];
-    return this.canTrade()&&!!type&&!this.maxedTypes(team).has(type)&&p.gold>=CHAMPIONS[type].cost&&this.purchasePlan(type,team).roster.filter(u=>!onBoard(u)).length<=BENCH_SIZE;
+    return this.canTrade()&&!!type&&!this.maxedTypes(team).has(type)&&p.gold>=CHAMPIONS[type].cost&&this.purchasePlan(type,team).roster.filter(u=>u.position.bench!==undefined).length<=BENCH_SIZE;
   }
   buy(slot,team='azure') {
     this.economyEditable();const p=this.players[team];
@@ -63,11 +103,18 @@ export class Campaign {
     if(this.maxedTypes(team).has(type))throw new Error(`${champion.name} is already at 3 stars.`);
     if(p.gold<champion.cost)throw new Error(`You need ${champion.cost} gold to recruit ${champion.name}.`);
     const plan=this.purchasePlan(type,team);
-    if(plan.roster.filter(u=>!onBoard(u)).length>BENCH_SIZE)throw new Error('Your bench is full. Deploy, combine or sell a champion first.');
+    if(plan.roster.filter(u=>u.position.bench!==undefined).length>BENCH_SIZE)throw new Error('Your bench is full. Deploy, combine or sell a champion first.');
     const existing=new Map(p.roster.map(u=>[u.id,u]));
     p.roster=plan.roster.map(u=>{const old=existing.get(u.id);if(old){Object.assign(old,u);return old;}return u;});
-    this.nextId++;p.gold-=champion.cost;p.shop[slot]=null;
-    if(plan.unit.stars===3){
+    this.nextId+=plan.added;p.gold-=champion.cost;p.shop[slot]=null;
+    if(plan.boost)delete p.purchaseBoosts[champion.cost];
+    this.replaceMaxedOffers(team);
+    if(team==='azure')this.rebuildBattle();
+    return p.roster.find(u=>u.id===plan.unit.id);
+  }
+  replaceMaxedOffers(team){
+    const p=this.players[team];
+    if(this.maxedTypes(team).size){
       const excluded=this.maxedTypes(team);
       // Return forbidden reservations together before drawing same-cost replacements.
       const replacements=p.shop.map((offer,slot)=>offer&&excluded.has(offer)?{slot,cost:CHAMPIONS[offer].cost}:null).filter(Boolean);
@@ -75,13 +122,11 @@ export class Campaign {
       const stock=this.poolStock();
       for(const {slot,cost} of replacements)p.shop[slot]=drawChampion(cost,this.random,excluded,stock);
     }
-    if(team==='azure')this.rebuildBattle();
-    return p.roster.find(u=>u.id===plan.unit.id);
   }
   refresh(team='azure') {
     this.economyEditable();const p=this.players[team];
-    if(p.gold<2)throw new Error('You need 2 gold to refresh the shop.');
-    p.gold-=2;this.rollOffers(team);
+    const price=this.refreshPrice(team);if(p.gold<price)throw new Error('You need 2 gold to refresh the shop.');
+    p.gold-=price;if(price===0&&!freeRoundRerolls(this,p))p.freeRerolls--;this.rollOffers(team);return price;
   }
   setShopLocked(locked,team='azure'){
     this.economyEditable();
@@ -90,32 +135,35 @@ export class Campaign {
   }
   levelUp(team='azure') {
     this.editable();const p=this.players[team],cost=this.levelPrice(team);
-    if(p.level===10)throw new Error('Level 10 is the maximum level.');
-    if(p.gold<cost)throw new Error(`You need ${cost} gold to reach level ${p.level+1}.`);
-    p.gold-=cost;p.level++;p.xp=0;return p.level;
+    if(p.level>=this.maxLevel(team))throw new Error(`Level ${this.maxLevel(team)} is the maximum level.`);
+    const currency=this.levelCurrency(team);
+    if(!this.canLevelUp(team))throw new Error(currency==='HP'?'This level-up would leave you with no HP.':`You need ${cost} gold to reach level ${p.level+1}.`);
+    if(currency==='HP')p.hp-=cost;else p.gold-=cost;p.level++;p.xp=0;return p.level;
   }
   levelPrice(team='azure'){
-    const p=this.players[team];return p.level<10?Math.max(0,(this.levelCosts||LEVEL_COSTS)[p.level]-p.xp):0;
+    const p=this.players[team],rate=hasAugment(p,'death-contract')?.5:hasAugment(p,'level-discount')?.75:1;return p.level<this.maxLevel(team)?Math.max(0,this.xpRequired(team)-p.xp)*rate:0;
   }
   gainExperience(team,amount){
     const p=this.players[team],before=p.level;
-    if(p.level===10)return {gained:0,levels:0,level:10,xp:0};
+    const cap=this.maxLevel(team);if(p.level>=cap)return {gained:0,levels:0,level:p.level,xp:0};
     p.xp+=amount;
-    const costs=this.levelCosts||LEVEL_COSTS;
-    while(p.level<10&&p.xp>=costs[p.level]){p.xp-=costs[p.level];p.level++;}
-    if(p.level===10)p.xp=0;
+    while(p.level<cap&&p.xp>=this.xpRequired(team)){p.xp-=this.xpRequired(team);p.level++;}
+    if(p.level===cap)p.xp=0;
     return {gained:amount,levels:p.level-before,level:p.level,xp:p.xp};
   }
+  movementEditable(){this.editable();}
   move(id,target) {
-    this.editable();const p=this.player,u=p.roster.find(v=>v.id===id);
+    const p=this.player,u=p.roster.find(v=>v.id===id);this.movementEditable(u,target);
     if(!u)throw new Error('Select one of your champions.');
     const toBench=target.bench!==undefined;
     if(toBench){if(!Number.isInteger(target.bench)||target.bench<0||target.bench>=BENCH_SIZE)throw new Error('Choose a bench slot.');}
     else if(!Number.isInteger(target.x)||!Number.isInteger(target.y)||target.x<0||target.x>7||target.y<4||target.y>7)throw new Error('Deploy in your lower four rows.');
     const other=p.roster.find(v=>samePosition(v.position,target));
     if(other===u)return null;
+    if((u.overflow||other?.overflow)&&other)throw new Error('Move an overflow gift to an empty bench slot or an open deployment slot.');
     if(!toBench&&!onBoard(u)&&!other&&this.deployed().length>=p.level)throw new Error(`Level ${p.level} allows ${p.level} champions. Swap with a teammate or level up.`);
     const origin={...u.position};u.position=toBench?{bench:target.bench}:{x:target.x,y:target.y};
+    delete u.overflow;
     if(other)other.position=origin;
     this.rebuildBattle();return other||null;
   }
@@ -197,7 +245,7 @@ export class Campaign {
       +Math.min(front,Math.max(1,Math.floor(units.length/3)))*2+Math.min(ranged,2)*1.5-(units.length-distinct.size)*1.5;
   }
   bestTeam(roster=this.opponent.roster) {
-    const chosen=[],remaining=[...roster],limit=Math.min(this.opponent.level,roster.length);
+    const chosen=[],remaining=roster.filter(u=>!u.overflow),limit=Math.min(this.opponent.level,remaining.length);
     while(chosen.length<limit){remaining.sort((a,b)=>this.teamScore([...chosen,b])-this.teamScore([...chosen,a])||a.id-b.id);chosen.push(remaining.shift());}
     // Local replacements preserve useful cheap trait members over raw cost upgrades.
     for(let pass=0;pass<3;pass++) {

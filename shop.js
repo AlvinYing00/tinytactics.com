@@ -17,6 +17,7 @@ export function shopOdds(level){
   return [...LEVEL_ODDS[level-1]];
 }
 export const ownedCopies = unit => 3**((unit.stars||1)-1);
+export const reservedCopies = unit => unit.poolCopies??ownedCopies(unit);
 
 // Derive reservations from persistent ownership, never from combat clones. This also
 // returns sold cards and eliminated players' copies without a second mutable ledger.
@@ -25,7 +26,7 @@ export function availablePool(players=[],returnedShops=new Set()){
   const subtract=(type,count)=>{if(stock.has(type))stock.set(type,stock.get(type)-count);};
   for(const player of players){
     if(player.hp<=0)continue;
-    for(const unit of player.roster||[])subtract(unit.type,ownedCopies(unit));
+    for(const unit of player.roster||[])subtract(unit.type,reservedCopies(unit));
     if(!returnedShops.has(player))for(const type of player.shop||[])if(type)subtract(type,1);
   }
   return stock;

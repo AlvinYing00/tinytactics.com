@@ -110,7 +110,7 @@ export const sellValue = unit => CHAMPIONS[unit.type].cost * 3 ** ((unit.stars||
 export function teamTraits(units,catalog=CHAMPIONS,virtual={}){
   const counts=Object.fromEntries([...ELEMENTS,...CLASS_IDS].map(t=>[t,0]));
   const unique=new Set();
-  for(const u of units){if(u.position?.bench!==undefined||unique.has(u.type))continue;unique.add(u.type);for(const trait of catalog[u.type]?.traits||[])counts[trait]++;}
+  for(const u of units){if(u.overflow||u.position?.bench!==undefined||unique.has(u.type))continue;unique.add(u.type);for(const trait of catalog[u.type]?.traits||[])counts[trait]++;}
   const boardCounts={...counts},virtualCounts=virtualTraitCounts(virtual);
   for(const element of ELEMENTS)counts[element]+=virtualCounts[element];
   const fire=counts.fire,water=counts.water,mountain=counts.mountain,electric=counts.electric,air=counts.air;

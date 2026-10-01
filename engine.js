@@ -8,8 +8,10 @@ export const distance = (a,b) => Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
 const key = p => `${p.x},${p.y}`;
 const clone = value => JSON.parse(JSON.stringify(value));
 export class Battle {
-  constructor({width=8,height=8,cap=10,timeout=600,catalog=CHAMPIONS,seed=1,random,onGold,traitCounts={}}={}) {
-    this.width=width; this.height=height; this.cap=Math.min(10,cap); this.timeout=timeout; this.catalog=catalog;
+  constructor({width=8,height=8,cap=10,teamCaps={},previewOnly=false,timeout=600,catalog=CHAMPIONS,seed=1,random,onGold,traitCounts={}}={}) {
+    this.width=width; this.height=height; this.cap=Math.min(10,cap); this.timeout=timeout; this.catalog=catalog;this.previewOnly=previewOnly;
+    // An explicit per-team cap is granted by the league's level-11 Augment only.
+    this.teamCaps=Object.fromEntries(['azure','ember'].map(team=>[team,Number.isInteger(teamCaps[team])?Math.max(1,Math.min(11,teamCaps[team])):this.cap]));
     this.traitCounts=Object.fromEntries(['azure','ember'].map(team=>[team,virtualTraitCounts(traitCounts[team])]));
     this.units=[]; this.nextId=1; this.phase='preparation'; this.outcome=null;
     this.tick=0; this.accumulator=0; this.events=[]; this.roster=null;
@@ -20,7 +22,7 @@ export class Battle {
   inside(x,y) { return Number.isInteger(x)&&Number.isInteger(y)&&x>=0&&x<this.width&&y>=0&&y<this.height; }
   home(team,y) { return team==='azure' ? y>=this.height/2 : y<this.height/2; }
   at(x,y) { return this.units.find(u=>u.hp>0&&!u.eliminated&&!u.sweptBy&&u.x===x&&u.y===y); }
-  living(team) { return this.units.filter(u=>u.hp>0&&!u.eliminated&&(!team||u.team===team)); }
+  living(team) { return this.units.filter(u=>u.hp>0&&!u.eliminated&&!u.overflow&&(!team||u.team===team)); }
   editable() { if(this.phase!=='preparation') throw new Error('Finish the battle or reset before changing your formation.'); }
   validate(team,x,y,ignoreId) {
     this.editable();
@@ -33,7 +35,8 @@ export class Battle {
   place(type,team,x,y,stars=1) {
     this.validate(team,x,y);
     const stats=championStats(type,stars,this.catalog);
-    if(this.living(team).length>=this.cap) throw new Error(`Your squad is full. Remove a champion first (${this.cap} maximum).`);
+    const limit=this.teamCaps[team];
+    if(!this.previewOnly&&this.living(team).length>=limit) throw new Error(`Your squad is full. Remove a champion first (${limit} maximum).`);
     const u={id:this.nextId++,type,team,x,y,stars,hp:stats.hp,maxHp:stats.hp,attackDamage:stats.damage,damageType:stats.damageType||'physical',shield:0,maxShield:0,goldenUntil:0,stunnedUntil:0,basicAttacks:0,targetId:null,attackReady:0,moveReady:0,damageDealt:0,kills:0};
     this.units.push(u); return u;
   }
@@ -58,6 +61,7 @@ export class Battle {
   remove(id) { this.editable(); this.units=this.units.filter(u=>u.id!==id); }
   start() {
     this.editable();
+    if(this.previewOnly)throw new Error('This formation preview cannot start combat.');
     if(!this.living('azure').length||!this.living('ember').length) throw new Error('Both teams need at least one champion.');
     this.roster=clone(this.units); this.phase='combat'; this.tick=0; this.accumulator=0; this.outcome=null;this.events=[];
     this.randomState=this.seed;this.goldEarned={azure:0,ember:0};
