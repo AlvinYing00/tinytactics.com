@@ -71,7 +71,7 @@ export class CombatAugmentEffects {
       const oldMultiplier=hit.criticalMultiplier||1,newMultiplier=Math.max(oldMultiplier,2);
       hit.amount*=newMultiplier/oldMultiplier;hit.critical=true;hit.criticalMultiplier=newMultiplier;
     }
-    hit.royal=this.has(attacker.team,'royal-dancer')&&this.role(attacker,'duelist')&&attacker.basicAttacks>0&&attacker.basicAttacks%10===0;
+    hit.royal=this.has(attacker.team,'royal-dancer')&&this.role(attacker,'duelist')&&attacker.basicAttacks>0&&attacker.basicAttacks%5===0;
     if(hit.royal)hit.amount*=1.5;
     return hit;
   }
