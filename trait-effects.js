@@ -33,7 +33,7 @@ export class TraitEffects {
     return !this.walls.some(w=>this.wallActive(w)&&(from.y<w.y)!==(to.y<w.y));
   }
   applyStun(unit,durationTicks){
-    if(unit.hp<=0||unit.eliminated||this.isGolden(unit))return false;
+    if(unit.hp<=0||unit.eliminated||this.isGolden(unit)||this.battle.augments?.controlImmune(unit))return false;
     unit.stunnedUntil=Math.max(unit.stunnedUntil||0,this.battle.tick+durationTicks);return true;
   }
   prepareAttack(attacker,target){
@@ -45,7 +45,9 @@ export class TraitEffects {
     const dodge=airDodge&&assassinDodge?1-(1-airDodge)*(1-assassinDodge):airDodge||assassinDodge;
     const dodged=!!dodge&&this.battle.random()<dodge;
     this.battle.classes?.completedAttack(attacker);
-    return {attacker,target,critical,dodged,amount:dodged?0:attacker.attackDamage*(this.battle.classes?.basicMultiplier(attacker,target)||1)*(critical?this.teams[attacker.team].criticalMultiplier:1)};
+    const criticalMultiplier=critical?this.teams[attacker.team].criticalMultiplier:1;
+    const hit={attacker,target,critical,criticalMultiplier,dodged,amount:dodged?0:attacker.attackDamage*(this.battle.classes?.basicMultiplier(attacker,target)||1)*criticalMultiplier};
+    return this.battle.augments?.prepareAttack(hit)||hit;
   }
   onAttack(attacker,target,dodged=false){
     const stats=this.battle.catalog[attacker.type],team=this.teams[attacker.team];
@@ -108,7 +110,7 @@ export class TraitEffects {
       wave.x=-.5+battle.width*Math.min(1,(battle.tick-wave.startTick)/(wave.endTick-wave.startTick));
       for(const unit of battle.living().filter(u=>u.team!==wave.team)){
         if(!unit.sweptBy&&!wave.hitIds.includes(unit.id)&&!wave.resistedIds.includes(unit.id)&&unit.x<=wave.x){
-          if(this.isGolden(unit)){wave.resistedIds.push(unit.id);continue;}
+          if(this.isGolden(unit)||battle.augments?.controlImmune(unit)){wave.resistedIds.push(unit.id);continue;}
           unit.sweptBy=wave.id;unit.targetId=null;wave.hitIds.push(unit.id);
           battle.events.push({type:'swept',id:unit.id});
         }
@@ -124,7 +126,7 @@ export class TraitEffects {
       if(storm.triggered||battle.tick<storm.impactTick)continue;
       storm.triggered=true;
       for(const u of battle.living().filter(u=>u.team!==storm.team)){
-        hits.push({targetId:u.id,amount:u.maxHp*.25,executeBelow:.25,sourceId:null,kind:'thunder'});
+        hits.push({targetId:u.id,amount:u.maxHp*.25,executeBelow:.25,sourceId:null,sourceTeam:storm.team,kind:'thunder'});
         storm.targets.push({id:u.id,x:u.sweepX??u.x,y:u.y});
       }
     }
@@ -135,7 +137,7 @@ export class TraitEffects {
       meteor.impacted=true;
       const victims=battle.living().filter(u=>u.team!==meteor.team&&Math.abs((u.sweepX??u.x)-meteor.x)+Math.abs(u.y-meteor.y)<=1)
         .sort((a,b)=>(a.id===meteor.targetId?-1:b.id===meteor.targetId?1:a.id-b.id)).slice(0,2);
-      for(const u of victims)hits.push({targetId:u.id,amount:u.maxHp*.25,sourceId:null,kind:'meteor'});
+      for(const u of victims)hits.push({targetId:u.id,amount:u.maxHp*.25,sourceId:null,sourceTeam:meteor.team,kind:'meteor'});
       battle.events.push({type:'meteor-impact',id:meteor.id,x:meteor.x,y:meteor.y,victimIds:victims.map(u=>u.id)});
     }
     for(const [id,burn] of Object.entries(this.burns)){
@@ -149,6 +151,7 @@ export class TraitEffects {
   }
   finish(){
     this.battle.classes?.finish();
+    this.battle.augments?.finish();
     // Ending early cancels unfinished waves; it must not eject enemies early.
     for(const u of this.battle.units){
       const base=this.baseStats.get(u.id);u.maxHp=base.maxHp;u.attackDamage=base.attackDamage;u.hp=Math.min(u.hp,u.maxHp);

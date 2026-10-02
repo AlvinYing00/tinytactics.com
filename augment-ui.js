@@ -8,7 +8,19 @@ const paths={
   heart:'M12 21 3 12C-3 5 6-2 12 5c6-7 15 0 9 7L12 21ZM6 11h4l2-3 2 6 2-3h3',
   gift:'M3 8h18v5H3V8ZM5 13v8h14v-8M12 8v13M12 8C3 9 4 0 9 3l3 5ZM12 8c9 1 8-8 3-5l-3 5Z',
   stars:'m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6Z',
-  refresh:'M21 10a9 9 0 0 0-15-5L3 8M3 2v6h6M3 14a9 9 0 0 0 15 5l3-3M15 16h6v6'
+  refresh:'M21 10a9 9 0 0 0-15-5L3 8M3 2v6h6M3 14a9 9 0 0 0 15 5l3-3M15 16h6v6',
+  combat:'m4 3 12 12M3 7l4-4M14 17l3-3M3 21l5-5M4 14l6 6M14 4l6 6M17 3l4 4M21 3 9 15',
+  front:'M3 5h18M4 9h4v5H4V9Zm6 0h4v5h-4V9Zm6 0h4v5h-4V9ZM5 19h14',
+  back:'M3 19h18M4 10h4v5H4v-5Zm6 0h4v5h-4v-5Zm6 0h4v5h-4v-5ZM5 5h14',
+  angel:'M9 5c0-2 6-2 6 0s-6 2-6 0ZM10 11 3 7c-2 6 0 10 6 10M14 11l7-4c2 6 0 10-6 10M12 9l-4 12h8L12 9Z',
+  stun:'m12 2 2 6 7-2-4 6 5 4-7 1-3 5-2-6-7 1 4-5-4-5 7 1 2-6Z',
+  shield:'M12 2 3 6v6c0 5 9 10 9 10s9-5 9-10V6l-9-4ZM7 12l3 3 7-7',
+  grow:'M4 20V4h16M4 4l6 6M14 14l6 6M14 20h6v-6',
+  shrink:'M3 3l7 7M4 10h6V4M21 21l-7-7M14 20v-6h6',
+  execution:'M12 3 4 7v10l8 4 8-4V7l-8-4ZM8 9l3 3-3 3M16 9l-3 3 3 3',
+  burst:'m12 2 2 7 7-3-4 6 5 3-8 1-2 6-3-6-7 1 5-5-4-6 7 3 2-7Z',
+  solo:'M9 6a3 3 0 1 0 6 0 3 3 0 1 0-6 0ZM7 20v-5a5 5 0 0 1 10 0v5M3 4v16M21 4v16',
+  'broken-shield':'M12 2 3 6v6c0 5 9 10 9 10s9-5 9-10V6l-9-4ZM13 3l-4 7 6 3-4 8'
 };
 export function augmentIcon(icon){
   return paths[icon]?`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[icon]}"/></svg>`:traitIcon(icon);
@@ -18,7 +30,7 @@ export function selectedAugmentCards(player,statusFor=()=> ''){
   return (player.augments||[]).map(id=>{
     const a=AUGMENTS[id];if(!a)return '';
     const status=statusFor(a);
-    return `<article class="owned-augment"><span class="augment-logo">${augmentIcon(a.icon)}</span><div><h3>${a.name}</h3><p>${a.description}</p>${status?`<small>${status}</small>`:''}</div></article>`;
+    return `<article class="owned-augment" data-augment-type="${a.type}"><span class="augment-logo">${augmentIcon(a.icon)}</span><div><h3>${a.name}</h3><span class="augment-kind">${a.type==='combat'?'Combat':'Economy'}</span><p>${a.description}</p>${status?`<small>${status}</small>`:''}</div></article>`;
   }).join('')||'<p class="augment-empty">No Augments selected yet.</p>';
 }
 
@@ -61,11 +73,11 @@ export function createAugmentUI({getGame,onChanged,onError,openShop,beforeOpen})
     $('choose-augment').textContent=`Choose Augment · ${seconds}s`;
     $('augment-countdown').textContent=`${seconds}s`;
     $('augment-countdown').classList.toggle('urgent',seconds<=5);
-    $('augment-round').textContent=`ROUND ${game.roundLabel} · ECONOMY`;
+    $('augment-round').textContent=`ROUND ${game.roundLabel} · AUGMENTS`;
     const choice=p.augmentChoice,key=JSON.stringify([choice.round,choice.offers,choice.rerolled]);
     if(key!==cardKey){
       cardKey=key;
-      $('augment-options').innerHTML=choice.offers.map((id,slot)=>{const a=AUGMENTS[id];return `<article class="augment-card"><span class="augment-logo">${augmentIcon(a.icon)}</span><h3>${a.name}</h3><p>${a.description}</p><div class="augment-card-actions"><button class="augment-select" data-augment="${id}" aria-label="Choose ${a.name}">Choose</button><button class="augment-reroll" data-augment-slot="${slot}" aria-label="Reroll ${a.name}" ${choice.rerolled[slot]?'disabled':''}>${choice.rerolled[slot]?'Rerolled':'Reroll ↻'}</button></div></article>`;}).join('');
+      $('augment-options').innerHTML=choice.offers.map((id,slot)=>{const a=AUGMENTS[id];return `<article class="augment-card" data-augment-type="${a.type}"><div class="augment-card-symbols"><span class="augment-logo">${augmentIcon(a.icon)}</span><span class="augment-kind">${a.type==='combat'?'Combat':'Economy'}</span></div><h3>${a.name}</h3><p>${a.description}</p><div class="augment-card-actions"><button class="augment-select" data-augment="${id}" aria-label="Choose ${a.name}">Choose</button><button class="augment-reroll" data-augment-slot="${slot}" aria-label="Reroll ${a.name}" ${choice.rerolled[slot]?'disabled':''}>${choice.rerolled[slot]?'Rerolled':'Reroll ↻'}</button></div></article>`;}).join('');
       $('augment-options').querySelectorAll('[data-augment]').forEach(button=>button.onclick=()=>{
         try{const a=game.chooseAugment(button.dataset.augment);dialog.close();onChanged(`${a.name} selected.`);openShop();}catch(error){onError(error.message);}
       });

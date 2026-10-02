@@ -1,3 +1,5 @@
+import {CHAMPIONS} from './catalog.js';
+
 export const AUGMENT_SECONDS=30;
 export const AUGMENT_ROUNDS=Object.freeze([4,11,18,25,32]);
 export const AUGMENT_TYPE_STAGES=Object.freeze({economy:[1,2,5],trait:[2,3,4],class:[2,3,4],combat:[2,3,5]});
@@ -28,6 +30,28 @@ for(const [filter,values] of [['element',['electric','mountain','water','fire','
  const name=value==='sentinel'?'Tanker':value[0].toUpperCase()+value.slice(1);
  add(`legendary-${value}`,name,[5],`Gain two random 5-cost ${name} champions.`,{gifts:[5,5],filter:{[filter]:value}},value);
 }
+const combat=(id,name,description,icon='combat',requires={})=>entries.push(Object.freeze({id,name,stages:[2,3,5],type:'combat',description,effect:{combat:id},icon,requires:Object.freeze(requires)}));
+combat('united-front','United Front','With 3+ allies in the first row at combat start, those allies take 10% less basic-attack damage. Stacks with Tanker.','front',{row:'front',minimum:3});
+combat('guardian-angel','Guardian Angel','Each Ranger revives once per combat with 10% max HP and 50% Attack.','angel',{role:'ranger'});
+combat('shadow-killer','Shadow Killer','An Assassin that scores a kill immediately dashes to its next target. Assists do not count; Wind Wall blocks crossing.','assassin',{role:'assassin'});
+combat('grand-challenge','Grand Challenge','Duelists have a 30% chance to repel a basic attack and return its damage to the attacker.','duelist',{role:'duelist'});
+combat('spirit-helper','Spirit Helper','Support basic attacks heal the lowest-health ally for 20% of damage dealt.','support',{role:'support'});
+combat('hold-on','Hold on','At combat start, stun 3 random enemies for 2s. Control immunity blocks the stun.','stun');
+combat('redemption','Redemption','After 5s of combat, heal every ally for 20% of its max HP.','heart');
+combat('anti-control','Anti-control','All allies resist stuns and Tsunami for the first 3s. Does not extend Golden Shield.','shield');
+combat('bigger-and-bigger','Bigger and Bigger','Your champions gain 20% max HP for the rest of the game.','grow');
+combat('executioner','Executioner','Your team’s damage executes enemies below 10% max HP.','execution');
+combat('one-shot','One shot','Ranger basic attacks have a 5% chance to instantly kill their target.','ranger',{role:'ranger'});
+combat('suicide-frontliner','Suicide frontliner','When a Tanker dies, it deals 25% of its own max HP as damage to one nearest enemy.','burst',{role:'sentinel'});
+combat('backline-angel','Backline Angel','Supports take no damage during the first 3s of combat.','angel',{role:'support'});
+combat('weak-hunter','Weak Hunter','Assassins gain a 25% chance to critically strike for 2× basic-attack damage.','assassin',{role:'assassin'});
+combat('royal-dancer','Royal Dancer','Every 10th attack, Duelists dash to a free adjacent tile, deal 50% extra basic damage to their target regardless of range, and heal 10% max HP.','duelist',{role:'duelist'});
+combat('united-back','United Back','With 3+ allies in the fourth row at combat start, those allies take 10% less basic-attack damage. Stacks with Tanker.','back',{row:'back',minimum:3});
+combat('smaller-and-smaller','Smaller and Smaller','Your champions gain 50% basic-attack damage but lose 50% max HP for the rest of the game.','shrink');
+combat('solo-hero','Solo hero','Allies alone in their starting row take no damage for the first 2s of combat.','solo',{loneRow:true});
+combat('anti-shield','Anti Shield','Your champions deal 25% extra basic-attack damage to shielded enemies. Stacks with Assassin shield bypass.','broken-shield');
+combat('fire-fighter','Fire Fighter','Your champions take 20% less Fire Burn damage.','fire');
+combat('anti-shock','Anti Shock','Your champions take 50% less Thunder damage. Thunder’s low-HP execution rule is unchanged.','electric');
 export const AUGMENTS=Object.freeze(Object.fromEntries(entries.map(a=>[a.id,a])));
 export const hasAugment=(player,id)=>(player.augments||[]).includes(id);
 export const maxLevel=player=>hasAugment(player,'quick-formation')?7:hasAugment(player,'higher')?11:10;
@@ -35,8 +59,19 @@ export const levelCurrency=player=>hasAugment(player,'death-contract')?'HP':'gol
 export const interestFor=player=>Math.min(hasAugment(player,'snowballing')?Infinity:5,Math.floor(player.gold/10));
 export const freeRoundRerolls=(game,player)=>player.freeRerollRound===game.round&&game.phase==='preparation';
 export const refreshPrice=(game,player)=>freeRoundRerolls(game,player)||(player.freeRerolls||0)>0?0:2;
+const deployedFor=player=>(player.roster||[]).filter(u=>u.position&&u.position.bench===undefined&&!u.overflow&&CHAMPIONS[u.type]);
+// League rosters use the lower half even for bots; the legacy ember roster is mirrored.
+const rowFor=(game,player,row)=>player.team==='ember'&&game.mode!=='fight'?(row==='front'?3:0):(row==='front'?4:7);
+export function combatAugmentMatchesTeam(game,player,augment){
+ const deployed=deployedFor(player),rule=augment.requires||{};
+ if(!deployed.length)return false;
+ if(rule.role&&!deployed.some(u=>CHAMPIONS[u.type].traits.includes(rule.role)))return false;
+ if(rule.row&&deployed.filter(u=>u.position.y===rowFor(game,player,rule.row)).length<rule.minimum)return false;
+ if(rule.loneRow&&!deployed.some(u=>deployed.filter(v=>v.position.y===u.position.y).length===1))return false;
+ return true;
+}
 export function eligibleAugments(game,player,seen=[]){
- return entries.filter(a=>AUGMENT_TYPE_STAGES[a.type].includes(game.stage)&&a.stages.includes(game.stage)&&!hasAugment(player,a.id)&&!seen.includes(a.id)&&!(a.effect.higher&&hasAugment(player,'quick-formation')));
+ return entries.filter(a=>AUGMENT_TYPE_STAGES[a.type].includes(game.stage)&&a.stages.includes(game.stage)&&!hasAugment(player,a.id)&&!seen.includes(a.id)&&!(a.effect.higher&&hasAugment(player,'quick-formation'))&&(a.type!=='combat'||combatAugmentMatchesTeam(game,player,a)));
 }
 const pick=(items,random)=>items[Math.min(items.length-1,Math.floor(random()*items.length))];
 export function createChoice(game,player){
@@ -70,6 +105,11 @@ export function selectAugment(game,team,id){
 export function chooseBotAugment(game,player){
  const score=id=>{
   const a=AUGMENTS[id],e=a.effect,s=player.style?.id;
+  if(a.type==='combat'){
+   const deployed=deployedFor(player),rule=a.requires,matching=rule.role?deployed.filter(u=>CHAMPIONS[u.type].traits.includes(rule.role)).length:rule.row?deployed.filter(u=>u.position.y===rowFor(game,player,rule.row)).length:deployed.length;
+   // Only the bot's own public formation influences its combat pick.
+   return 10+Math.min(8,matching*2)+(rule.role===player.style?.class?3:0)+(s==='flexible'?3:0)+(player.hp<35?3:0);
+  }
   return (e.gold?e.gold/8:0)+(e.rerolls?e.rerolls*(s==='reroller'?2:.8):0)+(e.higher?(s==='leveler'||s==='late'?18:9):0)+(e.interest?(s==='economist'?20:8):0)+(e.hustle?12:0)+(e.discount?13:0)+(e.quick?10:0)+(e.xp?10:0)+(e.gifts?e.gifts.reduce((n,c)=>n+c,0)+(e.filter?.element===player.style?.element?10:0):0)+(e.purchase?(s==='reroller'?16:9):0)+(e.elite?14:0)+(e.investment?8+player.gold/10:0)+(e.deathContract?(player.hp>70?7:0):0)+(e.freeRound?15:0);
  };
  const offers=player.augmentChoice.offers;

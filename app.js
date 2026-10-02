@@ -9,6 +9,7 @@ import { ResultReveal,scoutOpponent } from './ui-state.js';
 import { Sandbox } from './sandbox.js';
 import { interestFor,hasAugment,freeRoundRerolls } from './augments.js';
 import { createAugmentUI,pendingAugment,selectedAugmentCards } from './augment-ui.js';
+import { combatAugmentStats } from './combat-augments.js';
 
 const $=selector=>document.querySelector(selector);
 const board=$('#board'),unitLayer=$('#units'),shell=$('.board-shell');
@@ -264,13 +265,15 @@ function renderHazards(){
 
 function renderSelection(){
   const own=owned(selection?.id),record=inspected(selection?.id),u=selection?.roster?null:battle.units.find(v=>v.id===selection?.id),type=u?.type||record?.type,panel=$('#selection-panel');
-  const nextKey=JSON.stringify([isSandbox(),editable(),trading(),selection?.id,selection?.roster,type,record?.stars,record?.position,record?.overflow,u&&[u.stars,u.x,u.y,u.hp,u.maxHp,u.attackDamage,u.shield,u.eliminated,u.sweptBy,u.basicAttacks,battle.attackInterval(u),battle.attackRange(u),battle.traits?.isGolden(u)]]);
+  const augmentIds=u?battle.teamAugments[u.team]:campaign.players[record?.team]?.augments||[];
+  const nextKey=JSON.stringify([isSandbox(),editable(),trading(),augmentIds,selection?.id,selection?.roster,type,record?.stars,record?.position,record?.overflow,u&&[u.stars,u.x,u.y,u.hp,u.maxHp,u.attackDamage,u.shield,u.eliminated,u.sweptBy,u.basicAttacks,battle.attackInterval(u),battle.attackRange(u),battle.traits?.isGolden(u)]]);
   if(selectionKey===nextKey)return;selectionKey=nextKey;
   if(!type){panel.innerHTML='<span class="selection-kicker">FORMATION TIP</span><p>Frontline first. Rangers behind.</p><span class="tip-caption">'+(isSandbox()?'Control either team. Choose Champions to add units at any star level.':'Drag between the board and bench. Drop on a teammate to swap.')+'</span>';return;}
-  const c=championStats(type,(u||record).stars,battle.catalog),location=u?.eliminated?'OUT':record?.position.bench!==undefined&&!u?'Bench':u?coordinate(u.x,u.y):'';
+  const c=combatAugmentStats(championStats(type,(u||record).stars,battle.catalog),augmentIds),location=u?.eliminated?'OUT':record?.position.bench!==undefined&&!u?'Bench':u?coordinate(u.x,u.y):'';
   if(u){c.hp=u.maxHp;c.damage=Math.round(u.attackDamage*100)/100;c.attackTicks=Number(battle.attackInterval(u).toFixed(2));c.range=battle.attackRange(u);}
   panel.innerHTML='<span class="selection-kicker">'+starLabel(u||record)+' · COST '+c.cost+' · '+c.traits.map(t=>ELEMENT_LABELS[t]||ROLES[t].name).join(' + ')+'</span><p>'+c.name+' <span class="selection-coordinate">'+location+'</span></p><span class="tip-caption">'+(c.legendary?'Legendary '+ROLES[c.combatRole].name+'. ':'')+c.description+' Attacks every '+c.attackTicks/10+'s.</span><div class="stat-row"><span>HP <strong>'+Math.ceil(u?.hp??c.hp)+'/'+c.hp+'</strong></span><span>'+(c.damageType==='true'?'TRUE DMG':'ATK')+' <strong>'+c.damage+'</strong></span><span>RANGE <strong>'+c.range+'</strong></span></div>'+(own&&trading()?'<div class="unit-actions">'+(!isSandbox()&&editable()&&own.position.bench===undefined?'<button id="bench-unit" class="secondary-button">To bench</button>':'')+'<button id="sell-unit" class="secondary-button">'+(isSandbox()?'Remove champion':'Sell · '+sellValue(own)+' gold')+'</button></div>':'');
   if(u&&own&&u.stars!==own.stars)panel.querySelector('.tip-caption').textContent+=' Next round: '+starLabel(own)+'.';
+  if(augmentIds.includes('smaller-and-smaller'))panel.querySelector('.tip-caption').textContent+=' Basic attacks deal 50% extra damage.';
   if(record?.overflow)panel.querySelector('.tip-caption').textContent='Overflow gift: move to an open bench or team slot before combat to keep it. Otherwise, it sells automatically.';
   const benchButton=$('#bench-unit');if(benchButton)benchButton.onclick=()=>perform(()=>{const slot=campaign.freeBench('azure');if(slot===undefined)throw new Error('Bench is full. Drag onto a bench champion to swap.');campaign.move(own.id,{bench:slot});say(c.name+' moved to the bench.');});
   const sellButton=$('#sell-unit');if(sellButton)sellButton.onclick=()=>sellUnit(own.id);
@@ -294,6 +297,9 @@ function render(){
     if(!el){el=document.createElement('div');el.dataset.unitId=u.id;el.innerHTML='<span class="trait-aura" aria-hidden="true"></span><div class="unit-portrait"><span class="portrait-art"></span><span class="unit-glyph"></span>'+roleMarker(c)+'</div><span class="unit-trait-mark" aria-hidden="true" hidden></span><span class="unit-stars"></span><div class="shield-track"><div class="shield-fill"></div></div><div class="health-track"><div class="health-fill"></div></div>';views.set(u.id,el);unitLayer.append(el);}
     el.dataset.championType=u.type;
     el.className='unit '+(c.monster?'monster-unit ':'has-art ')+u.team+' type-'+c.combatRole+' element-'+c.element+(u.hp<=0?' dead':'')+(u.eliminated?' eliminated':'')+(selection?.id===u.id?' selected':'')+(battle.traits?.burns[u.id]?' burning':'')+(u.sweptBy?' swept':'')+(u.shield>0?' shielded':'')+(battle.traits?.isGolden(u)?' golden':'')+(u.overflow?' overflow-gift':'');
+    el.classList.toggle('stunned',battle.phase==='combat'&&battle.tick<u.stunnedUntil);
+    el.classList.toggle('augment-immune',!!battle.augments?.immune(u));
+    el.classList.toggle('control-protected',!!battle.augments?.controlImmune(u));
     el.style.left=((u.sweepX??u.x)*12.5)+'%';el.style.top=(u.y*12.5)+'%';el.style.transitionDuration=(.22/playbackSpeed())+'s';
     el.querySelector('.unit-glyph').textContent=c.monster?c.glyph:c.element[0].toUpperCase()+c.cost;
     el.querySelector('.unit-stars').textContent=c.monster?'':starLabel(u);
@@ -436,8 +442,8 @@ function effects(events){
         $('#effects').append(line);setTimeout(()=>line.remove(),360);
       }
     }
-    if(['burn','meteor','heal','ejected','thunder','gold','reflection','inheritance','pierce','jump','support-shield'].includes(e.type)){
-      const u=battle.units.find(v=>v.id===e.id);if(u){const n=document.createElement('span');n.className=`damage-number effect-${e.type}`;n.textContent=e.type==='gold'?'+1 GOLD':e.type==='inheritance'?'INHERITED':e.type==='jump'?'JUMP':e.type==='support-shield'?`+${Math.round(e.amount)} SHIELD`:e.execute?'EXECUTED':e.type==='ejected'?'OUT':`${e.type==='heal'?'+':'−'}${Math.round(e.amount)}`;n.style.left=`${Math.min(7,u.sweepX??u.x)*12.5+6.25}%`;n.style.top=`${u.y*12.5+3}%`;$('#floaters').append(n);setTimeout(()=>n.remove(),820);}continue;
+    if(['burn','meteor','heal','ejected','thunder','gold','reflection','inheritance','pierce','jump','support-shield','revive','stun','explosion'].includes(e.type)){
+      const u=battle.units.find(v=>v.id===e.id);if(u){const n=document.createElement('span');n.className=`damage-number effect-${e.type}`;n.textContent=e.type==='gold'?'+1 GOLD':e.type==='inheritance'?'INHERITED':e.type==='revive'?'REVIVED':e.type==='stun'?'STUNNED':e.type==='jump'?(e.kind==='shadow-killer'||e.kind==='royal-dancer'?'DASH':'JUMP'):e.type==='support-shield'?`+${Math.round(e.amount)} SHIELD`:e.execute?'EXECUTED':e.type==='ejected'?'OUT':`${e.type==='heal'?'+':'−'}${Math.round(e.amount)}`;n.style.left=`${Math.min(7,u.sweepX??u.x)*12.5+6.25}%`;n.style.top=`${u.y*12.5+3}%`;$('#floaters').append(n);setTimeout(()=>n.remove(),820);}continue;
     }
     if(e.type!=='attack')continue;
     const from=battle.units.find(u=>u.id===e.id),to=battle.units.find(u=>u.id===e.targetId);if(!from||!to)continue;
@@ -447,7 +453,7 @@ function effects(events){
     const line=document.createElementNS('http://www.w3.org/2000/svg','line');line.classList.add('shot');
     for(const [k,v] of Object.entries({x1:from.x*100+50,y1:from.y*100+50,x2:to.x*100+50,y2:to.y*100+50,stroke:from.team==='azure'?'#b8efce':'#ee9d8d'}))line.setAttribute(k,String(v));
     $('#effects').append(line);setTimeout(()=>line.remove(),360);
-    const number=document.createElement('span');number.className='damage-number'+(e.dodged?' effect-dodge':e.critical?' effect-critical':'');number.textContent=e.dodged?'DODGE':`${e.critical?'CRIT ':''}−${Math.round(e.amount)}`;number.style.left=`${to.x*12.5+6.25}%`;number.style.top=`${to.y*12.5+3}%`;$('#floaters').append(number);setTimeout(()=>number.remove(),820);
+    const number=document.createElement('span');number.className='damage-number'+(e.dodged||e.repelled?' effect-dodge':e.critical?' effect-critical':'');number.textContent=e.repelled?'REPEL':e.dodged?'DODGE':e.execute?'EXECUTED':`${e.critical?'CRIT ':''}−${Math.round(e.amount)}`;number.style.left=`${to.x*12.5+6.25}%`;number.style.top=`${to.y*12.5+3}%`;$('#floaters').append(number);setTimeout(()=>number.remove(),820);
     if(!played){tone(battle.catalog[from.type].combatRole==='ranger'?600:160,.035);played=true;}
   }
 }

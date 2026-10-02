@@ -37,6 +37,7 @@ export class ClassEffects {
     // Both sides plan from the same opening positions, then land simultaneously.
     const snapshot=b.living().map(u=>({...u})),occupied=new Set(snapshot.map(u=>u.x+','+u.y)),reserved=new Set(),plans=[];
     for(const unit of b.units.filter(u=>this.has(u,'assassin'))){
+      if(b.tick<unit.stunnedUntil)continue;
       const priority=u=>this.has(u,'ranger')?0:this.has(u,'support')?1:2;
       const enemies=snapshot.filter(u=>u.team!==unit.team).sort((a,c)=>priority(a)-priority(c)||distance(unit,c)-distance(unit,a)||a.id-c.id);
       for(const target of enemies){

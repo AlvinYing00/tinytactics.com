@@ -12,6 +12,11 @@
 .augment-timing{font-size:14px;line-height:1.4;color:#aebfc4;margin:0 0 12px}
 .augment-options{display:grid;grid-template-columns:1fr;gap:9px}
 .augment-card{border:1px solid #606452;border-radius:8px;background:linear-gradient(135deg,#29362f,#1b2c30);padding:10px 12px;text-align:center}
+.augment-card[data-augment-type="combat"]{border-color:#557d8c;background:linear-gradient(135deg,#233840,#192c39)}
+.augment-card-symbols{display:flex;align-items:center;justify-content:center;gap:7px}
+.augment-kind{display:inline-block;color:#e6ce83;font-size:10px;letter-spacing:.09em;text-transform:uppercase;line-height:1.5}
+[data-augment-type="combat"] .augment-kind,[data-augment-type="combat"] .augment-logo{color:#a4dfe8}
+.owned-augment .augment-kind{margin:0 0 5px}
 .augment-logo{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;color:#f0d887;background:#d0b2570d;flex-shrink:0}
 .augment-logo svg{width:30px;height:30px}
 .augment-card h3{font-size:16px;margin:2px 0 4px;line-height:1.15}

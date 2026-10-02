@@ -67,7 +67,20 @@ export class League extends Campaign {
     if(this.phase==='intermission')this.players[team].retainShop=locked;
     return locked;
   }
-  rebuildBattle(){this.previewBoards?.clear();}
+  rebuildBattle(){this.previewBoards?.clear();this.offerPendingAugments();}
+  offerPendingAugments(){
+    if(this.phase!=='preparation'||!AUGMENT_ROUNDS.includes(this.round)||this.offeringAugments)return;
+    this.offeringAugments=true;
+    try{
+      for(const p of this.livingPlayers){
+        if(p.augmentOfferRound===this.round)continue;
+        p.augmentChoice=createChoice(this,p);
+        if(!p.augmentChoice)continue;
+        p.augmentOfferRound=this.round;
+        if(p.bot)chooseBotAugment(this,p);
+      }
+    }finally{this.offeringAugments=false;}
+  }
   autoDeploy(team='azure'){
     const ctx=Object.create(Campaign.prototype);Object.assign(ctx,{players:{azure:this.players[team]},phase:'preparation',levelCosts:LEVEL_COSTS});
     return Campaign.prototype.autoDeploy.call(ctx,'azure');
@@ -93,11 +106,8 @@ export class League extends Campaign {
     if(this.round>1){this.refreshRoundShops();for(const p of this.livingPlayers)p.shopLocked=false;}
     for(const p of this.livingPlayers){
       augmentRoundStart(this,p);
-      if(AUGMENT_ROUNDS.includes(this.round)&&p.augmentOfferRound!==this.round){
-        p.augmentOfferRound=this.round;p.augmentChoice=createChoice(this,p);
-        if(p.bot&&p.augmentChoice)chooseBotAugment(this,p);
-      }
     }
+    this.offerPendingAugments();
     this.botActions=this.livingPlayers.filter(p=>p.bot).flatMap(p=>{
       const times=p.difficulty==='easy'?[[18,false]]:p.difficulty==='normal'?[[10,false],[22,true]]:[[5,false],[15,true],[24,false],[29,true]];
       return times.map(([at,positionOnly])=>({id:p.team,at,positionOnly,done:false}));
@@ -115,6 +125,11 @@ export class League extends Campaign {
     this.botsPrepared=true;this.rebuildBattle();
   }
   revealOpponents(){
+    // A temporarily empty board must not consume a Combat selection opportunity.
+    if(AUGMENT_ROUNDS.includes(this.round)){
+      for(const p of this.livingPlayers)if(p.augmentOfferRound!==this.round)this.autoDeploy(p.team);
+      this.offerPendingAugments();
+    }
     // Augments share preparation's deadline. Timeout selects from the current cards.
     for(const p of this.livingPlayers){
       const choice=p.augmentChoice;
@@ -131,6 +146,7 @@ export class League extends Campaign {
       const monster=pair.monster?encounter(this.stage,this.random):null;
       const sides={azure:pair.azureId,ember:pair.emberId};
       const b=new Battle({catalog:COMBAT_CATALOG,teamCaps:{azure:this.maxLevel(pair.azureId),ember:pair.monster?10:this.maxLevel(pair.emberId)},timeout:Infinity,seed:(this.round*2654435761+index*7919)>>>0,
+        teamAugments:{azure:this.players[pair.azureId].augments,ember:pair.monster?[]:this.players[pair.emberId].augments},
         traitCounts:{azure:this.players[pair.azureId].virtualTraits,ember:pair.monster?{}:this.players[pair.emberId].virtualTraits},
         onGold:(team,amount)=>{if(team==='ember'&&(pair.ghost||pair.monster))return;this.players[sides[team]].gold+=amount;}});
       for(const side of ['azure','ember'])for(const owned of side==='ember'&&monster?monster.roster:roundRosters[sides[side]]){
@@ -154,7 +170,7 @@ export class League extends Campaign {
   matchFor(id){return this.matches.find(m=>m.azureId===id||(!m.ghost&&!m.monster&&m.emberId===id));}
   previewFor(id){
     if(!this.previewBoards.has(id)){
-      const b=new Battle({catalog:COMBAT_CATALOG,previewOnly:true,teamCaps:{azure:this.maxLevel(id)}});
+      const b=new Battle({catalog:COMBAT_CATALOG,previewOnly:true,teamCaps:{azure:this.maxLevel(id)},teamAugments:{azure:this.players[id].augments}});
       for(const own of this.players[id].roster.filter(u=>u.position.bench===undefined)){const u=b.place(own.type,'azure',own.position.x,own.position.y,own.stars);u.id=own.id;u.overflow=!!own.overflow;}
       this.previewBoards.set(id,b);
     }

@@ -2,17 +2,20 @@
 import { CHAMPIONS, ARCHETYPES, championStats, virtualTraitCounts } from './catalog.js';
 import { TraitEffects } from './trait-effects.js';
 import { ClassEffects } from './class-effects.js';
+import { CombatAugmentEffects, combatAugmentStats } from './combat-augments.js';
 import { resolveCombat } from './combat-resolution.js';
 export { ARCHETYPES } from './catalog.js';
 export const distance = (a,b) => Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
 const key = p => `${p.x},${p.y}`;
 const clone = value => JSON.parse(JSON.stringify(value));
 export class Battle {
-  constructor({width=8,height=8,cap=10,teamCaps={},previewOnly=false,timeout=600,catalog=CHAMPIONS,seed=1,random,onGold,traitCounts={}}={}) {
+  constructor({width=8,height=8,cap=10,teamCaps={},previewOnly=false,timeout=600,catalog=CHAMPIONS,seed=1,random,onGold,traitCounts={},teamAugments={}}={}) {
     this.width=width; this.height=height; this.cap=Math.min(10,cap); this.timeout=timeout; this.catalog=catalog;this.previewOnly=previewOnly;
     // An explicit per-team cap is granted by the league's level-11 Augment only.
     this.teamCaps=Object.fromEntries(['azure','ember'].map(team=>[team,Number.isInteger(teamCaps[team])?Math.max(1,Math.min(11,teamCaps[team])):this.cap]));
     this.traitCounts=Object.fromEntries(['azure','ember'].map(team=>[team,virtualTraitCounts(traitCounts[team])]));
+    this.teamAugments=Object.fromEntries(['azure','ember'].map(team=>[team,[...(teamAugments[team]||[])]]));
+    this.augments=null;this.resolvedDeaths=new Set();
     this.units=[]; this.nextId=1; this.phase='preparation'; this.outcome=null;
     this.tick=0; this.accumulator=0; this.events=[]; this.roster=null;
     this.traits=null;this.classes=null;
@@ -34,7 +37,7 @@ export class Battle {
   }
   place(type,team,x,y,stars=1) {
     this.validate(team,x,y);
-    const stats=championStats(type,stars,this.catalog);
+    const stats=combatAugmentStats(championStats(type,stars,this.catalog),this.teamAugments[team]);
     const limit=this.teamCaps[team];
     if(!this.previewOnly&&this.living(team).length>=limit) throw new Error(`Your squad is full. Remove a champion first (${limit} maximum).`);
     const u={id:this.nextId++,type,team,x,y,stars,hp:stats.hp,maxHp:stats.hp,attackDamage:stats.damage,damageType:stats.damageType||'physical',shield:0,maxShield:0,goldenUntil:0,stunnedUntil:0,basicAttacks:0,targetId:null,attackReady:0,moveReady:0,damageDealt:0,kills:0};
@@ -66,12 +69,13 @@ export class Battle {
     this.roster=clone(this.units); this.phase='combat'; this.tick=0; this.accumulator=0; this.outcome=null;this.events=[];
     this.randomState=this.seed;this.goldEarned={azure:0,ember:0};
     this.traits=new TraitEffects(this);
+    this.resolvedDeaths.clear();this.augments=new CombatAugmentEffects(this);this.augments.start();
     this.classes=new ClassEffects(this);
   }
   reset() {
     if(this.roster) this.units=clone(this.roster);
     this.phase='preparation';this.tick=0;this.accumulator=0;this.outcome=null;this.events=[];this.roster=null;
-    this.traits=null;this.classes=null;
+    this.traits=null;this.classes=null;this.augments=null;this.resolvedDeaths.clear();
     this.randomState=this.seed;this.goldEarned={azure:0,ember:0};
   }
   drainEvents() { const events=this.events;this.events=[];return events; }
@@ -111,6 +115,7 @@ export class Battle {
     // Keep decisecond timers; half ticks represent exact 1.25-second attacks.
     this.tick+=0.5;
     this.traits.sweep();
+    this.augments.update();
     this.classes.update();
     const alive=this.living().filter(u=>!u.sweptBy), occupied=new Set(alive.map(key)), reserved=new Set();
     // Rotate initiative so contested movement is not always resolved for one team.
