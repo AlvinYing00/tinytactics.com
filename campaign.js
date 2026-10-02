@@ -141,7 +141,7 @@ export class Campaign {
     if(currency==='HP')p.hp-=cost;else p.gold-=cost;p.level++;p.xp=0;return p.level;
   }
   levelPrice(team='azure'){
-    const p=this.players[team],rate=hasAugment(p,'death-contract')?.5:hasAugment(p,'level-discount')?.75:1;return p.level<this.maxLevel(team)?Math.max(0,this.xpRequired(team)-p.xp)*rate:0;
+    const p=this.players[team],rate=hasAugment(p,'death-contract')?.75:hasAugment(p,'level-discount')?.75:1;return p.level<this.maxLevel(team)?Math.max(0,this.xpRequired(team)-p.xp)*rate:0;
   }
   gainExperience(team,amount){
     const p=this.players[team],before=p.level;
