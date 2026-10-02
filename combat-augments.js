@@ -8,7 +8,7 @@ const alive=unit=>unit&&unit.hp>0&&!unit.eliminated;
 // Smaller and Smaller changes basic attacks, not the champion's base Attack.
 export function combatAugmentStats(stats,ids=[]){
   const selected=new Set(ids);
-  const multiplier=(selected.has('bigger-and-bigger')?1.2:1)*(selected.has('smaller-and-smaller')?.5:1);
+  const multiplier=(selected.has('bigger-and-bigger')?1.2:1)*(selected.has('smaller-and-smaller')?.75:1);
   return {...stats,hp:Math.max(1,Math.round(stats.hp*multiplier))};
 }
 
