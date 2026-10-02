@@ -8,6 +8,7 @@ import {AUGMENT_ROUNDS,createChoice,selectAugment,rerollAugment,chooseBotAugment
 
 export const LEVEL_COSTS=Object.freeze({3:6,4:10,5:20,6:36,7:60,8:68,9:68,10:76});
 export const stageDamage=stage=>[2,2,5,8,10,12,17][Math.min(6,Math.max(0,stage-1))];
+export const stageDamageCap=stage=>[3,5,7,9,12,15,18][Math.min(6,Math.max(0,stage-1))];
 export const streakBonus=count=>Math.abs(count)>=6?3:Math.abs(count)>=5?2:Math.abs(count)>=2?1:0;
 export const PREPARATION_SECONDS=30,FACEOFF_SECONDS=3,INTERMISSION_SECONDS=1.5;
 const clone=value=>JSON.parse(JSON.stringify(value));
@@ -202,7 +203,8 @@ export class League extends Campaign {
         if(side==='ember'&&(m.ghost||m.monster))continue;
         const id=side==='azure'?m.azureId:m.emberId,p=this.players[id],other=side==='azure'?'ember':'azure';
         const win=b.outcome===side,draw=b.outcome==='draw',survivors=b.living(other).length;
-        const damage=m.monster?(win?0:m.monster.penalty):win?0:stageDamage(this.stage)+(draw?0:survivors);
+        const rawDamage =stageDamage(this.stage) + (draw ? 0 : survivors);
+        const damage =m.monster ? (win ? 0 : m.monster.penalty): win ? 0 : Math.min(rawDamage, stageDamageCap(this.stage));
         const healthBefore=p.hp,healing=m.monster&&win?Math.min(100-p.hp,m.monster.reward):0;
         p.hp=Math.max(0,Math.min(100,p.hp-damage+healing));
         const loss=m.monster?!win:!win&&!draw;p.winStreak=win?p.winStreak+1:0;p.lossStreak=loss?p.lossStreak+1:0;p.streak=p.winStreak||-p.lossStreak;
