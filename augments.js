@@ -47,7 +47,7 @@ combat('backline-angel','Backline Angel','Supports take no damage during the fir
 combat('weak-hunter','Weak Hunter','Assassins gain a 25% chance to critically strike for 2× basic-attack damage.','assassin',{role:'assassin'});
 combat('royal-dancer','Royal Dancer','Every 10th attack, Duelists dash to a free adjacent tile, deal 50% extra basic damage to their target regardless of range, and heal 10% max HP.','duelist',{role:'duelist'});
 combat('united-back','United Back','With 3+ allies in the fourth row at combat start, those allies take 10% less basic-attack damage. Stacks with Tanker.','back',{row:'back',minimum:3});
-combat('smaller-and-smaller','Smaller and Smaller','Your champions gain 50% basic-attack damage but lose 50% max HP for the rest of the game.','shrink');
+combat('smaller-and-smaller','Smaller and Smaller','Your champions gain 50% basic-attack damage but lose 25% max HP for the rest of the game.','shrink');
 combat('solo-hero','Solo hero','Allies alone in their starting row take no damage for the first 2s of combat.','solo',{loneRow:true});
 combat('anti-shield','Anti Shield','Your champions deal 25% extra basic-attack damage to shielded enemies. Stacks with Assassin shield bypass.','broken-shield');
 combat('fire-fighter','Fire Fighter','Your champions take 20% less Fire Burn damage.','fire');
