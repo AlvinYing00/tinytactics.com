@@ -33,7 +33,7 @@ for(const [filter,values] of [['element',['electric','mountain','water','fire','
 const combat=(id,name,description,icon='combat',requires={})=>entries.push(Object.freeze({id,name,stages:[2,3,5],type:'combat',description,effect:{combat:id},icon,requires:Object.freeze(requires)}));
 combat('united-front','United Front','With 3+ allies in the first row at combat start, those allies take 10% less basic-attack damage. Stacks with Tanker.','front',{row:'front',minimum:3});
 combat('guardian-angel','Guardian Angel','Each Ranger revives once per combat with 10% max HP and 50% Attack.','angel',{role:'ranger'});
-combat('shadow-killer','Shadow Killer','An Assassin that scores a kill immediately dashes to its next target. Assists do not count; Wind Wall blocks crossing.','assassin',{role:'assassin'});
+combat('shadow-killer','Shadow Killer','An Assassin that scores a kill immediately dashes to its next target and the next basic attack deals 50% extra damage. Assists do not count; Wind Wall blocks crossing.','assassin',{role:'assassin'});
 combat('grand-challenge','Grand Challenge','Duelists have a 30% chance to repel a basic attack and return its damage to the attacker.','duelist',{role:'duelist'});
 combat('spirit-helper','Spirit Helper','Support basic attacks heal the lowest-health ally for 20% of damage dealt.','support',{role:'support'});
 combat('hold-on','Hold on','At combat start, stun 3 random enemies for 2s. Control immunity blocks the stun.','stun');
@@ -45,7 +45,7 @@ combat('one-shot','One shot','Ranger basic attacks have a 5% chance to instantly
 combat('suicide-frontliner','Suicide frontliner','When a Tanker dies, it deals 25% of its own max HP as damage to one nearest enemy.','burst',{role:'sentinel'});
 combat('backline-angel','Backline Angel','Supports take no damage during the first 3s of combat.','angel',{role:'support'});
 combat('weak-hunter','Weak Hunter','Assassins gain a 25% chance to critically strike for 2× basic-attack damage.','assassin',{role:'assassin'});
-combat('royal-dancer','Royal Dancer','Every 10th attack, Duelists dash to a free adjacent tile, deal 50% extra basic damage to their target regardless of range, and heal 10% max HP.','duelist',{role:'duelist'});
+combat('royal-dancer','Royal Dancer','Every 5th attack, Duelists dash to a free adjacent tile, deal 50% extra basic damage to their target regardless of range, and heal 10% max HP.','duelist',{role:'duelist'});
 combat('united-back','United Back','With 3+ allies in the fourth row at combat start, those allies take 10% less basic-attack damage. Stacks with Tanker.','back',{row:'back',minimum:3});
 combat('smaller-and-smaller','Smaller and Smaller','Your champions gain 50% basic-attack damage but lose 25% max HP for the rest of the game.','shrink');
 combat('solo-hero','Solo hero','Allies alone in their starting row take no damage for the first 2s of combat.','solo',{loneRow:true});
