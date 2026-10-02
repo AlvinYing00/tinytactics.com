@@ -11,7 +11,7 @@ add('side-hustle','Side Hustle',[1,2],'Gain 3 gold before every fight, starting 
 add('windfall','Windfall',[1],'Gain 20 gold now.',{gold:20});
 add('xp-boost','XP Boost',[1],'Gain 20 XP now.',{xp:20},'level');
 add('level-discount','Level-up Discount',[1],'Pay 25% less gold for the remaining XP needed to level up.',{discount:.75},'level');
-add('death-contract','Death Contract',[1],'Level with HP instead of gold at half the remaining XP price. Restore 2 HP after each round. Lethal payments are blocked.',{deathContract:true},'heart');
+add('death-contract','Death Contract',[1],'Level with HP instead of gold at 25% off the remaining XP price. Restore 2 HP after each round. Lethal payments are blocked.',{deathContract:true},'heart');
 add('quick-formation','Quick Formation',[1],'Immediately reach level 7. Your level stays capped at 7 for this game.',{quick:true},'level');
 add('assistants','Assistants',[1,2],'Gain one random 3-cost, two 2-costs, and three 1-cost champions.',{gifts:[3,2,2,1,1,1]},'gift');
 add('higher','Higher and higher',[1,2],'Gain one level now. Unlock level 11 and space for 11 champions; level 10 → 11 needs 76 XP.',{higher:true},'level');
