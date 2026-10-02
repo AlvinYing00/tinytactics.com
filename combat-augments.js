@@ -70,7 +70,20 @@ export class CombatAugmentEffects {
     if(this.has(attacker.team,'weak-hunter')&&this.role(attacker,'assassin')&&this.battle.random()<.25){
       const oldMultiplier=hit.criticalMultiplier||1,newMultiplier=Math.max(oldMultiplier,2);
       hit.amount*=newMultiplier/oldMultiplier;hit.critical=true;hit.criticalMultiplier=newMultiplier;
-    }
+    }  // Shadow Killer empowered attack:
+  // remove crit -> apply +50% -> reapply crit
+  if(
+    attacker.shadowKillerEmpowered &&
+    this.has(attacker.team,'shadow-killer') &&
+    this.role(attacker,'assassin')
+  ){
+    const crit=hit.criticalMultiplier||1;
+
+    hit.amount=(hit.amount/crit)*1.5*crit;
+
+    hit.shadowKiller=true;
+    attacker.shadowKillerEmpowered=false;
+  }
     hit.royal=this.has(attacker.team,'royal-dancer')&&this.role(attacker,'duelist')&&attacker.basicAttacks>0&&attacker.basicAttacks%5===0;
     if(hit.royal)hit.amount*=1.5;
     return hit;
@@ -126,6 +139,8 @@ export class CombatAugmentEffects {
         .filter(cell=>b.traits.canTarget(killer,target,cell)).sort((a,c)=>distance(killer,a)-distance(killer,c)||a.y-c.y||a.x-c.x);
       if(!cells.length)continue;
       this.jump(killer,cells[0],target,'shadow-killer');return;
+      killer.shadowKillerEmpowered = true;
+    return;
     }
   }
   onDeath(unit,killer){
