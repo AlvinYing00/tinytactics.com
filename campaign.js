@@ -167,9 +167,14 @@ export class Campaign {
     if(other)other.position=origin;
     this.rebuildBattle();return other||null;
   }
+  canSell(id,team='azure') {
+    const unit=this.players[team]?.roster.find(u=>u.id===id);
+    return !!unit&&this.canTrade()&&(this.phase==='preparation'||unit.position.bench!==undefined);
+  }
   sell(id,team='azure') {
     this.economyEditable();const p=this.players[team],index=p.roster.findIndex(u=>u.id===id);
     if(index<0)throw new Error('Select one of your champions.');
+    if(!this.canSell(id,team))throw new Error('Only bench champions can be sold while a round is underway.');
     const [u]=p.roster.splice(index,1);p.gold+=sellValue(u);
     if(team==='azure')this.rebuildBattle();return u;
   }

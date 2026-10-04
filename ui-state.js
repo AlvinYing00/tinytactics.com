@@ -16,7 +16,7 @@ export class ResultReveal {
 export function scoutOpponent(roster,traits,units=[],catalog=CHAMPIONS){
   const champions=roster.filter(u=>u.position.bench===undefined&&!u.overflow).map(u=>{
     const stats=championStats(u.type,u.stars||1,catalog),live=units.find(v=>v.id===u.id);
-    return {id:u.id,name:stats.name,element:stats.element,role:stats.combatRole,cost:stats.cost,stars:u.stars||1,
+    return {id:u.id,type:u.type,portrait:stats.portrait,name:stats.name,element:stats.element,role:stats.combatRole,cost:stats.cost,stars:u.stars||1,
       x:live?.x??u.position.x,y:live?.y??u.position.y,hp:live?.hp??stats.hp,maxHp:live?.maxHp??stats.hp,
       attack:live?.attackDamage??stats.damage,seconds:(live?.effectiveAttackTicks??stats.attackTicks/(1+(live?.attackSpeedBonus||0)))/10,
       range:live?.effectiveRange??stats.range,

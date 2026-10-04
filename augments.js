@@ -45,7 +45,7 @@ combat('one-shot','One shot','Ranger basic attacks have a 5% chance to instantly
 combat('suicide-frontliner','Suicide frontliner','When a Tanker dies, it deals 25% of its own max HP as damage to one nearest enemy.','burst',{role:'sentinel'});
 combat('backline-angel','Backline Angel','Supports take no damage during the first 3s of combat.','angel',{role:'support'});
 combat('weak-hunter','Weak Hunter','Assassins gain a 25% chance to critically strike for 2× basic-attack damage.','assassin',{role:'assassin'});
-combat('royal-dancer','Royal Dancer','Every 5th attack, Duelists dash to a free adjacent tile, deal 50% extra basic damage to their target regardless of range, and heal 10% max HP.','duelist',{role:'duelist'});
+combat('royal-dancer','Royal Dancer','Every 3rd attack, Duelists dash to a free adjacent tile, deal 50% extra basic damage to their target regardless of range, and heal 10% max HP.','duelist',{role:'duelist'});
 combat('united-back','United Back','With 3+ allies in the fourth row at combat start, those allies take 10% less basic-attack damage. Stacks with Tanker.','back',{row:'back',minimum:3});
 combat('smaller-and-smaller','Smaller and Smaller','Your champions gain 50% basic-attack damage but lose 25% max HP for the rest of the game.','shrink');
 combat('solo-hero','Solo hero','Allies alone in their starting row take no damage for the first 2s of combat.','solo',{loneRow:true});

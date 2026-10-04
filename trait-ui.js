@@ -105,7 +105,9 @@ export function createTraitHud({rail,dialog,ambience,enemyAmbience,onOpen,onClos
     if(!node)return;
     const max=maxTraits(traits),key=max.join();
     if(lastMax.get(node)===key)return;
-    node.innerHTML=max.map(e=>`<div class="max-scene scene-${e}"></div>`).join('')+(max.length?`<span class="max-territory-label">${max.map(e=>traitIcon(e)+TRAIT_DETAILS[e].name.toUpperCase()).join(' + ')} · MAX</span>`:'');
+    node.style.setProperty('--scene-count',Math.max(1,max.length));
+    node.innerHTML=max.map((e,i)=>`<div class="max-scene scene-${e} element-${e}" style="--scene-index:${i}"></div>`).join('')+(max.length?`<span class="max-territory-label">${max.map(e=>traitIcon(e)+TRAIT_DETAILS[e].name.toUpperCase()).join(' + ')} · MAX</span>`:'');
+    node.parentElement.classList.toggle(node===ambience?'has-home-theme':'has-enemy-theme',!!max.length);
     node.hidden=!max.length;lastMax.set(node,key);
   }
   function render(traits,units,views,preparation,enemyTraits){
@@ -140,5 +142,5 @@ export function createTraitHud({rail,dialog,ambience,enemyAmbience,onOpen,onClos
     previousUnits=nextUnits;
     renderAmbience(ambience,traits);renderAmbience(enemyAmbience,enemyTraits);
   }
-  return {render,reset(){previousUnits.clear();lastCounts='';lastMax.clear();for(const node of [ambience,enemyAmbience])if(node){node.replaceChildren();node.hidden=true;}}};
+  return {render,reset(){previousUnits.clear();lastCounts='';lastMax.clear();for(const node of [ambience,enemyAmbience])if(node){node.replaceChildren();node.hidden=true;node.parentElement.classList.remove('has-home-theme','has-enemy-theme');}}};
 }

@@ -1,5 +1,5 @@
 // Pointer capture keeps mouse, pen and touch dragging on the same code path.
-export function attachBoardDrag({board, getChampion, getView, canDrop=(id,x,y)=>y>=4, onStart, onEnd, onDrop, onSell, onCancel, onTap}) {
+export function attachBoardDrag({board, getChampion, getView, canDrop=(id,x,y)=>y>=4, canSell=()=>true, onStart, onEnd, onDrop, onSell, onCancel, onTap}) {
   let drag=null, suppressClick=false;
   const tileAt=(x,y)=>{
     const tile=document.elementFromPoint(x,y)?.closest('.tile,.bench-slot,[data-sell-zone]');
@@ -25,7 +25,7 @@ export function attachBoardDrag({board, getChampion, getView, canDrop=(id,x,y)=>
     onEnd?.();
     if(cancelled||!tile){onCancel();return;}
     if(tile.hasAttribute('data-sell-zone')){
-      if(tile.getAttribute('aria-disabled')==='true')onCancel();else onSell(current.id);
+      if(tile.getAttribute('aria-disabled')==='true'||!canSell(current.id))onCancel();else onSell(current.id);
       return;
     }
     onDrop(current.id,Number(tile.dataset.x),Number(tile.dataset.y));
@@ -56,7 +56,7 @@ export function attachBoardDrag({board, getChampion, getView, canDrop=(id,x,y)=>
     const target=tileAt(event.clientX,event.clientY);
     if(target){
       if(target.hasAttribute('data-sell-zone')){
-        target.classList.add(target.getAttribute('aria-disabled')==='true'?'drop-invalid':'drop-sell');return;
+        target.classList.add(target.getAttribute('aria-disabled')==='true'||!canSell(drag.id)?'drop-invalid':'drop-sell');return;
       }
       const x=Number(target.dataset.x),y=Number(target.dataset.y),other=getChampion(x,y);
       const valid=canDrop(drag.id,x,y);

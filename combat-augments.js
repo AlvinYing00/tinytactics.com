@@ -44,7 +44,7 @@ export class CombatAugmentEffects {
       unit.augmentRowProtection=this.rowProtected.has(unit.id);
       unit.augmentControlUntil=this.has(unit.team,'anti-control')?30:0;
       unit.augmentImmuneUntil=Math.max(this.has(unit.team,'backline-angel')&&this.role(unit,'support')?30:0,this.solo.has(unit.id)?20:0);
-      unit.guardianRevived=false;
+      unit.guardianRevived=false;unit.shadowKillerEmpowered=false;
     }
     for(const team of ['azure','ember']){
       if(!this.has(team,'hold-on'))continue;
@@ -84,7 +84,7 @@ export class CombatAugmentEffects {
     hit.shadowKiller=true;
     attacker.shadowKillerEmpowered=false;
   }
-    hit.royal=this.has(attacker.team,'royal-dancer')&&this.role(attacker,'duelist')&&attacker.basicAttacks>0&&attacker.basicAttacks%5===0;
+    hit.royal=this.has(attacker.team,'royal-dancer')&&this.role(attacker,'duelist')&&attacker.basicAttacks>0&&attacker.basicAttacks%3===0;
     if(hit.royal)hit.amount*=1.5;
     return hit;
   }
@@ -138,8 +138,8 @@ export class CombatAugmentEffects {
       const cells=this.openCells(killer,target,[[0,-1],[-1,0],[1,0],[0,1]])
         .filter(cell=>b.traits.canTarget(killer,target,cell)).sort((a,c)=>distance(killer,a)-distance(killer,c)||a.y-c.y||a.x-c.x);
       if(!cells.length)continue;
-      this.jump(killer,cells[0],target,'shadow-killer');return;
-      killer.shadowKillerEmpowered = true;
+      this.jump(killer,cells[0],target,'shadow-killer');
+      killer.shadowKillerEmpowered=true;return;
     return;
     }
   }
@@ -165,6 +165,6 @@ export class CombatAugmentEffects {
   }
   finish(){
     this.finished=true;
-    for(const unit of this.battle.units){delete unit.augmentRowProtection;delete unit.augmentControlUntil;delete unit.augmentImmuneUntil;delete unit.guardianRevived;}
+    for(const unit of this.battle.units){delete unit.augmentRowProtection;delete unit.augmentControlUntil;delete unit.augmentImmuneUntil;delete unit.guardianRevived;delete unit.shadowKillerEmpowered;}
   }
 }

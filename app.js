@@ -1,7 +1,7 @@
 import { distance } from './engine.js';
 import { CHAMPIONS as ARCHETYPES, SHOP_CHAMPIONS, ARCHETYPES as ROLES, ELEMENT_LABELS, championStats, sellValue, teamTraits } from './catalog.js';
 import { BENCH_SIZE, shopOdds } from './campaign.js';
-import { League, LEVEL_COSTS, stageDamage, streakBonus } from './league.js';
+import { League, LEVEL_COSTS, stageDamage, stageDamageCap, streakBonus } from './league.js';
 import { registerGameTools } from './webmcp.js';
 import { attachBoardDrag } from './drag.js';
 import { createTraitHud,traitIcon } from './trait-ui.js';
@@ -28,6 +28,8 @@ const traitHud=createTraitHud({rail:$('#trait-list'),dialog:$('#trait-dialog'),a
 });
 const coordinate=(x,y)=>y===8?'Bench '+(x+1):String.fromCharCode(65+x)+(8-y);
 const starLabel=u=>'★'.repeat(u.stars||1);
+const portraitImage=c=>c.portrait?`<img class="champion-image" src="${c.portrait}" alt="" draggable="false">`:'';
+const cardArt=c=>`<span class="card-art character-art">${portraitImage(c)}${roleMarker(c)}</span>`;
 const roleMarker=c=>['support','assassin'].includes(c.combatRole)?`<span class="role-mark" title="${ROLES[c.combatRole].name}">${traitIcon(c.combatRole)}</span>`:'';
 const editable=()=>campaign.phase==='preparation'&&(isSandbox()||(campaign.player.hp>0&&campaign.viewId==='azure'));
 const trading=()=>isSandbox()?editable():campaign.canTrade();
@@ -42,6 +44,7 @@ const augmentUI=createAugmentUI({getGame:()=>campaign,onChanged:message=>{say(me
 });
 let sellKey='';
 const owned=id=>isSandbox()?campaign.unit(id):campaign.player.roster.find(u=>u.id===id);
+const sellable=id=>isSandbox()?editable()&&!!owned(id):campaign.canSell(id);
 const atPosition=(x,y)=>y===8?visibleBench().find(u=>u.position.bench===x):battle.at(x,y);
 const snapshot=()=>({
   mode:isSandbox()?'sandbox':'fight',phase:campaign.phase,round:campaign.roundLabel,paused,outcome:battle.outcome,seconds:battle.tick/10,
@@ -72,7 +75,8 @@ for(let i=0;i<BENCH_SIZE;i++){
 }
 const dragging=attachBoardDrag({
   board:$('#formation-surface'),
-  getChampion:(x,y)=>{const u=atPosition(x,y);return trading()&&homeView()&&u&&owned(u.id)?u:null;},
+  getChampion:(x,y)=>{const u=atPosition(x,y);return homeView()&&u&&sellable(u.id)?u:null;},
+  canSell:sellable,
   canDrop:(id,x,y)=>homeView()&&(isSandbox()?editable()&&campaign.validPosition(owned(id)?.team,{x,y}):y===8?trading()&&(editable()||owned(id)?.position.bench!==undefined):editable()&&y>=4),
   getView:id=>{const u=owned(id);return u?.position.bench!==undefined?benchTiles[u.position.bench].querySelector('.bench-art'):views.get(id);},
   onTap:tileAction,
@@ -117,7 +121,7 @@ function renderSandboxCatalog(){
   $('#sandbox-capacity').textContent=(team==='azure'?'Azure':'Ember')+' · '+count+'/10 placed · '+stars+'★ · Free';
   $('#sandbox-catalog').innerHTML=campaign.availableChampions(team).filter(c=>(element==='all'||c.element===element)&&(cost==='all'||c.cost===Number(cost))).sort((a,b)=>a.cost-b.cost||a.name.localeCompare(b.name)).map(c=>{
     const stats=championStats(c.id,stars);
-    return `<button class="sandbox-card element-${c.element}" data-sandbox-type="${c.id}" ${count>=10?'disabled':''} aria-label="Add ${c.name}, ${stars} stars, to ${team}"><strong>${c.name}</strong><span>${ELEMENT_LABELS[c.element]} · ${c.sideTrait?ROLES[c.sideTrait].name:'Legendary'} · Cost ${c.cost}</span><small>${Math.round(stats.hp)} HP · ${Math.round(stats.damage)} ATK</small></button>`;
+    return `<button class="sandbox-card element-${c.element}" data-sandbox-type="${c.id}" ${count>=10?'disabled':''} aria-label="Add ${c.name}, ${stars} stars, to ${team}"><span class="catalog-portrait">${portraitImage(c)}</span><strong>${c.name}</strong><span>${ELEMENT_LABELS[c.element]} · ${c.sideTrait?ROLES[c.sideTrait].name:'Legendary'} · Cost ${c.cost}</span><small>${Math.round(stats.hp)} HP · ${Math.round(stats.damage)} ATK</small></button>`;
   }).join('')||'<p class="sandbox-empty">All matching champions are already on this team. Change filters or remove one from the board.</p>';
   $('#sandbox-catalog').querySelectorAll('[data-sandbox-type]').forEach(button=>button.onclick=()=>perform(()=>{
     const unit=campaign.add(button.dataset.sandboxType,team,stars);selection={id:unit.id};
@@ -158,7 +162,7 @@ function renderShop(){
       if(!type)return '<div class="shop-empty" aria-label="Empty shop slot '+(slot+1)+'"><span>—</span>No offer</div>';
       const c=ARCHETYPES[type],disabled=!campaign.canBuy(slot),plan=campaign.purchasePlan(type);
       const combines=plan.upgrades.length?' · Combines to '+plan.unit.stars+' stars':'';
-      return '<button class="champion-card element-'+c.element+' cost-tier-'+c.cost+'" data-slot="'+slot+'" '+(disabled?'disabled':'')+' aria-label="Buy '+c.name+', '+c.cost+' gold, '+c.traits.join(' and ')+combines+'"><span class="card-art has-art art-'+c.combatRole+'">'+roleMarker(c)+'</span><span class="card-content"><span class="card-title">'+c.name+'</span><span class="card-role">'+ELEMENT_LABELS[c.element]+'</span><span class="card-class">'+(c.sideTrait?ROLES[c.sideTrait].name:'Legendary')+'</span>'+(combines?'<span class="combine-hint">Combine '+starLabel(plan.unit)+'</span>':'')+'</span><span class="cost-badge cost-'+c.cost+'">'+c.cost+' gold</span></button>';
+      return '<button class="champion-card element-'+c.element+' cost-tier-'+c.cost+'" data-slot="'+slot+'" '+(disabled?'disabled':'')+' aria-label="Buy '+c.name+', '+c.cost+' gold, '+c.traits.join(' and ')+combines+'">'+cardArt(c)+'<span class="card-content"><span class="card-title">'+c.name+'</span><span class="card-role">'+ELEMENT_LABELS[c.element]+'</span><span class="card-class">'+(c.sideTrait?ROLES[c.sideTrait].name:'Legendary')+'</span>'+(combines?'<span class="combine-hint">Combine '+starLabel(plan.unit)+'</span>':'')+'</span><span class="cost-badge cost-'+c.cost+'">'+c.cost+' gold</span></button>';
     }).join('');
     document.querySelectorAll('[data-slot]').forEach(card=>card.onclick=()=>buy(Number(card.dataset.slot)));
   }
@@ -181,7 +185,7 @@ function renderBench(){
     const viewKey=u?u.id+':'+u.type+':'+u.stars:'';
     if(tile.dataset.unit!==viewKey){
       tile.dataset.unit=viewKey;
-      tile.innerHTML=u?'<span class="bench-art element-'+c.element+'"><span class="card-art has-art art-'+c.combatRole+'">'+roleMarker(c)+'</span><span class="bench-stars">'+starLabel(u)+'</span><span class="bench-badge">'+c.element[0].toUpperCase()+c.cost+'</span></span>':'<span class="bench-empty">'+(i+1)+'</span>';
+      tile.innerHTML=u?'<span class="bench-art element-'+c.element+'">'+cardArt(c)+'<span class="bench-stars">'+starLabel(u)+'</span><span class="bench-badge">'+c.element[0].toUpperCase()+c.cost+'</span></span>':'<span class="bench-empty">'+(i+1)+'</span>';
     }
     tile.title=u?c.name+' · '+starLabel(u)+' · '+c.traits.join(' + '):'Bench slot '+(i+1);
     tile.setAttribute('aria-label',u?'Bench '+(i+1)+', '+c.name+', '+u.stars+' stars, '+c.traits.join(' and '):'Bench '+(i+1)+', empty');
@@ -195,7 +199,7 @@ function renderBench(){
   sell.setAttribute('aria-disabled',String(!trading()));
   sell.classList.toggle('sell-ready',!!unit&&trading());
   $('#sell-label').textContent=!trading()?'Sell champions':unit?'Drop here · +'+sellValue(unit)+' gold':'Drag or click to sell';
-  $('#sell-caption').textContent=unit?ARCHETYPES[unit.type].name+' '+starLabel(unit):homeView()?'Your board or bench champions':'Manage your own champions';
+  $('#sell-caption').textContent=unit?ARCHETYPES[unit.type].name+' '+starLabel(unit):campaign.phase==='preparation'?'Your board or bench champions':'Only your bench champions';
   if(isSandbox()){
     $('#bench-count').textContent='10 champions per side';
     $('#sell-label').textContent=!editable()?'Remove during setup':unit?'Drop to remove':'Drag here to remove';
@@ -209,11 +213,11 @@ function openSellDialog(){
 function renderSellDialog(){
   if(!$('#sell-dialog').open)return;
   if(isSandbox()||!trading()){$('#sell-dialog').close();return;}
-  const roster=campaign.player.roster,key=JSON.stringify([campaign.phase,roster]);
+  const roster=campaign.player.roster.filter(u=>sellable(u.id)),key=JSON.stringify([campaign.phase,roster]);
   if(key===sellKey)return;sellKey=key;
-  $('#sell-roster').innerHTML=roster.map(u=>{const c=ARCHETYPES[u.type];return `<button class="sell-card" data-sell-id="${u.id}"><span><strong>${c.name} ${starLabel(u)}</strong><small>${u.overflow?'Gift overflow':u.position.bench!==undefined?'Bench':'Board'} · ${ELEMENT_LABELS[c.element]} · ${ROLES[c.combatRole].name}</small></span><b>Sell · ${sellValue(u)}g</b></button>`}).join('')||'<p>No champions to sell.</p>';
+  $('#sell-roster').innerHTML=roster.map(u=>{const c=ARCHETYPES[u.type];return `<button class="sell-card" data-sell-id="${u.id}"><span class="sell-portrait">${portraitImage(c)}</span><span><strong>${c.name} ${starLabel(u)}</strong><small>${u.overflow?'Gift overflow':u.position.bench!==undefined?'Bench':'Board'} · ${ELEMENT_LABELS[c.element]} · ${ROLES[c.combatRole].name}</small></span><b>Sell · ${sellValue(u)}g</b></button>`}).join('')||'<p>No eligible champions to sell.</p>';
   $('#sell-roster').querySelectorAll('[data-sell-id]').forEach(button=>button.onclick=()=>sellUnit(Number(button.dataset.sellId)));
-  $('#sell-info').textContent=campaign.phase==='preparation'?'Your roster · Sell for the full invested cost.':'Sales update your next lineup. Champions already in this battle finish fighting.';
+  $('#sell-info').textContent=campaign.phase==='preparation'?'Your roster · Sell for the full invested cost.':'Only bench champions can be sold until the next preparation.';
 }
 function renderTraits(){
   traitHud.render(sideTraits('azure'),battle.units,views,campaign.phase==='preparation',sideTraits('ember'));
@@ -240,7 +244,7 @@ function renderScouting(){
   $('#scout-augments').innerHTML=selectedAugmentCards(p);
   $('#scout-traits').innerHTML=allTraits.map(t=>`<span class="scout-trait element-${t.element}${t.tier?' active':''}">${traitIcon(t.element)}<span>${t.name} ${t.count}<small>${t.max?'MAX active':t.tier?'Tier '+t.tier+' active':'Inactive'}${!t.max&&t.next?' · next '+t.next:''}</small></span></span>`).join('')||'<p>No traits on the board.</p>';
   $('#scout-threat').textContent=scout.threat?`Highest basic DPS: ${scout.threat.name} ${starLabel(scout.threat)} · ${Math.round(scout.threat.attack/scout.threat.seconds)}/s`:'No enemies remaining on the board.';
-  $('#scout-roster').innerHTML=scout.champions.map(c=>`<div class="scout-card element-${c.element}"><span class="scout-avatar"><span class="card-art has-art art-${c.role}">${roleMarker({combatRole:c.role})}</span></span><div><strong>${c.name} <em>${starLabel(c)}</em></strong><small>${ROLES[c.role]?.name||'Monster'} · Cost ${c.cost} · ${c.status==='OUT'?'':coordinate(c.x,c.y)+' · '}${c.status}</small><span>${Math.ceil(c.hp)}/${Math.ceil(c.maxHp)} HP · ${Math.round(c.attack)} ATK · ${Number(c.seconds.toFixed(3))}s · ${c.range} range</span></div></div>`).join('');
+  $('#scout-roster').innerHTML=scout.champions.map(c=>`<div class="scout-card element-${c.element}"><span class="scout-avatar">${cardArt({...c,combatRole:c.role})}</span><div><strong>${c.name} <em>${starLabel(c)}</em></strong><small>${ROLES[c.role]?.name||'Monster'} · Cost ${c.cost} · ${c.status==='OUT'?'':coordinate(c.x,c.y)+' · '}${c.status}</small><span>${Math.ceil(c.hp)}/${Math.ceil(c.maxHp)} HP · ${Math.round(c.attack)} ATK · ${Number(c.seconds.toFixed(3))}s · ${c.range} range</span></div></div>`).join('');
 }
 function openScout(){
   dragging.cancel();resumeAfterScout=isSandbox()&&campaign.phase==='combat'&&!paused;
@@ -271,7 +275,7 @@ function renderSelection(){
   if(!type){panel.innerHTML='<span class="selection-kicker">FORMATION TIP</span><p>Frontline first. Rangers behind.</p><span class="tip-caption">'+(isSandbox()?'Control either team. Choose Champions to add units at any star level.':'Drag between the board and bench. Drop on a teammate to swap.')+'</span>';return;}
   const c=combatAugmentStats(championStats(type,(u||record).stars,battle.catalog),augmentIds),location=u?.eliminated?'OUT':record?.position.bench!==undefined&&!u?'Bench':u?coordinate(u.x,u.y):'';
   if(u){c.hp=u.maxHp;c.damage=Math.round(u.attackDamage*100)/100;c.attackTicks=Number(battle.attackInterval(u).toFixed(2));c.range=battle.attackRange(u);}
-  panel.innerHTML='<span class="selection-kicker">'+starLabel(u||record)+' · COST '+c.cost+' · '+c.traits.map(t=>ELEMENT_LABELS[t]||ROLES[t].name).join(' + ')+'</span><p>'+c.name+' <span class="selection-coordinate">'+location+'</span></p><span class="tip-caption">'+(c.legendary?'Legendary '+ROLES[c.combatRole].name+'. ':'')+c.description+' Attacks every '+c.attackTicks/10+'s.</span><div class="stat-row"><span>HP <strong>'+Math.ceil(u?.hp??c.hp)+'/'+c.hp+'</strong></span><span>'+(c.damageType==='true'?'TRUE DMG':'ATK')+' <strong>'+c.damage+'</strong></span><span>RANGE <strong>'+c.range+'</strong></span></div>'+(own&&trading()?'<div class="unit-actions">'+(!isSandbox()&&editable()&&own.position.bench===undefined?'<button id="bench-unit" class="secondary-button">To bench</button>':'')+'<button id="sell-unit" class="secondary-button">'+(isSandbox()?'Remove champion':'Sell · '+sellValue(own)+' gold')+'</button></div>':'');
+  panel.innerHTML='<span class="selection-kicker">'+starLabel(u||record)+' · COST '+c.cost+' · '+c.traits.map(t=>ELEMENT_LABELS[t]||ROLES[t].name).join(' + ')+'</span><p>'+c.name+' <span class="selection-coordinate">'+location+'</span></p><span class="tip-caption">'+(c.legendary?'Legendary '+ROLES[c.combatRole].name+'. ':'')+c.description+' Attacks every '+c.attackTicks/10+'s.</span><div class="stat-row"><span>HP <strong>'+Math.ceil(u?.hp??c.hp)+'/'+c.hp+'</strong></span><span>'+(c.damageType==='true'?'TRUE DMG':'ATK')+' <strong>'+c.damage+'</strong></span><span>RANGE <strong>'+c.range+'</strong></span></div>'+(own&&sellable(own.id)?'<div class="unit-actions">'+(!isSandbox()&&editable()&&own.position.bench===undefined?'<button id="bench-unit" class="secondary-button">To bench</button>':'')+'<button id="sell-unit" class="secondary-button">'+(isSandbox()?'Remove champion':'Sell · '+sellValue(own)+' gold')+'</button></div>':'');
   if(u&&own&&u.stars!==own.stars)panel.querySelector('.tip-caption').textContent+=' Next round: '+starLabel(own)+'.';
   if(augmentIds.includes('smaller-and-smaller'))panel.querySelector('.tip-caption').textContent+=' Basic attacks deal 50% extra damage.';
   if(record?.overflow)panel.querySelector('.tip-caption').textContent='Overflow gift: move to an open bench or team slot before combat to keep it. Otherwise, it sells automatically.';
@@ -294,7 +298,7 @@ function render(){
     const c=battle.catalog[u.type];let el=views.get(u.id);
     // Fight and Sandbox can reuse IDs for different champions.
     if(el&&el.dataset.championType!==u.type){el.remove();views.delete(u.id);el=null;}
-    if(!el){el=document.createElement('div');el.dataset.unitId=u.id;el.innerHTML='<span class="trait-aura" aria-hidden="true"></span><div class="unit-portrait"><span class="portrait-art"></span><span class="unit-glyph"></span>'+roleMarker(c)+'</div><span class="unit-trait-mark" aria-hidden="true" hidden></span><span class="unit-stars"></span><div class="shield-track"><div class="shield-fill"></div></div><div class="health-track"><div class="health-fill"></div></div>';views.set(u.id,el);unitLayer.append(el);}
+    if(!el){el=document.createElement('div');el.dataset.unitId=u.id;el.innerHTML='<span class="trait-aura" aria-hidden="true"></span><div class="unit-portrait">'+portraitImage(c)+'<span class="unit-glyph"></span>'+roleMarker(c)+'</div><span class="unit-trait-mark" aria-hidden="true" hidden></span><span class="unit-stars"></span><div class="shield-track"><div class="shield-fill"></div></div><div class="health-track"><div class="health-fill"></div></div>';views.set(u.id,el);unitLayer.append(el);}
     el.dataset.championType=u.type;
     el.className='unit '+(c.monster?'monster-unit ':'has-art ')+u.team+' type-'+c.combatRole+' element-'+c.element+(u.hp<=0?' dead':'')+(u.eliminated?' eliminated':'')+(selection?.id===u.id?' selected':'')+(battle.traits?.burns[u.id]?' burning':'')+(u.sweptBy?' swept':'')+(u.shield>0?' shielded':'')+(battle.traits?.isGolden(u)?' golden':'')+(u.overflow?' overflow-gift':'');
     el.classList.toggle('stunned',battle.phase==='combat'&&battle.tick<u.stunnedUntil);
@@ -380,7 +384,7 @@ function renderLeague(){
   $('#mobile-status').innerHTML='<span>Lv '+p.level+' · '+amount(p.gold)+' gold</span><span>'+campaign.livingPlayers.length+'/8 players remaining</span>';
   $('#arena-hint').textContent=view.watching?'Scouting · Your team keeps fighting':waiting?'Waiting for other fights. Rearrange your bench or trade.':phase==='preparation'?'Drag to position. Enemy arrives when preparation ends.':phase==='faceoff'?'Combat starts in '+Math.ceil(campaign.faceoffRemaining)+'… Bench and shop are available.':'Rearrange your bench or trade. Board positions unlock next preparation.';
   $('#income-preview').innerHTML='<span>Next income <strong>5 base + '+interestFor(p)+' interest</strong></span><span>'+(p.streak>=0?'Win':'Loss')+' streak <strong>'+Math.abs(p.streak)+' · +'+streakBonus(p.streak)+' gold</strong></span><small>Win +1 · '+(hasAugment(p,'snowballing')?'Unlimited interest':'Streak 2–4: +1 / 5: +2 / 6+: +3')+(hasAugment(p,'side-hustle')?' · +3 before fights':'')+(hasAugment(p,'death-contract')?' · +2 HP per round':'')+'</small>';
-  $('#damage-preview').textContent=campaign.isMonsterRound?'Monster win restores HP; a loss deals fixed stage damage.':'Loss: '+stageDamage(campaign.stage)+' base + 1 per enemy survivor. Draw: base damage to both.';
+  $('#damage-preview').textContent=campaign.isMonsterRound?'Monster win restores HP; a loss deals fixed stage damage.':'Loss: '+stageDamage(campaign.stage)+' base + 1 per enemy survivor (cap '+stageDamageCap(campaign.stage)+'). Draw: base damage to both.';
   $('#shop-dialog-title').textContent=phase==='preparation'?'Your shop · '+Math.ceil(campaign.preparationRemaining)+'s to prepare':'Your shop';
   $('#faceoff-countdown').hidden=phase!=='faceoff';
   $('#faceoff-countdown').textContent=phase==='faceoff'?Math.ceil(campaign.faceoffRemaining):'';

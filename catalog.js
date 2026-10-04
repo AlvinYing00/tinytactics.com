@@ -35,7 +35,7 @@ const newRoleNames={
 for(const element of ELEMENTS)Object.assign(names[element],newRoleNames[element]);
 const champions={};
 // Entries are ordered by cost 1–5. Tankers use the Sentinel combat role.
-export const HP_MULTIPLIER= 2;
+export const HP_MULTIPLIER=2;
 const statLine=(hp,damage,seconds)=>Object.freeze({hp:Object.freeze(hp.map(v=>Math.round(v*HP_MULTIPLIER))),damage:Object.freeze(damage),attackTicks:seconds*10});
 export const ELEMENT_STATS=Object.freeze({
   fire:Object.freeze({
@@ -76,7 +76,8 @@ export const ELEMENT_STATS=Object.freeze({
 });
 function champion(id,name,element,combatRole,cost){
   const base=ARCHETYPES[combatRole],stats=ELEMENT_STATS[element][combatRole];
-  champions[id]=Object.freeze({...base,id,name,element,combatRole,cost,sideTrait:combatRole,traits:Object.freeze([element,combatRole]),hp:stats.hp[cost-1],damage:stats.damage[cost-1],attackTicks:stats.attackTicks,damageType:element==='electric'?'true':'physical',legendary:cost===5});
+  const portrait=`assets/champions/${name.toLowerCase().replaceAll(' ','-')}.webp`;
+  champions[id]=Object.freeze({...base,id,name,portrait,element,combatRole,cost,sideTrait:combatRole,traits:Object.freeze([element,combatRole]),hp:stats.hp[cost-1],damage:stats.damage[cost-1],attackTicks:stats.attackTicks,damageType:element==='electric'?'true':'physical',legendary:cost===5});
 }
 for(const element of ELEMENTS){
   for(const [cost,role] of ROSTER_DESIGN[element]){
