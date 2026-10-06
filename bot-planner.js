@@ -27,8 +27,8 @@ export function planBot(league,player,opponent,{positionOnly=false}={}){
     const t=teamTraits(units.map(u=>({type:u.type}))),distinct=new Set(units.map(u=>u.type));
     const power=units.reduce((sum,u)=>{const c=championStats(u.type,u.stars);return sum+c.hp/500+c.damage/c.attackTicks/5;},0);
     const tiers=Object.values(t.classes).reduce((sum,c)=>sum+c.tier,0);
-    const elements=t.burnPercent*65+t.healPercent*45+t.shieldPercent*6+t.reflectPercent*12+(t.inheritanceHpPercent+t.inheritanceAttackPercent)*22+t.coinChance*25+t.dodgeChance*16+(t.meteor?15:0)+(t.tsunami?25:0)+(t.thunder?15:0)+(t.windWall?15:0);
-    const focus=Math.min(t.counts[style.element],{fire:7,water:10,mountain:6,electric:7,air:10}[style.element]);
+    const elements=(t.lightStacksRequired?12/t.lightStacksRequired:0)+t.lightControlResist*8+(t.darkFearEvery?10/t.darkFearEvery:0)+t.darkExplosionPercent*8+t.iceFreezePercent*15+(t.iceStorm?15:0)+t.natureGrowthPercent*45+(t.natureDoppelgangers?12:0)+t.burnPercent*65+t.healPercent*45+t.shieldPercent*6+t.reflectPercent*12+(t.inheritanceHpPercent+t.inheritanceAttackPercent)*22+t.coinChance*25+t.dodgeChance*16+(t.meteor?15:0)+(t.tsunami?25:0)+(t.thunder?15:0)+(t.windWall?15:0);
+    const focus=Math.min(t.counts[style.element],{fire:7,water:10,mountain:6,electric:7,air:10,nature:4,light:8,dark:8,ice:10}[style.element]);
     const melee=units.filter(u=>['sentinel','duelist'].includes(CHAMPIONS[u.type].combatRole)).length;
     let preference=style.id==='vertical'?focus*7:style.id==='flexible'?0:focus*1.2;
     if(style.id!=='flexible')preference+=Math.min(6,t.counts[style.class])*.8;

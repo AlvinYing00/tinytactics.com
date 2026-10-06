@@ -171,7 +171,7 @@ export class League extends Campaign {
   matchFor(id){return this.matches.find(m=>m.azureId===id||(!m.ghost&&!m.monster&&m.emberId===id));}
   previewFor(id){
     if(!this.previewBoards.has(id)){
-      const b=new Battle({catalog:COMBAT_CATALOG,previewOnly:true,teamCaps:{azure:this.maxLevel(id)},teamAugments:{azure:this.players[id].augments}});
+      const b=new Battle({catalog:COMBAT_CATALOG,previewOnly:true,teamCaps:{azure:this.maxLevel(id)},teamAugments:{azure:this.players[id].augments},traitCounts:{azure:this.players[id].virtualTraits}});
       for(const own of this.players[id].roster.filter(u=>u.position.bench===undefined)){const u=b.place(own.type,'azure',own.position.x,own.position.y,own.stars);u.id=own.id;u.overflow=!!own.overflow;}
       this.previewBoards.set(id,b);
     }

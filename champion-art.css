@@ -25,5 +25,25 @@
 .territory-ambience .scene-electric{background-image:url('assets/terrain/electric.webp')}
 .territory-ambience .scene-air{background-image:url('assets/terrain/air.webp')}
 .territory-ambience .scene-mountain{background-image:url('assets/terrain/mountain.webp')}
+.territory-ambience :is(.scene-ice,.scene-light,.scene-dark,.scene-cosmic){background-image:url('assets/terrain/batch2-boards.png');background-size:100% 400%}
+.territory-ambience .scene-ice{background-position:50% 0}
+.territory-ambience .scene-light{background-position:50% 33.333333%}
+.territory-ambience .scene-dark{background-position:50% 66.666667%}
+.territory-ambience .scene-cosmic{background-position:50% 100%}
 .max-territory-label{display:none}
-@media(prefers-reduced-motion:reduce){.sandbox-card .catalog-portrait .champion-image{transition:none}}
+.element-nature{--element:#a9e875}
+.element-light{--element:#ffe18b}.element-dark{--element:#cf8dff}.element-ice{--element:#a1e3ff}
+.unit.frozen .unit-portrait{outline:2px solid #d7f5ff;filter:brightness(1.13) saturate(.65);box-shadow:0 0 12px #9bdeffb3}
+.unit.feared .unit-portrait{outline:2px dashed #d290ff;box-shadow:0 0 12px #934ae5aa}
+.unit.chilled:not(.frozen) .unit-portrait{outline:1px solid #91d7ef;box-shadow:0 0 7px #91d7ef7a}
+.unit-status,.unit-control-stacks{position:absolute;left:50%;transform:translateX(-50%);z-index:4;padding:1px 3px;border-radius:3px;background:#0b1724e8;font:700 clamp(6px,.7vw,9px) var(--heading);line-height:1.2;white-space:nowrap;pointer-events:none}
+.unit-status{top:23%;color:#cff3ff}.unit.feared .unit-status{color:#e2b4ff}.unit-control-stacks{bottom:2%;color:#ffe499}
+.effect-freeze{color:#bceeff}.effect-fear,.effect-dark-explosion{color:#df9cff}.effect-control-resist{color:#fff0af}
+.ice-snowstorm{position:absolute;inset:0;overflow:hidden;pointer-events:none;background:linear-gradient(#afdfff12,#e2f6ff0d)}
+.ice-snowstorm span{position:absolute;top:-8%;color:#e5f9ff;text-shadow:0 0 6px #5fb9e9;animation:ice-snowfall 3s linear infinite;opacity:.8}
+@keyframes ice-snowfall{from{top:-8%;transform:translateX(0) rotate(0)}to{top:108%;transform:translateX(var(--snow-drift)) rotate(150deg);opacity:0}}
+.unit.summoned .unit-portrait{border-style:dashed;filter:saturate(.65);box-shadow:0 0 9px #a9e87566}
+.unit.summoned .unit-stars{color:#c9efb4;font-size:8px;letter-spacing:.4px}
+.unit.nature-growing:not(.summoned) .unit-portrait{box-shadow:0 0 12px #8eea7070}
+.effect-nature-growth,.effect-summon{color:#b5f48e}
+@media(prefers-reduced-motion:reduce){.sandbox-card .catalog-portrait .champion-image{transition:none}.ice-snowstorm span{animation:none;top:var(--snow-start)}}

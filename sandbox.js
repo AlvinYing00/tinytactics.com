@@ -61,7 +61,7 @@ export class Sandbox {
     this.rebuildBattle();return unit;
   }
   rebuildBattle(){
-    this.battle=new Battle({cap:10,seed:this.round*2654435761});
+    this.battle=new Battle({cap:10,seed:this.round*2654435761,traitCounts:Object.fromEntries(Object.entries(this.players).map(([team,p])=>[team,p.virtualTraits]))});
     for(const player of Object.values(this.players))for(const owned of player.roster){
       const unit=this.battle.place(owned.type,owned.team,owned.position.x,owned.position.y,owned.stars);unit.id=owned.id;
     }

@@ -1,4 +1,5 @@
 import {teamTraits} from './catalog.js';
+import {NatureEffects} from './nature-effects.js';
 
 // Combat time, not browser time, drives every trait effect (10 ticks = 1 second).
 export class TraitEffects {
@@ -6,6 +7,9 @@ export class TraitEffects {
     this.battle=battle;this.burns={};this.meteors=[];this.waves=[];this.walls=[];this.thunderstorms=[];this.inheritedDeaths=new Set();
     this.baseStats=new Map(battle.units.map(u=>[u.id,{maxHp:u.maxHp,attackDamage:u.attackDamage}]));
     this.teams=Object.fromEntries(['azure','ember'].map(team=>[team,teamTraits(battle.living(team),battle.catalog,battle.traitCounts[team])]));
+    // Both walls exist before summons choose cells; summons never cross the wall.
+    for(const team of ['azure','ember'])if(this.teams[team].windWall)this.walls.push({team,y:battle.height/2-.5,endTick:50});
+    this.nature=new NatureEffects(this);
     for(const team of ['azure','ember']){
       const traits=this.teams[team];
       if(traits.meteor)battle.living().filter(u=>u.team!==team).forEach((u,i)=>{
@@ -13,7 +17,6 @@ export class TraitEffects {
         this.meteors.push({id:`${team}-${i}`,team,targetId:u.id,x:u.x,y:u.y,launchTick,impactTick:launchTick+30,impacted:false});
       });
       if(traits.tsunami)this.waves.push({id:team,team,startTick:0,endTick:70,x:-.5,hitIds:[],resistedIds:[],completed:false});
-      if(traits.windWall)this.walls.push({team,y:battle.height/2-.5,endTick:50});
       if(traits.thunder)this.thunderstorms.push({team,impactTick:30,triggered:false,targets:[]});
       for(const u of battle.living(team)){
         u.basicAttacks=0;
@@ -33,6 +36,7 @@ export class TraitEffects {
     return !this.walls.some(w=>this.wallActive(w)&&(from.y<w.y)!==(to.y<w.y));
   }
   applyStun(unit,durationTicks){
+    if(this.battle.controls)return this.battle.controls.apply(unit,'stun',durationTicks,false);
     if(unit.hp<=0||unit.eliminated||this.isGolden(unit)||this.battle.augments?.controlImmune(unit))return false;
     unit.stunnedUntil=Math.max(unit.stunnedUntil||0,this.battle.tick+durationTicks);return true;
   }
@@ -150,6 +154,8 @@ export class TraitEffects {
     return hits;
   }
   finish(){
+    this.nature.finish();
+    this.battle.controls?.finish();
     this.battle.classes?.finish();
     this.battle.augments?.finish();
     // Ending early cancels unfinished waves; it must not eject enemies early.

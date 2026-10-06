@@ -1,6 +1,6 @@
 import {CLASS_IDS,classBonuses} from './class-rules.js';
-export const ELEMENTS=['fire','water','electric','air','mountain'];
-export const ELEMENT_LABELS={fire:'Fire',water:'Water',electric:'Electric',air:'Air',mountain:'Mountain'};
+export const ELEMENTS=['fire','water','electric','air','mountain','nature','light','dark','ice'];
+export const ELEMENT_LABELS={fire:'Fire',water:'Water',electric:'Electric',air:'Air',mountain:'Mountain',nature:'Nature',light:'Light',dark:'Dark',ice:'Ice'};
 export const ARCHETYPES=Object.freeze({
   sentinel:{name:'Tanker',role:'Frontline',hp:250,damage:20,attackTicks:6,moveTicks:5,range:1,glyph:'S',description:'Holds the frontline and absorbs champion attacks.'},
   ranger:{name:'Ranger',role:'Ranged',hp:150,damage:50,attackTicks:12,moveTicks:5,range:3,glyph:'R',description:'Strikes from three tiles away. Keep your Rangers behind the frontline.'},
@@ -13,16 +13,24 @@ const names={
   water:{sentinel:['Reef Keeper','Tide Warden','Coral Bastion','Abyss Bulwark'],ranger:['Brook Slinger','Current Scout','Riptide Archer','Deepwater Marksman'],duelist:['Foamblade','Tide Fencer','Torrent Dancer','Maelstrom Reaver']},
   electric:{sentinel:['Coil Keeper','Volt Warden','Arc Bastion','Thunder Bulwark'],ranger:['Static Slinger','Charge Scout','Flash Archer','Storm Marksman'],duelist:['Joltblade','Arc Fencer','Volt Dancer','Thunder Reaver']},
   air:{sentinel:['Gust Keeper','Breeze Warden','Cloud Bastion','Tempest Bulwark'],ranger:['Breeze Slinger','Gale Scout','Sky Archer','Tempest Marksman'],duelist:['Gustblade','Gale Fencer','Cyclone Dancer','Sky Reaver']},
-  mountain:{sentinel:['Pebble Keeper','Granite Warden','Crag Bastion','Summit Colossus'],ranger:['Flint Slinger','Ridge Scout','Quartz Archer','Peak Marksman'],duelist:['Shaleblade','Slate Fencer','Obsidian Dancer','Avalanche Reaver']}
+  mountain:{sentinel:['Pebble Keeper','Granite Warden','Crag Bastion','Summit Colossus'],ranger:['Flint Slinger','Ridge Scout','Quartz Archer','Peak Marksman'],duelist:['Shaleblade','Slate Fencer','Obsidian Dancer','Avalanche Reaver']},
+  nature:{sentinel:['Sprout Keeper',null,'Elderwood Bastion'],ranger:[null,'Canopy Archer'],duelist:[null,'Vine Fencer']},
+  light:{ranger:[null,'Dawn Scout'],duelist:[null,'Sunblade',null,'Radiant Fencer'],sentinel:[null,null,'Aurora Warden'],support:[null,null,null,'Halo Cantor']},
+  dark:{assassin:[null,'Dusk Stalker'],ranger:[null,'Umbral Scout'],sentinel:[null,null,'Eclipse Warden'],support:[null,null,null,'Night Cantor'],duelist:[null,null,null,'Shadow Fencer']},
+  ice:{duelist:['Frostblade',null,null,'Glacier Fencer'],assassin:[null,'Rime Stalker'],ranger:[null,'Snow Scout'],support:[null,null,'Winter Cantor']}
 };
-const legendary={fire:{duelist:'Solkyr'},water:{sentinel:'Neruvia',duelist:'Thalassor'},electric:{duelist:'Voltrenne',assassin:'Raivex'},air:{ranger:'Aeralune',support:'Caelora'},mountain:{sentinel:'Dolmarok',support:'Orithia'}};
+const legendary={fire:{duelist:'Solkyr'},water:{sentinel:'Neruvia',duelist:'Thalassor'},electric:{duelist:'Voltrenne',assassin:'Raivex'},air:{ranger:'Aeralune',support:'Caelora'},mountain:{sentinel:'Dolmarok',support:'Orithia'},light:{assassin:'Aurevex',ranger:'Solaria'},dark:{assassin:'Nyxara',sentinel:'Morvath'},ice:{ranger:'Isalune',sentinel:'Frostmarok'}};
 const primaryLegendary={fire:'duelist',water:'sentinel',electric:'duelist',air:'ranger',mountain:'sentinel'};
 export const ROSTER_DESIGN=Object.freeze({
   mountain:[[1,'sentinel'],[2,'sentinel'],[3,'support'],[3,'ranger'],[5,'sentinel'],[5,'support']],
   fire:[[1,'assassin'],[2,'ranger'],[2,'duelist'],[3,'assassin'],[4,'sentinel'],[4,'ranger'],[5,'duelist']],
   water:[[1,'sentinel'],[1,'support'],[2,'assassin'],[3,'support'],[4,'ranger'],[5,'sentinel'],[5,'duelist']],
   electric:[[2,'ranger'],[3,'sentinel'],[3,'assassin'],[4,'ranger'],[5,'duelist'],[5,'assassin']],
-  air:[[1,'duelist'],[2,'duelist'],[2,'sentinel'],[3,'assassin'],[3,'ranger'],[4,'support'],[5,'ranger'],[5,'support']]
+  air:[[1,'duelist'],[2,'duelist'],[2,'sentinel'],[3,'assassin'],[3,'ranger'],[4,'support'],[5,'ranger'],[5,'support']],
+  nature:[[1,'sentinel'],[2,'ranger'],[2,'duelist'],[3,'sentinel']],
+  light:[[2,'ranger'],[2,'duelist'],[3,'sentinel'],[4,'support'],[4,'duelist'],[5,'assassin'],[5,'ranger']],
+  dark:[[2,'assassin'],[2,'ranger'],[3,'sentinel'],[4,'support'],[4,'duelist'],[5,'assassin'],[5,'sentinel']],
+  ice:[[1,'duelist'],[2,'assassin'],[2,'ranger'],[3,'support'],[4,'duelist'],[5,'ranger'],[5,'sentinel']]
 });
 for(const slots of Object.values(ROSTER_DESIGN)){slots.forEach(Object.freeze);Object.freeze(slots);}
 const newRoleNames={
@@ -72,12 +80,47 @@ export const ELEMENT_STATS=Object.freeze({
     ranger:statLine([150,250,400,800,1200],[40,60,80,120,180],.5),
     support:statLine([170,330,550,750,1150],[20,40,55,75,105],1),
     assassin:statLine([160,300,500,750,1100],[55,80,110,165,250],.75)
+  }),
+  nature:Object.freeze({
+    sentinel:statLine([420,650,1200,1850,3100],[18,30,45,60,100],2),
+    duelist:statLine([260,500,800,1100,2100],[25,50,70,95,125],1.5),
+    ranger:statLine([170,350,575,875,1300],[48,70,90,135,190],1),
+    support:statLine([240,450,750,1050,1850],[17,33,48,70,100],1.75),
+    assassin:statLine([200,400,650,950,1550],[60,85,118,170,245],1.25)
+  }),
+  light:Object.freeze({
+    sentinel:statLine([160,360,650,925,1450],[30,52,75,110,180],1.75),
+    duelist:statLine([120,260,475,700,975],[60,80,115,170,250],1.4),
+    ranger:statLine([80,180,300,500,650],[80,115,170,250,360],.9),
+    support:statLine([105,225,400,600,825],[32,50,75,110,165],1.5),
+    assassin:statLine([95,210,350,550,775],[100,145,210,305,450],1.1)
+  }),
+  dark:Object.freeze({
+    sentinel:statLine([160,360,650,925,1450],[30,52,75,110,180],1.75),
+    duelist:statLine([120,260,475,700,975],[60,80,115,170,250],1.4),
+    ranger:statLine([80,180,300,500,650],[80,115,170,250,360],.9),
+    support:statLine([105,225,400,600,825],[32,50,75,110,165],1.5),
+    assassin:statLine([95,210,350,550,775],[100,145,210,305,450],1.1)
+  }),
+  ice:Object.freeze({
+    sentinel:statLine([275,550,825,1150,1750],[28,55,72,95,120],1.25),
+    duelist:statLine([220,440,715,880,1430],[33,60,82,100,145],1),
+    ranger:statLine([165,275,440,880,1320],[45,66,88,132,200],.5),
+    support:statLine([190,360,600,825,1275],[22,44,60,82,115],1),
+    assassin:statLine([175,330,550,825,1210],[60,88,120,180,275],.75)
   })
+});
+const atlasFrames=Object.freeze({
+  nature:Object.freeze([[2,2,719,521],[728,2,718,521],[2,531,719,553],[728,531,718,553]].map(Object.freeze)),
+  light:Object.freeze([[2,2,358,524],[364,2,358,524],[726,2,358,524],[1088,2,358,524],[2,534,479,550],[485,534,480,550],[969,534,477,550]].map(Object.freeze)),
+  dark:Object.freeze([[2,2,358,524],[364,2,358,524],[726,2,358,524],[1088,2,358,524],[2,534,479,550],[485,534,480,550],[969,534,477,550]].map(Object.freeze)),
+  ice:Object.freeze([[2,2,358,524],[364,2,358,524],[726,2,358,524],[1088,2,358,524],[2,534,479,550],[485,534,480,550],[969,534,477,550]].map(Object.freeze))
 });
 function champion(id,name,element,combatRole,cost){
   const base=ARCHETYPES[combatRole],stats=ELEMENT_STATS[element][combatRole];
-  const portrait=`assets/champions/${name.toLowerCase().replaceAll(' ','-')}.webp`;
-  champions[id]=Object.freeze({...base,id,name,portrait,element,combatRole,cost,sideTrait:combatRole,traits:Object.freeze([element,combatRole]),hp:stats.hp[cost-1],damage:stats.damage[cost-1],attackTicks:stats.attackTicks,damageType:element==='electric'?'true':'physical',legendary:cost===5});
+  const portrait=atlasFrames[element]?`assets/champions/${element}-roster.png`:`assets/champions/${name.toLowerCase().replaceAll(' ','-')}.webp`;
+  const portraitFrame=atlasFrames[element]?.[ROSTER_DESIGN[element].findIndex(([tier,role])=>tier===cost&&role===combatRole)];
+  champions[id]=Object.freeze({...base,id,name,portrait,portraitFrame,element,combatRole,cost,sideTrait:combatRole,traits:Object.freeze([element,combatRole]),hp:stats.hp[cost-1],damage:stats.damage[cost-1],attackTicks:stats.attackTicks,damageType:element==='electric'?'true':'physical',legendary:cost===5});
 }
 for(const element of ELEMENTS){
   for(const [cost,role] of ROSTER_DESIGN[element]){
@@ -111,10 +154,10 @@ export const sellValue = unit => CHAMPIONS[unit.type].cost * 3 ** ((unit.stars||
 export function teamTraits(units,catalog=CHAMPIONS,virtual={}){
   const counts=Object.fromEntries([...ELEMENTS,...CLASS_IDS].map(t=>[t,0]));
   const unique=new Set();
-  for(const u of units){if(u.overflow||u.position?.bench!==undefined||unique.has(u.type))continue;unique.add(u.type);for(const trait of catalog[u.type]?.traits||[])counts[trait]++;}
+  for(const u of units){if(u.summoned||u.overflow||u.position?.bench!==undefined||unique.has(u.type))continue;unique.add(u.type);for(const trait of catalog[u.type]?.traits||[])counts[trait]++;}
   const boardCounts={...counts},virtualCounts=virtualTraitCounts(virtual);
   for(const element of ELEMENTS)counts[element]+=virtualCounts[element];
-  const fire=counts.fire,water=counts.water,mountain=counts.mountain,electric=counts.electric,air=counts.air;
+  const fire=counts.fire,water=counts.water,mountain=counts.mountain,electric=counts.electric,air=counts.air,nature=counts.nature,light=counts.light,dark=counts.dark,ice=counts.ice;
   return {counts,boardCounts,virtualCounts,classes:classBonuses(boardCounts),burnPercent:fire>=5?.1:fire>=3?.07:fire>=1?.05:0,
     healPercent:water>=9?.25:water>=6?.15:water>=3?.05:0,meteor:fire>=7,tsunami:water>=10,
     shieldPercent:mountain>=6?1:mountain>=4?.5:mountain>=2?.25:mountain>=1?.1:0,goldenShield:mountain>=6,
@@ -123,5 +166,12 @@ export function teamTraits(units,catalog=CHAMPIONS,virtual={}){
     inheritanceAttackPercent:electric>=7?.15:electric>=5?.1:electric>=3?.05:0,thunder:electric>=7,
     coinChance:air===1?.05:air===4?.075:air===8?.1:air===10?.15:0,
     dodgeChance:air===4?.05:air===8?.1:air===10?.15:0,criticalEvery:air===4?10:air===8?8:air===10?5:0,
-    criticalMultiplier:air===4?2:air===8?2.5:air===10?3:1,windWall:air===10,windPiercePercent:air===10?.5:0};
+    criticalMultiplier:air===4?2:air===8?2.5:air===10?3:1,windWall:air===10,windPiercePercent:air===10?.5:0,
+    natureGrowthPercent:nature>=4?.02:nature>=2?.01:0,natureDoppelgangers:nature>=4,
+    lightStacksRequired:light>=6?6:light>=4?8:light>=2?10:0,lightStacksPerHit:light>=8?2:1,
+    lightStunTicks:light>=8?20:10,lightControlResist:light>=8?.5:light>=6?.25:0,
+    darkFearEvery:dark>=8?3:dark>=6?6:dark>=4?8:dark>=2?10:0,darkFearTicks:dark>=8?20:10,
+    darkExplosionPercent:dark>=8?.5:dark>=6?.25:0,darkDeathFearTicks:dark>=8?30:dark>=6?20:0,
+    iceChillTicks:ice>=10?20:ice>=3?10:0,iceFreezePercent:ice>=7?.4:ice>=5?.25:ice>=3?.1:0,
+    iceFreezeTicks:ice>=7?20:ice>=3?10:0,iceStorm:ice>=10};
 }

@@ -42,13 +42,35 @@ export const TRAIT_DETAILS={
     'Start combat with a shield worth 10% max HP.',
     '25% starting shield + 10% HP-damage reflection.',
     '50% starting shield + 20% HP-damage reflection.',
-    '100% shield + 30% reflection. Golden Shield resists Burn, sweeps and stuns for 5s.'
+    '100% shield + 30% reflection. Golden Shield resists Burn, stun, freeze, fear, Chill and Tsunami for 5s.'
   ],note:'Only basic damage that reaches HP reflects. Shield damage never reflects.'},
   electric:{name:'Electric',steps:[3,5,7],rows:[
     'On an Electric ally’s death, survivors gain 5% of its original HP and attack; heal the HP gained.',
     'Inheritance increases to 10% HP and attack.',
     '25% HP + 15% attack inheritance. Thunder once at 3s: 25% enemy max HP damage; execute targets already below 25% HP.'
   ],note:'Inherited bonuses never transfer again.'},
+  nature:{name:'Nature',steps:[2,4],boardEffect:false,rows:[
+    'From 2s onward, gain 1% of current max HP and attack every second. Heal the HP gained; growth compounds.',
+    'Summon a doppelganger per Nature champion at combat start, with 50% starting HP and attack. Growth increases to 2% per second.'
+  ],note:'Doppelgangers do not grow or add trait counts. Combat bonuses reset each round. No MAX board artwork.'},
+  light:{name:'Light',steps:[2,4,6,8],rows:[
+    'Hits mark the target. At 10 stacks, stun for 1s; that target cannot gain stacks for 6s.',
+    'Stun requires 8 stacks. Duration 1s; target cooldown 6s.',
+    'Stun requires 6 stacks. Light champions have 25% chance to resist stun and fear.',
+    'Hits add 2 stacks. At 6 stacks, stun for 2s; target cooldown 6s. 50% chance to resist stun and fear.'
+  ],note:'Always: Light deals double champion damage to Dark. Light resistance does not avoid Freeze, Chill or Tsunami.'},
+  dark:{name:'Dark',steps:[2,4,6,8],rows:[
+    'Every 10th attack fears its target for 1s. Each Dark champion has a 6s fear cooldown.',
+    'Every 8th attack fears for 1s; cooldown 6s.',
+    'Every 6th attack fears for 1s. On death, deal 25% attack damage to enemies within 1 tile and fear for 2s.',
+    'Every 3rd attack fears for 2s. On death, deal 50% attack damage within 1 tile and fear for 3s.'
+  ],note:'Fear blocks attacks, but allows movement. Death explosion deals double damage to Light. Fear refreshes without stacking.'},
+  ice:{name:'Ice',steps:[3,5,7,10],rows:[
+    'Hits Chill for 1s. At 6 Snowflakes, freeze for 1s and deal 10% target max HP. Target cooldown 6s.',
+    'Six-stack Freeze damage increases to 25% max HP; duration 1s.',
+    'Six-stack Freeze deals 40% max HP and lasts 2s.',
+    'Opening Snowstorm freezes all enemies for 3s and deals 55% max HP. Hits Chill for 2s; keep Ice 7’s stack Freeze.'
+  ],note:'Chill slows movement 25% and attack speed 50%; it refreshes without stacking. Freeze blocks movement and attacks. Golden Shield and Anti-control resist both.'},
   air:{name:'Air',steps:[1,4,8,10],exact:true,rows:[
     '5% chance to earn 1 gold per basic attack.',
     '7.5% coin chance · 5% dodge · every 10th attack deals 2× damage.',
@@ -66,7 +88,11 @@ const paths={
   water:'<path d="M12 2S4 11 4 15a8 8 0 0 0 16 0c0-4-8-13-8-13Z"/><path d="M8 15c0 3 2 4 4 4"/>',
   mountain:'<path d="m2 20 7-15 4 8 3-6 6 13H2Z"/><path d="m6 12 3 2 2-2m3 2 2 1 2-1"/>',
   electric:'<path d="m14 2-9 12h6l-1 8 9-13h-6l1-7Z"/>',
-  air:'<path d="M3 8h12c5 0 5-6 1-6-2 0-3 1-3 3M2 12h17c4 0 4 6 0 6-2 0-3-1-3-3M4 16h6c4 0 4 6 0 6-2 0-3-1-3-3"/>'
+  air:'<path d="M3 8h12c5 0 5-6 1-6-2 0-3 1-3 3M2 12h17c4 0 4 6 0 6-2 0-3-1-3-3M4 16h6c4 0 4 6 0 6-2 0-3-1-3-3"/>',
+  nature:'<path d="M20 3C10 2 3 7 5 14c2 7 13 7 15-11Z M4 21 16 9 M9 16l-1-5m5 1 4 1"/>',
+  light:'<path d="m12 2 2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5L12 2Z M4 4l2 2m12 12 2 2M20 4l-2 2M6 18l-2 2"/>',
+  dark:'<path d="M17 3a9 9 0 1 0 4 14 8 8 0 0 1-4-14Z M16 8l1.3 2.7L20 12l-2.7 1.3L16 16l-1.3-2.7L12 12l2.7-1.3L16 8Z"/>',
+  ice:'<path d="M12 2v20M3.3 7l17.4 10M3.3 17 20.7 7M9 4l3 3 3-3M9 20l3-3 3 3M4 10l4-1-1-4M20 14l-4 1 1 4M4 14l4 1-1 4M20 10l-4-1 1-4"/>'
 };
 export const traitIcon=element=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[element]}</svg>`;
 export function traitTier(element,count){
@@ -74,7 +100,7 @@ export function traitTier(element,count){
   return t.exact?(t.steps.includes(count)?count:0):(t.steps.filter(n=>count>=n).at(-1)||0);
 }
 export const isMaxTrait=(element,count)=>traitTier(element,count)===TRAIT_DETAILS[element].steps.at(-1);
-export const maxTraits=traits=>Object.keys(TRAIT_DETAILS).filter(e=>TRAIT_DETAILS[e].category!=='class'&&isMaxTrait(e,traits?.counts[e]||0));
+export const maxTraits=traits=>Object.keys(TRAIT_DETAILS).filter(e=>TRAIT_DETAILS[e].category!=='class'&&TRAIT_DETAILS[e].boardEffect!==false&&isMaxTrait(e,traits?.counts[e]||0));
 
 export function createTraitHud({rail,dialog,ambience,enemyAmbience,onOpen,onClose}){
   let latest=null,selected=null,lastCounts='',previousUnits=new Map();
@@ -127,7 +153,7 @@ export function createTraitHud({rail,dialog,ambience,enemyAmbience,onOpen,onClos
     const nextUnits=new Map();
     for(const u of units){
       const view=views.get(u.id);if(!view||u.team!=='azure')continue;
-      const active=u.hp>0&&!u.eliminated&&!u.overflow?(CHAMPIONS[u.type]?.traits||[]).filter(t=>traitTier(t,traits.counts[t])):[];
+      const active=u.hp>0&&!u.eliminated&&!u.overflow&&!u.summoned?(CHAMPIONS[u.type]?.traits||[]).filter(t=>traitTier(t,traits.counts[t])):[];
       const element=active[0],tier=active.map(t=>`${t}:${traitTier(t,traits.counts[t])}`).join();
       const position=preparation?`${u.x},${u.y}`:'combat',prior=previousUnits.get(u.id);
       view.classList.toggle('trait-awakened',!!tier);

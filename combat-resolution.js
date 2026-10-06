@@ -3,6 +3,7 @@ import {absorbShield} from './shields.js';
 
 function damageAmount(target,amount,options){
   const {source,battle,category='trait'}=options;
+  if(source&&category!=='reflection'&&battle?.catalog[source.type]?.element==='light'&&battle.catalog[target.type]?.element==='dark')amount*=2;
   if((category==='basic'||category==='ability')&&battle?.classes){
     if(source)amount*=battle.classes.championMultiplier(source,target);
     amount*=1-battle.classes.reduction(target);
@@ -34,7 +35,7 @@ export function applyDamage(target,amount,{source,sourceTeam=source?.team,execut
 
 export function resolveCombat(battle,hits){
   hits=hits.filter(({attacker,target})=>!attacker.eliminated&&!target.eliminated&&!attacker.sweptBy&&!target.sweptBy);
-  const traits=battle.traits,augments=battle.augments,alive=battle.living(),healing=new Map(),reflections=[],pierces=[];
+  const traits=battle.traits,augments=battle.augments,alive=battle.living(),healing=new Map(),reflections=[],pierces=[],controlHits=battle.controls?.damageIntents()||[];
   for(const hit of hits){
     hit.repelled=!!augments?.repels(hit);
     const heal=traits.onAttack(hit.attacker,hit.target,hit.dodged||hit.repelled);
@@ -54,6 +55,11 @@ export function resolveCombat(battle,hits){
     if(reflected)reflections.push({source:target,target:attacker,amount:reflected,kind:repelled?'repel':'reflection'});
     if(!dodged&&!repelled)pierces.push(...traits.windPierce(attacker,target,dealt.hpDamage+dealt.shieldDamage));
     augments?.afterBasic(hit,dealt);
+    controlHits.push(...battle.controls?.afterBasic(hit,dealt)||[]);
+  }
+  for(const hit of controlHits){
+    const dealt=applyDamage(hit.target,hit.amount,{source:hit.source,sourceTeam:hit.sourceTeam??hit.source?.team,battle,kind:hit.kind});
+    battle.events.push({type:hit.kind,id:hit.target.id,sourceId:hit.source?.id,amount:dealt.hpDamage+dealt.shieldDamage,storm:hit.storm,...dealt});
   }
   for(const {attacker,target,through,amount} of pierces){
     const dealt=applyDamage(target,amount,{source:attacker,battle,kind:'pierce'}),total=dealt.hpDamage+dealt.shieldDamage;
@@ -80,7 +86,7 @@ export function resolveCombat(battle,hits){
     for(const u of fresh){battle.resolvedDeaths.add(u.id);fallen.push(u);battle.events.push({type:'death',id:u.id});}
     for(const u of fresh){
       const killer=battle.units.find(v=>v.id===u.lastKillerId);
-      for(const hit of augments?.onDeath(u,killer)||[]){
+      for(const hit of [...(augments?.onDeath(u,killer)||[]),...(battle.controls?.onDeath(u)||[])]){
         const dealt=applyDamage(hit.target,hit.amount,{source:hit.source,battle,kind:hit.kind});
         battle.events.push({type:hit.kind,id:hit.target.id,sourceId:hit.source.id,amount:dealt.hpDamage+dealt.shieldDamage,...dealt});
       }

@@ -38,7 +38,7 @@ combat('grand-challenge','Grand Challenge','Duelists have a 30% chance to repel 
 combat('spirit-helper','Spirit Helper','Support basic attacks heal the lowest-health ally for 20% of damage dealt.','support',{role:'support'});
 combat('hold-on','Hold on','At combat start, stun 3 random enemies for 2s. Control immunity blocks the stun.','stun');
 combat('redemption','Redemption','After 5s of combat, heal every ally for 20% of its max HP.','heart');
-combat('anti-control','Anti-control','All allies resist stuns and Tsunami for the first 3s. Does not extend Golden Shield.','shield');
+combat('anti-control','Anti-control','All allies resist stun, freeze, fear, Chill and Tsunami for the first 3s. Does not extend Golden Shield.','shield');
 combat('bigger-and-bigger','Bigger and Bigger','Your champions gain 20% max HP for the rest of the game.','grow');
 combat('executioner','Executioner','Your team’s damage executes enemies below 10% max HP.','execution');
 combat('one-shot','One shot','Ranger basic attacks have a 5% chance to instantly kill their target.','ranger',{role:'ranger'});

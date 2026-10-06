@@ -20,7 +20,7 @@ export class CombatAugmentEffects {
     this.started=false;this.finished=false;
     // Eligibility belongs to the placed formation, before any opening jumps.
     for(const team of ['azure','ember']){
-      const units=battle.living(team),front=team==='azure'?battle.height/2:battle.height/2-1,back=team==='azure'?battle.height-1:0;
+      const units=battle.living(team).filter(u=>!u.summoned),front=team==='azure'?battle.height/2:battle.height/2-1,back=team==='azure'?battle.height-1:0;
       const rows=new Map();
       for(const unit of units){const row=rows.get(unit.y)||[];row.push(unit);rows.set(unit.y,row);}
       for(const [row,members] of rows){
@@ -114,7 +114,7 @@ export class CombatAugmentEffects {
   }
   beforeBasic(hit){
     const {attacker,target}=hit,b=this.battle;
-    if(!this.active()||!hit.royal||!alive(attacker)||attacker.sweptBy||b.tick<(attacker.stunnedUntil||0))return;
+    if(!this.active()||!hit.royal||!alive(attacker)||attacker.sweptBy||b.controls?.cannotAttack(attacker)||b.tick<(attacker.stunnedUntil||0))return;
     const cells=this.openCells(attacker,attacker);
     if(cells.length)this.jump(attacker,cells[Math.floor(b.random()*cells.length)],alive(target)?target:null,'royal-dancer');
   }
@@ -132,7 +132,7 @@ export class CombatAugmentEffects {
   }
   shadowDash(killer){
     const b=this.battle;
-    if(!alive(killer)||killer.sweptBy||b.tick<(killer.stunnedUntil||0))return;
+    if(!alive(killer)||killer.sweptBy||b.controls?.immobile(killer)||b.tick<(killer.stunnedUntil||0))return;
     const enemies=b.living().filter(unit=>unit.team!==killer.team&&!unit.sweptBy).sort((a,c)=>distance(killer,a)-distance(killer,c)||a.id-c.id);
     for(const target of enemies){
       const cells=this.openCells(killer,target,[[0,-1],[-1,0],[1,0],[0,1]])
