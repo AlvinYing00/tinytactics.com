@@ -10,6 +10,7 @@ import { ResultReveal,scoutOpponent,controlPresentation } from './ui-state.js';
 import { Sandbox } from './sandbox.js';
 import { interestFor,hasAugment,freeRoundRerolls } from './augments.js';
 import { createAugmentUI,pendingAugment,selectedAugmentCards } from './augment-ui.js';
+import { createSandboxAugmentUI } from './sandbox-augment-ui.js';
 import { combatAugmentStats } from './combat-augments.js';
 
 const $=selector=>document.querySelector(selector);
@@ -41,6 +42,10 @@ const playbackSpeed=()=>isSandbox()?speed:campaign.combatSpeed;
 const shopLocked=()=>campaign.player.shopLocked||campaign.player.retainShop;
 const amount=value=>Number(Number(value).toFixed(2)).toString();
 const augmentUI=createAugmentUI({getGame:()=>campaign,onChanged:message=>{say(message);render();},onError:message=>say(message,true),openShop,
+  beforeOpen:()=>{dragging.cancel();document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());}
+});
+const sandboxAugmentUI=createSandboxAugmentUI({getGame:()=>campaign,
+  onChanged:message=>{battle=campaign.battle;say(message);render();},
   beforeOpen:()=>{dragging.cancel();document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());}
 });
 let sellKey='';
@@ -241,7 +246,7 @@ function renderScouting(){
   $('#bot-plan').textContent=(active.join(' · ')||'No active traits')+`. ${scout.frontline} melee / ${scout.ranged} ranged · ${scout.upgraded} upgraded.`;
   $('#scout-title').textContent=p.name||'Ember company';
   $('#scout-summary').textContent=`Level ${p.level} · ${scout.champions.length} deployed`+(isSandbox()?' · Your custom formation':' · Scoutable board only');
-  $('#scout-augments-section').hidden=isSandbox();
+  $('#scout-augments-section').hidden=false;
   $('#scout-augments').innerHTML=selectedAugmentCards(p);
   $('#scout-traits').innerHTML=allTraits.map(t=>`<span class="scout-trait element-${t.element}${t.tier?' active':''}">${traitIcon(t.element)}<span>${t.name} ${t.count}<small>${t.max?'MAX active':t.tier?'Tier '+t.tier+' active':'Inactive'}${!t.max&&t.next?' · next '+t.next:''}</small></span></span>`).join('')||'<p>No traits on the board.</p>';
   $('#scout-threat').textContent=scout.threat?`Highest basic DPS: ${scout.threat.name} ${starLabel(scout.threat)} · ${Math.round(scout.threat.attack/scout.threat.seconds)}/s`:'No enemies remaining on the board.';
@@ -378,7 +383,7 @@ function render(){
   renderShop();renderBench();renderSelection();renderTraits();renderHazards();renderScouting();renderSandbox();renderSellDialog();
   $('.playback-controls').hidden=!isSandbox();
   if(isSandbox()){if(resultReveal.ready(performance.now()))showResult();else $('#result').hidden=true;}else renderLeague();
-  augmentUI.render();
+  augmentUI.render();sandboxAugmentUI.render();
   const overflow=isSandbox()?[]:campaign.overflow(campaign.viewId);
   $('#gift-overflow-note').hidden=!overflow.length;
   $('#gift-overflow-note').textContent=`${overflow.length} overflow gift${overflow.length===1?'':'s'} · Move to an open bench or team slot to keep. Remaining gifts sell automatically at fight start.`;

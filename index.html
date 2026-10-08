@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="sandbox.css">
 <link rel="stylesheet" href="league.css">
 <link rel="stylesheet" href="augment-ui.css">
+<link rel="stylesheet" href="sandbox-augment-ui.css">
 <link rel="stylesheet" href="champion-art.css">
 </head>
 <body class="campaign-game">
@@ -32,6 +33,7 @@
 <div class="battlefield-main">
 <div class="view-strip"><span id="view-caption">Your board</span><button id="return-home" class="quiet-button" hidden>Return to your board</button></div><div class="board-toolbar"><button id="scout-button" class="board-utility-button" aria-haspopup="dialog" aria-controls="scout-dialog">Scout</button><button id="level-button" class="board-level-button">Level 4 · 10g</button><button id="shop-button" class="board-shop-button" aria-haspopup="dialog" aria-controls="shop-dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M3 9h18l-2-5H5L3 9Z M4 9v11h16V9 M9 20v-7h6v7 M3 9c0 4 4 4 5 1 1 3 5 3 6 0 1 3 7 3 7-1"/></svg><span>Shop</span><b id="board-shop-gold">10g</b><span id="board-shop-lock" hidden aria-label="Shop locked">●</span></button></div>
 <div id="augment-controls" class="augment-controls" hidden><button id="choose-augment" class="augment-pending-button" aria-haspopup="dialog" aria-controls="augment-dialog" hidden>Choose Augment</button><button id="owned-augments-button" aria-haspopup="dialog" aria-controls="owned-augments-dialog" hidden>Augments</button></div>
+<div id="sandbox-augment-controls" class="augment-controls" hidden><button id="sandbox-augments-button" aria-haspopup="dialog" aria-controls="sandbox-augments-dialog">Augments · 0 / 0</button></div>
 <div class="board-shell"><div id="board" class="board" role="group" aria-label="8 by 8 battlefield. Your territory is in the lower four rows."></div><div id="enemy-territory-ambience" class="territory-ambience enemy-ambience" aria-hidden="true" hidden></div><div id="territory-ambience" class="territory-ambience" aria-hidden="true" hidden></div><div id="units" class="units"></div><div id="trait-effects" class="trait-effects" aria-hidden="true"></div><svg id="effects" class="effects" viewBox="0 0 800 800" aria-hidden="true"></svg><div id="floaters" class="floaters" aria-hidden="true"></div><div id="faceoff-countdown" class="faceoff-countdown" aria-live="polite" hidden></div><div id="result" class="result-overlay" hidden></div></div>
 <p id="gift-overflow-note" role="status" hidden></p>
 <div class="board-side-label own-territory"><span id="territory-label">YOUR TERRITORY</span> <span>◆</span></div>
@@ -84,5 +86,15 @@
 <div class="mobile-playbar"><span id="mobile-status">Lv 3 · 10 gold · 8/8 players remaining</span><button id="mobile-start" class="primary-button"><span>Start battle</span><span aria-hidden="true">↗</span></button></div>
 <script type="module" src="app.js"></script>
 <dialog id="sandbox-dialog" aria-labelledby="sandbox-title"><div class="shop-dialog-head"><div><p class="eyebrow">FREE PLACEMENT</p><h2 id="sandbox-title">Choose champions</h2></div><button id="close-sandbox" class="dialog-close-button" aria-label="Close champion selection">×</button></div><div class="sandbox-filters"><label>Place on<select id="sandbox-team"><option value="azure">Azure (you)</option><option value="ember">Ember (enemy)</option></select></label><label>Star level<select id="sandbox-stars"><option value="1">1★</option><option value="2">2★</option><option value="3">3★ (MAX)</option></select></label><label>Element<select id="sandbox-element"><option value="all">All elements</option><option value="fire">Fire</option><option value="water">Water</option><option value="electric">Electric</option><option value="air">Air</option><option value="mountain">Mountain</option><option value="nature">Nature</option><option value="light">Light</option><option value="dark">Dark</option><option value="ice">Ice</option><option value="cosmic">Cosmic</option></select></label><label>Cost tier<select id="sandbox-cost"><option value="all">All costs</option><option value="1">1 cost</option><option value="2">2 cost</option><option value="3">3 cost</option><option value="4">4 cost</option><option value="5">5 cost</option><option value="6">6 cost · Augment</option><option value="7">7 cost · Augment</option></select></label></div><p id="sandbox-capacity"></p><div id="sandbox-catalog" class="sandbox-catalog"></div><p id="sandbox-feedback" role="status" aria-live="polite">Choose a card to add it. Drag it into position after closing.</p><button id="done-sandbox" class="primary-button">Done</button></dialog>
+<dialog id="sandbox-augments-dialog" aria-labelledby="sandbox-augments-title" aria-describedby="sandbox-augment-hint">
+<div class="shop-dialog-head"><div><p class="eyebrow">SANDBOX SETUP</p><h2 id="sandbox-augments-title">Choose Augments</h2></div><button id="close-sandbox-augments" class="dialog-close-button" aria-label="Close Sandbox Augments">×</button></div>
+<p id="sandbox-augment-hint">Choose up to 5 per team, from any stage. Effects still need matching champions or breakpoints.</p>
+<div class="sandbox-augment-filters"><label>Team<select id="sandbox-augment-team"><option value="azure">Azure (you)</option><option value="ember">Ember (enemy)</option></select></label><label>Type<select id="sandbox-augment-type"><option value="all">All types</option><option value="combat">Combat</option><option value="trait">Trait</option><option value="class">Class</option></select></label><label class="sandbox-augment-search">Search<input id="sandbox-augment-search" type="search" placeholder="Find an Augment…" autocomplete="off"></label></div>
+<div class="sandbox-augment-selection-head"><strong id="sandbox-augment-count">Azure · 0/5 selected</strong><button id="sandbox-augments-clear" class="quiet-button">Clear team</button></div>
+<div id="sandbox-augment-selected"></div><span id="sandbox-augment-results"></span>
+<div id="sandbox-augment-catalog"></div>
+<p class="sandbox-augment-note">Gifts add a 1★ champion when there is room and it is not already placed. Gold stays disabled.</p>
+<div class="sandbox-augment-footer"><p id="sandbox-augments-feedback" role="status" aria-live="polite"></p><button id="done-sandbox-augments" class="primary-button">Done</button></div>
+</dialog>
 </body>
 </html>

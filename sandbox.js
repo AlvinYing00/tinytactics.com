@@ -1,12 +1,16 @@
 import { Battle } from './engine.js';
 import { CHAMPIONS, championStats, teamTraits } from './catalog.js';
+import { AUGMENTS } from './augments.js';
+
+export const SANDBOX_AUGMENT_LIMIT=5;
+export const SANDBOX_AUGMENTS=Object.freeze(Object.values(AUGMENTS).filter(a=>['combat','trait','class'].includes(a.type)));
 
 // Formation ownership stays separate from the disposable combat simulation.
 // Sandbox has no bot, shop, combinations, player damage or economy settlement.
 export class Sandbox {
   constructor() {
     this.mode='sandbox';this.phase='preparation';this.round=1;this.nextId=1;this.result=null;this.lastAutoDeployed=[];
-    this.players=Object.fromEntries(['azure','ember'].map(team=>[team,{team,hp:null,gold:0,level:10,xp:0,lossStreak:0,virtualTraits:{},roster:[],shop:[],shopLocked:false,retainShop:false}]));
+    this.players=Object.fromEntries(['azure','ember'].map(team=>[team,{team,hp:null,gold:0,level:10,xp:0,lossStreak:0,augments:[],virtualTraits:{},roster:[],shop:[],shopLocked:false,retainShop:false}]));
     this.rebuildBattle();
   }
   get player(){return this.players.azure;}
@@ -17,7 +21,36 @@ export class Sandbox {
   deployed(team='azure'){return this.players[team].roster;}
   bench(){return [];}
   levelPrice(){return 0;}
-  traits(team='azure'){return teamTraits(this.deployed(team),CHAMPIONS,this.players[team].virtualTraits);}
+  traitCounts(team='azure'){
+    const p=this.players[team],counts={...p.virtualTraits};
+    for(const id of p.augments)for(const [trait,count] of Object.entries(AUGMENTS[id].effect.virtual||{}))counts[trait]=(counts[trait]||0)+count;
+    return counts;
+  }
+  traits(team='azure'){return teamTraits(this.deployed(team),CHAMPIONS,this.traitCounts(team));}
+  augmentPlayer(team){
+    this.editable();
+    if(!this.players[team])throw new Error('Choose Azure or Ember.');
+    return this.players[team];
+  }
+  addAugment(id,team='azure'){
+    const p=this.augmentPlayer(team),augment=SANDBOX_AUGMENTS.find(a=>a.id===id);
+    if(!augment)throw new Error('Sandbox supports Combat, Trait and Class Augments only.');
+    if(p.augments.includes(id))throw new Error('This team already has that Augment.');
+    if(p.augments.length>=SANDBOX_AUGMENT_LIMIT)throw new Error('Remove an Augment first. Each team can select up to 5.');
+    p.augments.push(id);
+    // Gifts respect Sandbox's unique champions and ten-unit formation cap.
+    const filter=augment.effect.gift;
+    const candidates=filter?this.availableChampions(team).filter(c=>(!filter.type||c.id===filter.type)&&(!filter.maxCost||c.cost<=filter.maxCost)&&(!filter.element||c.element===filter.element)&&(!filter.combatRole||c.combatRole===filter.combatRole)):[];
+    const gift=filter&&p.roster.length<10&&candidates.length?this.add(candidates[Math.floor(Math.random()*candidates.length)].id,team):null;
+    this.rebuildBattle();return {augment,gift,giftSkipped:!!filter&&!gift};
+  }
+  removeAugment(id,team='azure'){
+    const p=this.augmentPlayer(team);
+    p.augments=p.augments.filter(selected=>selected!==id);this.rebuildBattle();
+  }
+  clearAugments(team='azure'){
+    this.augmentPlayer(team).augments=[];this.rebuildBattle();
+  }
   availableChampions(team='azure'){
     if(!this.players[team])throw new Error('Choose Azure or Ember.');
     const placed=new Set(this.deployed(team).map(u=>u.type));
@@ -61,7 +94,9 @@ export class Sandbox {
     this.rebuildBattle();return unit;
   }
   rebuildBattle(){
-    this.battle=new Battle({cap:10,seed:this.round*2654435761,traitCounts:Object.fromEntries(Object.entries(this.players).map(([team,p])=>[team,p.virtualTraits]))});
+    this.battle=new Battle({cap:10,seed:this.round*2654435761,
+      traitCounts:Object.fromEntries(Object.keys(this.players).map(team=>[team,this.traitCounts(team)])),
+      teamAugments:Object.fromEntries(Object.entries(this.players).map(([team,p])=>[team,p.augments]))});
     for(const player of Object.values(this.players))for(const owned of player.roster){
       const unit=this.battle.place(owned.type,owned.team,owned.position.x,owned.position.y,owned.stars);unit.id=owned.id;
     }
