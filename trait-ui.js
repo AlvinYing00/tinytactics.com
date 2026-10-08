@@ -1,6 +1,11 @@
 // Presentation only. Combat continues to use the rules in catalog/trait-effects.
 import {CHAMPIONS} from './catalog.js';
 export const TRAIT_DETAILS={
+  cosmic:{name:'Cosmic',steps:[1,2,3],rows:[
+    'Starting row grants Tanker / Duelist / Assassin / Ranger effects and matching Augment bonuses. Cosmic adds no class count.',
+    'A mega asteroid lands after 5s: 25% enemy max HP damage and a 3s stun.',
+    'A 5s vortex pulls in and disables non-Cosmic units, then eliminates them. Per removal: 75% chance for 3–7 gold, otherwise a Cosmic copy. Keep the asteroid.'
+  ],note:'Both teams’ Cosmic champions are safe from the vortex. Dragonoid and Elyndra copies require their Orbs; they never appear in the shop. Cosmic MAX terrain takes priority.'},
   sentinel:{name:'Tanker',category:'class',steps:[2,4,6],rows:[
     'Tankers take 10% less damage from champion attacks and abilities.',
     'Champion damage reduction increases to 20%.',
@@ -51,7 +56,7 @@ export const TRAIT_DETAILS={
   ],note:'Inherited bonuses never transfer again.'},
   nature:{name:'Nature',steps:[2,4],boardEffect:false,rows:[
     'From 2s onward, gain 1% of current max HP and attack every second. Heal the HP gained; growth compounds.',
-    'Summon a doppelganger per Nature champion at combat start, with 50% starting HP and attack. Growth increases to 2% per second.'
+    'Summon a doppelganger per Nature champion at combat start, with 25% starting HP and 50% attack. Growth increases to 2% per second.'
   ],note:'Doppelgangers do not grow or add trait counts. Combat bonuses reset each round. No MAX board artwork.'},
   light:{name:'Light',steps:[2,4,6,8],rows:[
     'Hits mark the target. At 10 stacks, stun for 1s; that target cannot gain stacks for 6s.',
@@ -79,6 +84,7 @@ export const TRAIT_DETAILS={
   ],note:'Exact counts only. Other counts disable Air. Wind Wall does not block trait effects or grant stats.'}
 };
 const paths={
+  cosmic:'<ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(-35 12 12)"/><circle cx="12" cy="12" r="4"/><path d="m19 2 .8 2.2L22 5l-2.2.8L19 8l-.8-2.2L16 5l2.2-.8L19 2Z"/>',
   sentinel:'<path d="m12 2 8 3v6c0 5-4 9-8 11-4-2-8-6-8-11V5l8-3Z"/><path d="M12 6v11M8 10h8"/>',
   duelist:'<path d="m4 2 16 16m-4-1 4-4m-2 5 3 3M20 2 4 18m4-1-4-4m2 5-3 3M4 2l1 5M20 2l-1 5"/>',
   ranger:'<path d="M6 3c13 3 13 15 0 18L10 12 6 3ZM3 12h18m-4-4 4 4-4 4"/>',
@@ -100,7 +106,7 @@ export function traitTier(element,count){
   return t.exact?(t.steps.includes(count)?count:0):(t.steps.filter(n=>count>=n).at(-1)||0);
 }
 export const isMaxTrait=(element,count)=>traitTier(element,count)===TRAIT_DETAILS[element].steps.at(-1);
-export const maxTraits=traits=>Object.keys(TRAIT_DETAILS).filter(e=>TRAIT_DETAILS[e].category!=='class'&&TRAIT_DETAILS[e].boardEffect!==false&&isMaxTrait(e,traits?.counts[e]||0));
+export const maxTraits=traits=>(traits?.counts.cosmic||0)>=3?['cosmic']:Object.keys(TRAIT_DETAILS).filter(e=>TRAIT_DETAILS[e].category!=='class'&&TRAIT_DETAILS[e].boardEffect!==false&&isMaxTrait(e,traits?.counts[e]||0));
 
 export function createTraitHud({rail,dialog,ambience,enemyAmbience,onOpen,onClose}){
   let latest=null,selected=null,lastCounts='',previousUnits=new Map();
@@ -123,7 +129,8 @@ export function createTraitHud({rail,dialog,ambience,enemyAmbience,onOpen,onClos
     const t=TRAIT_DETAILS[selected],count=latest.counts[selected],tier=traitTier(selected,count);
     dialog.className=`trait-dialog element-${selected}`;
     dialog.querySelector('#trait-dialog-title').innerHTML=`${traitIcon(selected)} ${t.name}`;
-    dialog.querySelector('#trait-dialog-status').textContent=`${count} deployed · ${tier?`Tier ${tier}${isMaxTrait(selected,count)?' · MAX':''} active`:'Inactive'}${t.exact?' · Exact counts':''}`;
+    const virtual=latest.virtualCounts?.[selected]||0;
+    dialog.querySelector('#trait-dialog-status').textContent=`${count} total${virtual?` (${count-virtual} board + ${virtual} Augment)`: ' on board'} · ${tier?`Tier ${tier}${isMaxTrait(selected,count)?' · MAX':''} active`:'Inactive'}${t.exact?' · Exact counts':''}`;
     dialog.querySelector('#trait-detail-list').innerHTML=t.steps.map((n,i)=>`<li${tier===n?' class="current" aria-current="true"':''}><span class="detail-tier">${n}${i===t.steps.length-1?'<small>MAX</small>':''}</span><p>${t.rows[i]}</p></li>`).join('');
     dialog.querySelector('#trait-dialog-note').textContent=t.note||'The highest reached tier applies to champions with this trait.';
   }

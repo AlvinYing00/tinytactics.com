@@ -30,7 +30,7 @@ export function selectedAugmentCards(player,statusFor=()=> ''){
   return (player.augments||[]).map(id=>{
     const a=AUGMENTS[id];if(!a)return '';
     const status=statusFor(a);
-    return `<article class="owned-augment" data-augment-type="${a.type}"><span class="augment-logo">${augmentIcon(a.icon)}</span><div><h3>${a.name}</h3><span class="augment-kind">${a.type==='combat'?'Combat':'Economy'}</span><p>${a.description}</p>${status?`<small>${status}</small>`:''}</div></article>`;
+    return `<article class="owned-augment" data-augment-type="${a.type}"><span class="augment-logo">${augmentIcon(a.icon)}</span><div><h3>${a.name}</h3><span class="augment-kind">${({combat:'Combat',economy:'Economy',trait:'Trait',class:'Class'})[a.type]}</span><p>${a.description}</p>${status?`<small>${status}</small>`:''}</div></article>`;
   }).join('')||'<p class="augment-empty">No Augments selected yet.</p>';
 }
 
@@ -77,7 +77,7 @@ export function createAugmentUI({getGame,onChanged,onError,openShop,beforeOpen})
     const choice=p.augmentChoice,key=JSON.stringify([choice.round,choice.offers,choice.rerolled]);
     if(key!==cardKey){
       cardKey=key;
-      $('augment-options').innerHTML=choice.offers.map((id,slot)=>{const a=AUGMENTS[id];return `<article class="augment-card" data-augment-type="${a.type}"><div class="augment-card-symbols"><span class="augment-logo">${augmentIcon(a.icon)}</span><span class="augment-kind">${a.type==='combat'?'Combat':'Economy'}</span></div><h3>${a.name}</h3><p>${a.description}</p><div class="augment-card-actions"><button class="augment-select" data-augment="${id}" aria-label="Choose ${a.name}">Choose</button><button class="augment-reroll" data-augment-slot="${slot}" aria-label="Reroll ${a.name}" ${choice.rerolled[slot]?'disabled':''}>${choice.rerolled[slot]?'Rerolled':'Reroll ↻'}</button></div></article>`;}).join('');
+      $('augment-options').innerHTML=choice.offers.map((id,slot)=>{const a=AUGMENTS[id];return `<article class="augment-card" data-augment-type="${a.type}"><div class="augment-card-symbols"><span class="augment-logo">${augmentIcon(a.icon)}</span><span class="augment-kind">${({combat:'Combat',economy:'Economy',trait:'Trait',class:'Class'})[a.type]}</span></div><h3>${a.name}</h3><p>${a.description}</p><div class="augment-card-actions"><button class="augment-select" data-augment="${id}" aria-label="Choose ${a.name}">Choose</button><button class="augment-reroll" data-augment-slot="${slot}" aria-label="Reroll ${a.name}" ${choice.rerolled[slot]?'disabled':''}>${choice.rerolled[slot]?'Rerolled':'Reroll ↻'}</button></div></article>`;}).join('');
       $('augment-options').querySelectorAll('[data-augment]').forEach(button=>button.onclick=()=>{
         try{const a=game.chooseAugment(button.dataset.augment);dialog.close();onChanged(`${a.name} selected.`);openShop();}catch(error){onError(error.message);}
       });

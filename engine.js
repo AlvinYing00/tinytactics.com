@@ -5,13 +5,15 @@ import { ClassEffects } from './class-effects.js';
 import { CombatAugmentEffects, combatAugmentStats } from './combat-augments.js';
 import { resolveCombat } from './combat-resolution.js';
 import { ElementalControls } from './elemental-controls.js';
+import { CosmicEffects } from './cosmic-effects.js';
+import {unitClass} from './class-rules.js';
 export { ARCHETYPES } from './catalog.js';
 export const distance = (a,b) => Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
 const key = p => `${p.x},${p.y}`;
 const clone = value => JSON.parse(JSON.stringify(value));
 const freshUnit=(id,type,team,x,y,stars,stats)=>({id,type,team,x,y,stars,hp:stats.hp,maxHp:stats.hp,attackDamage:stats.damage,damageType:stats.damageType||'physical',shield:0,maxShield:0,goldenUntil:0,stunnedUntil:0,basicAttacks:0,targetId:null,attackReady:0,moveReady:0,damageDealt:0,kills:0});
 export class Battle {
-  constructor({width=8,height=8,cap=10,teamCaps={},previewOnly=false,timeout=600,catalog=CHAMPIONS,seed=1,random,onGold,traitCounts={},teamAugments={}}={}) {
+  constructor({width=8,height=8,cap=10,teamCaps={},previewOnly=false,timeout=600,catalog=CHAMPIONS,seed=1,random,onGold,onChampionReward,traitCounts={},teamAugments={}}={}) {
     this.width=width; this.height=height; this.cap=Math.min(10,cap); this.timeout=timeout; this.catalog=catalog;this.previewOnly=previewOnly;
     // An explicit per-team cap is granted by the league's level-11 Augment only.
     this.teamCaps=Object.fromEntries(['azure','ember'].map(team=>[team,Number.isInteger(teamCaps[team])?Math.max(1,Math.min(11,teamCaps[team])):this.cap]));
@@ -22,6 +24,7 @@ export class Battle {
     this.tick=0; this.accumulator=0; this.events=[]; this.roster=null;
     this.traits=null;this.classes=null;this.controls=null;
     this.seed=seed>>>0||1;this.randomState=this.seed;this.onGold=onGold;this.goldEarned={azure:0,ember:0};
+    this.onChampionReward=onChampionReward;this.championRewards={azure:[],ember:[]};
     this.random=random||(()=>{let x=this.randomState;x^=x<<13;x^=x>>>17;x^=x<<5;this.randomState=x>>>0;return this.randomState/4294967296;});
   }
   inside(x,y) { return Number.isInteger(x)&&Number.isInteger(y)&&x>=0&&x<this.width&&y>=0&&y<this.height; }
@@ -39,21 +42,22 @@ export class Battle {
   }
   place(type,team,x,y,stars=1) {
     this.validate(team,x,y);
-    const stats=combatAugmentStats(championStats(type,stars,this.catalog),this.teamAugments[team]);
+    const stats=combatAugmentStats(championStats(type,stars,this.catalog),this.teamAugments[team],{team,y,height:this.height});
     const limit=this.teamCaps[team];
     if(!this.previewOnly&&this.living(team).length>=limit) throw new Error(`Your squad is full. Remove a champion first (${limit} maximum).`);
     const u=freshUnit(this.nextId++,type,team,x,y,stars,stats);
+    if(this.catalog[type].element==='cosmic')u.cosmicClass=unitClass(u,this.catalog,this.height);
     this.units.push(u); return u;
   }
-  summon(owner,x,y,rate=.5){
-    if(this.phase!=='combat'||!this.inside(x,y)||!this.home(owner.team,y)||this.at(x,y))throw new Error('Choose an empty combat tile in the summoner’s half.');
-    const unit=freshUnit(this.nextSummonId--,owner.type,owner.team,x,y,owner.stars,{hp:owner.maxHp*rate,damage:owner.attackDamage*rate,damageType:owner.damageType});
+  summon(owner,x,y,hpRate=.25,damageRate=.5){
+    if(this.phase!=='combat'||!this.inside(x,y)||this.at(x,y)||this.traits&&!this.traits.canStep(owner,owner,{x,y}))throw new Error('Choose an empty combat tile accessible to the summoner.');
+    const unit=freshUnit(this.nextSummonId--,owner.type,owner.team,x,y,owner.stars,{hp:owner.maxHp*hpRate,damage:owner.attackDamage*damageRate,damageType:owner.damageType});
     Object.assign(unit,{summoned:true,sourceId:owner.id,summonKind:'nature'});this.units.push(unit);
     this.events.push({type:'summon',id:unit.id,sourceId:owner.id,kind:'nature'});return unit;
   }
   move(id,x,y) {
     const u=this.units.find(v=>v.id===id); if(!u) throw new Error('Choose a champion first.');
-    this.validate(u.team,x,y,id); u.x=x;u.y=y;
+    this.validate(u.team,x,y,id); u.x=x;u.y=y;this.refreshCosmic(u);
   }
   moveOrSwap(id,x,y) {
     this.editable();
@@ -67,18 +71,26 @@ export class Battle {
     const origin={x:u.x,y:u.y};
     u.x=x;u.y=y;
     if(other){other.x=origin.x;other.y=origin.y;}
+    this.refreshCosmic(u);if(other)this.refreshCosmic(other);
     return other||null;
   }
   remove(id) { this.editable(); this.units=this.units.filter(u=>u.id!==id); }
+  refreshCosmic(u){
+    if(this.catalog[u.type].element!=='cosmic')return;
+    delete u.cosmicClass;u.cosmicClass=unitClass(u,this.catalog,this.height);
+    const stats=combatAugmentStats(championStats(u.type,u.stars,this.catalog),this.teamAugments[u.team],{...u,height:this.height});
+    u.hp=u.maxHp=stats.hp;u.attackDamage=stats.damage;
+  }
   start() {
     this.editable();
     if(this.previewOnly)throw new Error('This formation preview cannot start combat.');
     if(!this.living('azure').length||!this.living('ember').length) throw new Error('Both teams need at least one champion.');
     this.roster=clone(this.units); this.phase='combat'; this.tick=0; this.accumulator=0; this.outcome=null;this.events=[];
-    this.randomState=this.seed;this.goldEarned={azure:0,ember:0};this.nextSummonId=Math.min(0,...this.units.map(u=>u.id))-1;
+    this.randomState=this.seed;this.goldEarned={azure:0,ember:0};this.championRewards={azure:[],ember:[]};this.nextSummonId=Math.min(0,...this.units.map(u=>u.id))-1;
     this.traits=new TraitEffects(this);
     this.controls=new ElementalControls(this);
     this.resolvedDeaths.clear();this.augments=new CombatAugmentEffects(this);this.augments.start();
+    this.traits.cosmic=new CosmicEffects(this);
     this.controls.start();
     this.classes=new ClassEffects(this);
     if(this.controls.pending.length){resolveCombat(this,[]);this.checkOutcome();}
@@ -88,6 +100,7 @@ export class Battle {
     this.phase='preparation';this.tick=0;this.accumulator=0;this.outcome=null;this.events=[];this.roster=null;
     this.traits=null;this.classes=null;this.controls=null;this.augments=null;this.resolvedDeaths.clear();
     this.randomState=this.seed;this.goldEarned={azure:0,ember:0};
+    this.championRewards={azure:[],ember:[]};
   }
   drainEvents() { const events=this.events;this.events=[];return events; }
   advance(seconds) {
@@ -127,6 +140,7 @@ export class Battle {
     this.tick+=0.5;
     this.controls.update();
     this.traits.nature.update();
+    this.traits.cosmic.update();
     this.traits.sweep();
     this.augments.update();
     this.classes.update();
@@ -183,7 +197,7 @@ export class Battle {
       this.events.push({type:'end',outcome:this.outcome});
     }
   }
-  attackRange(unit){return this.classes?this.classes.attackRange(unit):this.catalog[unit.type].range;}
+  attackRange(unit){return this.classes?this.classes.attackRange(unit):this.catalog[unit.type].element==='cosmic'&&unitClass(unit,this.catalog)==='ranger'?3:this.catalog[unit.type].range;}
   attackInterval(unit){return (this.classes?this.classes.attackInterval(unit):this.catalog[unit.type].attackTicks)/(this.controls?.chilled(unit)?.5:1);}
 }
 export const FORMATIONS = [

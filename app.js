@@ -1,3 +1,4 @@
+import {unitClass} from './class-rules.js';
 import { distance } from './engine.js';
 import { CHAMPIONS as ARCHETYPES, SHOP_CHAMPIONS, ARCHETYPES as ROLES, ELEMENT_LABELS, championStats, sellValue, teamTraits } from './catalog.js';
 import { BENCH_SIZE, shopOdds } from './campaign.js';
@@ -28,7 +29,7 @@ const traitHud=createTraitHud({rail:$('#trait-list'),dialog:$('#trait-dialog'),a
 });
 const coordinate=(x,y)=>y===8?'Bench '+(x+1):String.fromCharCode(65+x)+(8-y);
 const starLabel=u=>'★'.repeat(u.stars||1);
-const portraitImage=c=>c.portraitFrame?`<svg class="champion-image" viewBox="${c.portraitFrame.join(' ')}" preserveAspectRatio="xMidYMin slice" aria-hidden="true" focusable="false"><image href="${c.portrait}" width="1448" height="1086"/></svg>`:c.portrait?`<img class="champion-image" src="${c.portrait}" alt="" draggable="false">`:'';
+const portraitImage=c=>c.portraitFrame?`<svg class="champion-image" viewBox="${c.portraitFrame.join(' ')}" preserveAspectRatio="xMidYMin slice" aria-hidden="true" focusable="false"><image href="${c.portrait}" width="${c.portraitSize?.[0]||1448}" height="${c.portraitSize?.[1]||1086}"/></svg>`:c.portrait?`<img class="champion-image" src="${c.portrait}" alt="" draggable="false">`:'';
 const cardArt=c=>`<span class="card-art character-art">${portraitImage(c)}${roleMarker(c)}</span>`;
 const roleMarker=c=>['support','assassin'].includes(c.combatRole)?`<span class="role-mark" title="${ROLES[c.combatRole].name}">${traitIcon(c.combatRole)}</span>`:'';
 const editable=()=>campaign.phase==='preparation'&&(isSandbox()||(campaign.player.hp>0&&campaign.viewId==='azure'));
@@ -52,7 +53,7 @@ const snapshot=()=>({
   odds:shopOdds(campaign.player.level),result:campaign.result,augments:campaign.player.augments||[],augmentChoice:campaign.player.augmentChoice||null,
   airGold:{...battle.goldEarned},
   traits:Object.fromEntries(['azure','ember'].map(team=>[team,sideTraits(team)])),
-  units:battle.units.map(u=>({id:u.id,type:u.type,stars:u.stars,summoned:!!u.summoned,sourceId:u.sourceId,natureStacks:u.natureStacks||0,lightStacks:u.lightStacks||0,iceStacks:u.iceStacks||0,frozen:!!battle.controls?.frozen(u),feared:!!battle.controls?.feared(u),chilled:!!battle.controls?.chilled(u),team:u.team,x:u.x,y:u.y,hp:u.hp,maxHp:u.maxHp,shield:u.shield,eliminated:!!u.eliminated,swept:!!u.sweptBy,goldenShield:!!battle.traits?.isGolden(u),basicAttacks:u.basicAttacks,attackDamage:u.attackDamage,damageType:u.damageType,attackInterval:battle.attackInterval(u)/10,range:battle.attackRange(u),attackSpeedBonus:u.attackSpeedBonus||0}))
+  units:battle.units.map(u=>({id:u.id,type:u.type,stars:u.stars,summoned:!!u.summoned,sourceId:u.sourceId,cosmicClass:u.cosmicClass,cosmicHeld:!!u.cosmicHeld,natureStacks:u.natureStacks||0,lightStacks:u.lightStacks||0,iceStacks:u.iceStacks||0,frozen:!!battle.controls?.frozen(u),feared:!!battle.controls?.feared(u),chilled:!!battle.controls?.chilled(u),team:u.team,x:u.x,y:u.y,hp:u.hp,maxHp:u.maxHp,shield:u.shield,eliminated:!!u.eliminated,swept:!!u.sweptBy,goldenShield:!!battle.traits?.isGolden(u),basicAttacks:u.basicAttacks,attackDamage:u.attackDamage,damageType:u.damageType,attackInterval:battle.attackInterval(u)/10,range:battle.attackRange(u),attackSpeedBonus:u.attackSpeedBonus||0}))
 });
 function say(message,error=false){$('#notice').textContent=message;$('#notice').classList.toggle('error',error);for(const prefix of ['shop','sandbox'])if($('#'+prefix+'-dialog').open){$('#'+prefix+'-feedback').textContent=message;$('#'+prefix+'-feedback').classList.toggle('error',error);}}
 function perform(action){try{const value=action();battle=campaign.battle;render();return value??true;}catch(error){say(error.message,true);return false;}}
@@ -121,7 +122,7 @@ function renderSandboxCatalog(){
   $('#sandbox-capacity').textContent=(team==='azure'?'Azure':'Ember')+' · '+count+'/10 placed · '+stars+'★ · Free';
   $('#sandbox-catalog').innerHTML=campaign.availableChampions(team).filter(c=>(element==='all'||c.element===element)&&(cost==='all'||c.cost===Number(cost))).sort((a,b)=>a.cost-b.cost||a.name.localeCompare(b.name)).map(c=>{
     const stats=championStats(c.id,stars);
-    return `<button class="sandbox-card element-${c.element}" data-sandbox-type="${c.id}" ${count>=10?'disabled':''} aria-label="Add ${c.name}, ${stars} stars, to ${team}"><span class="catalog-portrait">${portraitImage(c)}</span><strong>${c.name}</strong><span>${ELEMENT_LABELS[c.element]} · ${c.sideTrait?ROLES[c.sideTrait].name:'Legendary'} · Cost ${c.cost}</span><small>${Math.round(stats.hp)} HP · ${Math.round(stats.damage)} ATK</small></button>`;
+    return `<button class="sandbox-card element-${c.element}" data-sandbox-type="${c.id}" ${count>=10?'disabled':''} aria-label="Add ${c.name}, ${stars} stars, to ${team}"><span class="catalog-portrait">${portraitImage(c)}</span><strong>${c.name}</strong><span>${ELEMENT_LABELS[c.element]} · ${c.sideTrait?ROLES[c.sideTrait].name:c.element==='cosmic'?'Row class':'Legendary'} · Cost ${c.cost}</span><small>${Math.round(stats.hp)} HP · ${Math.round(stats.damage)} ATK</small></button>`;
   }).join('')||'<p class="sandbox-empty">All matching champions are already on this team. Change filters or remove one from the board.</p>';
   $('#sandbox-catalog').querySelectorAll('[data-sandbox-type]').forEach(button=>button.onclick=()=>perform(()=>{
     const unit=campaign.add(button.dataset.sandboxType,team,stars);selection={id:unit.id};
@@ -162,7 +163,7 @@ function renderShop(){
       if(!type)return '<div class="shop-empty" aria-label="Empty shop slot '+(slot+1)+'"><span>—</span>No offer</div>';
       const c=ARCHETYPES[type],disabled=!campaign.canBuy(slot),plan=campaign.purchasePlan(type);
       const combines=plan.upgrades.length?' · Combines to '+plan.unit.stars+' stars':'';
-      return '<button class="champion-card element-'+c.element+' cost-tier-'+c.cost+'" data-slot="'+slot+'" '+(disabled?'disabled':'')+' aria-label="Buy '+c.name+', '+c.cost+' gold, '+c.traits.join(' and ')+combines+'">'+cardArt(c)+'<span class="card-content"><span class="card-title">'+c.name+'</span><span class="card-role">'+ELEMENT_LABELS[c.element]+'</span><span class="card-class">'+(c.sideTrait?ROLES[c.sideTrait].name:'Legendary')+'</span>'+(combines?'<span class="combine-hint">Combine '+starLabel(plan.unit)+'</span>':'')+'</span><span class="cost-badge cost-'+c.cost+'">'+c.cost+' gold</span></button>';
+      return '<button class="champion-card element-'+c.element+' cost-tier-'+c.cost+'" data-slot="'+slot+'" '+(disabled?'disabled':'')+' aria-label="Buy '+c.name+', '+c.cost+' gold, '+c.traits.join(' and ')+combines+'">'+cardArt(c)+'<span class="card-content"><span class="card-title">'+c.name+'</span><span class="card-role">'+ELEMENT_LABELS[c.element]+'</span><span class="card-class">'+(c.sideTrait?ROLES[c.sideTrait].name:c.element==='cosmic'?'Row class':'Legendary')+'</span>'+(combines?'<span class="combine-hint">Combine '+starLabel(plan.unit)+'</span>':'')+'</span><span class="cost-badge cost-'+c.cost+'">'+c.cost+' gold</span></button>';
     }).join('');
     document.querySelectorAll('[data-slot]').forEach(card=>card.onclick=()=>buy(Number(card.dataset.slot)));
   }
@@ -250,10 +251,26 @@ function openScout(){
   dragging.cancel();resumeAfterScout=isSandbox()&&campaign.phase==='combat'&&!paused;
   if(resumeAfterScout)paused=true;render();$('#scout-dialog').showModal();
 }
+function visualPosition(unit){
+  if(!unit.cosmicHeld||!unit.cosmicOrigin)return {x:unit.sweepX??unit.x,y:unit.y};
+  const tick=battle.tick+(paused||battle.phase==='finished'?0:battle.accumulator*10),p=Math.max(0,Math.min(1,tick/50));
+  const dx=unit.cosmicOrigin.x-3.5,dy=unit.cosmicOrigin.y-3.5,angle=p*Math.PI*.8;
+  return {x:3.5+(dx*Math.cos(angle)-dy*Math.sin(angle))*(1-p),y:3.5+(dx*Math.sin(angle)+dy*Math.cos(angle))*(1-p)};
+}
 function renderHazards(){
   const fx=battle.traits;if(!fx){$('#trait-effects').replaceChildren();return;}
   const tick=battle.tick+(paused||battle.phase==='finished'?0:battle.accumulator*10);
   let html='';
+  for(const vortex of fx.cosmic?.vortices||[]){
+    const p=Math.max(0,Math.min(1,(tick-vortex.startTick)/(vortex.endTick-vortex.startTick)));
+    if(!vortex.exploded&&battle.phase==='combat')html+=`<div class="cosmic-vortex" style="--turn:${p*540}deg;--vortex-scale:${.55+p*.7}" aria-hidden="true"></div><div class="cosmic-countdown">COSMIC VORTEX · ${Math.max(0,(vortex.endTick-tick)/10).toFixed(1)}s</div>`;
+    else if(tick<vortex.endTick+12)html+=`<div class="cosmic-burst" style="opacity:${Math.max(0,1-(tick-vortex.endTick)/12)}" aria-hidden="true"></div>`;
+  }
+  for(const asteroid of fx.cosmic?.asteroids||[]){
+    const p=Math.max(0,Math.min(1,(tick-asteroid.startTick)/(asteroid.impactTick-asteroid.startTick))),y=asteroid.team==='azure'?25:75;
+    if(!asteroid.impacted&&battle.phase==='combat')html+=`<div class="meteor-target cosmic-impact-target" style="left:50%;top:${y}%"></div><div class="meteor cosmic-asteroid" style="left:${20+30*p}%;top:${-25+(y+25)*p}%;transform:translate(-50%,-50%) scale(${.5+p})"></div>`;
+    else if(tick<asteroid.impactTick+10)html+=`<div class="meteor-blast cosmic-impact-blast" style="left:50%;top:${y}%;opacity:${Math.max(0,1-(tick-asteroid.impactTick)/10)}"></div>`;
+  }
   for(const storm of battle.controls?.storms||[])if(battle.phase==='combat'&&tick>=storm.startTick&&tick<storm.endTick){
     const elapsed=(tick-storm.startTick)/10;
     html+=`<div class="ice-snowstorm" aria-hidden="true">${Array.from({length:28},(_,i)=>`<span style="left:${(i*37)%100}%;--snow-drift:${(i%3-1)*35}px;--snow-start:${(i*23)%100}%;animation-delay:-${(elapsed+i*.107).toFixed(3)}s;font-size:${10+i%5*2}px">❄</span>`).join('')}</div>`;
@@ -280,8 +297,8 @@ function renderSelection(){
   const c=combatAugmentStats(championStats(type,(u||record).stars,battle.catalog),augmentIds),location=u?.eliminated?'OUT':record?.position.bench!==undefined&&!u?'Bench':u?coordinate(u.x,u.y):'';
   if(u?.summoned)c.name+=' · Doppelganger';
   if(u){c.hp=Math.ceil(u.maxHp);c.damage=Math.round(u.attackDamage*100)/100;c.attackTicks=Number(battle.attackInterval(u).toFixed(2));c.range=battle.attackRange(u);}
-  panel.innerHTML='<span class="selection-kicker">'+starLabel(u||record)+' · COST '+c.cost+' · '+c.traits.map(t=>ELEMENT_LABELS[t]||ROLES[t].name).join(' + ')+'</span><p>'+c.name+' <span class="selection-coordinate">'+location+'</span></p><span class="tip-caption">'+(c.legendary?'Legendary '+ROLES[c.combatRole].name+'. ':'')+c.description+' Attacks every '+c.attackTicks/10+'s.</span><div class="stat-row"><span>HP <strong>'+Math.ceil(u?.hp??c.hp)+'/'+c.hp+'</strong></span><span>'+(c.damageType==='true'?'TRUE DMG':'ATK')+' <strong>'+c.damage+'</strong></span><span>RANGE <strong>'+c.range+'</strong></span></div>'+(own&&sellable(own.id)?'<div class="unit-actions">'+(!isSandbox()&&editable()&&own.position.bench===undefined?'<button id="bench-unit" class="secondary-button">To bench</button>':'')+'<button id="sell-unit" class="secondary-button">'+(isSandbox()?'Remove champion':'Sell · '+sellValue(own)+' gold')+'</button></div>':'');
-  if(u?.summoned)panel.querySelector('.tip-caption').textContent='Half of its owner’s starting HP and attack. Does not gain Nature growth or add trait counts.';
+  panel.innerHTML='<span class="selection-kicker">'+starLabel(u||record)+' · COST '+c.cost+' · '+c.traits.map(t=>ELEMENT_LABELS[t]||ROLES[t].name).join(' + ')+'</span><p>'+c.name+' <span class="selection-coordinate">'+location+'</span></p><span class="tip-caption">'+(c.element==='cosmic'?'Row class: '+(ROLES[unitClass(u||record,battle.catalog)]?.name||'choose a row')+'. ':c.legendary?'Legendary '+ROLES[c.combatRole].name+'. ':'')+c.description+' Attacks every '+c.attackTicks/10+'s.</span><div class="stat-row"><span>HP <strong>'+Math.ceil(u?.hp??c.hp)+'/'+c.hp+'</strong></span><span>'+(c.damageType==='true'?'TRUE DMG':'ATK')+' <strong>'+c.damage+'</strong></span><span>RANGE <strong>'+c.range+'</strong></span></div>'+(own&&sellable(own.id)?'<div class="unit-actions">'+(!isSandbox()&&editable()&&own.position.bench===undefined?'<button id="bench-unit" class="secondary-button">To bench</button>':'')+'<button id="sell-unit" class="secondary-button">'+(isSandbox()?'Remove champion':'Sell · '+sellValue(own)+' gold')+'</button></div>':'');
+  if(u?.summoned)panel.querySelector('.tip-caption').textContent='25% of its owner’s max HP and 50% Attack at the moment it was summoned. Does not gain Nature growth or add trait counts.';
   if(u&&own&&u.stars!==own.stars)panel.querySelector('.tip-caption').textContent+=' Next round: '+starLabel(own)+'.';
   if(augmentIds.includes('smaller-and-smaller'))panel.querySelector('.tip-caption').textContent+=' Basic attacks deal 50% extra damage.';
   if(record?.overflow)panel.querySelector('.tip-caption').textContent='Overflow gift: move to an open bench or team slot before combat to keep it. Otherwise, it sells automatically.';
@@ -314,7 +331,9 @@ function render(){
     stackBadge.hidden=!control.stacks;stackBadge.textContent=control.stacks;
     el.classList.toggle('augment-immune',!!battle.augments?.immune(u));
     el.classList.toggle('control-protected',!!battle.augments?.controlImmune(u));
-    el.style.left=((u.sweepX??u.x)*12.5)+'%';el.style.top=(u.y*12.5)+'%';el.style.transitionDuration=(.22/playbackSpeed())+'s';
+    const visual=visualPosition(u);
+    el.classList.toggle('cosmic-held',!!u.cosmicHeld&&!u.eliminated);
+    el.style.left=(visual.x*12.5)+'%';el.style.top=(visual.y*12.5)+'%';el.style.transitionDuration=(u.cosmicHeld?0:.22/playbackSpeed())+'s';
     el.querySelector('.unit-glyph').textContent=c.monster?c.glyph:c.element[0].toUpperCase()+c.cost;
     el.classList.toggle('summoned',!!u.summoned);el.classList.toggle('nature-growing',!!u.natureStacks&&!u.summoned);
     el.querySelector('.unit-stars').textContent=c.monster?'':u.summoned?'COPY':starLabel(u);
@@ -448,6 +467,13 @@ function showResult(){
 function effects(events){
   let played=false;
   for(const e of events){
+    if(e.type==='cosmic-loot'){
+      if(!isSandbox())say(e.champion?`${battle.catalog[e.champion].name} earned · arrives next preparation.`:`Cosmic reward: +${e.amount} gold.`);
+      continue;
+    }
+    if(e.type==='cosmic-out'){
+      const n=document.createElement('span');n.className='damage-number effect-cosmic-out';n.textContent='OUT';n.style.left='50%';n.style.top='50%';$('#floaters').append(n);setTimeout(()=>n.remove(),820);continue;
+    }
     if(isSandbox()&&e.type==='gold')continue;
     if(e.type==='nature-growth'||e.type==='summon'){
       const u=battle.units.find(v=>v.id===e.id);
@@ -468,8 +494,8 @@ function effects(events){
         $('#effects').append(line);setTimeout(()=>line.remove(),360);
       }
     }
-    if(['burn','meteor','heal','ejected','thunder','gold','reflection','inheritance','pierce','jump','support-shield','revive','stun','explosion','dark-explosion'].includes(e.type)){
-      const u=battle.units.find(v=>v.id===e.id);if(u){const n=document.createElement('span');n.className=`damage-number effect-${e.type}`;n.textContent=e.type==='gold'?'+1 GOLD':e.type==='inheritance'?'INHERITED':e.type==='revive'?'REVIVED':e.type==='stun'?'STUNNED':e.type==='jump'?(e.kind==='shadow-killer'||e.kind==='royal-dancer'?'DASH':'JUMP'):e.type==='support-shield'?`+${Math.round(e.amount)} SHIELD`:e.execute?'EXECUTED':e.type==='ejected'?'OUT':`${e.type==='heal'?'+':'−'}${Math.round(e.amount)}`;n.style.left=`${Math.min(7,u.sweepX??u.x)*12.5+6.25}%`;n.style.top=`${u.y*12.5+3}%`;$('#floaters').append(n);setTimeout(()=>n.remove(),820);}continue;
+    if(['burn','meteor','asteroid','fire-cracker','electric-strike','heal','ejected','thunder','gold','reflection','inheritance','pierce','jump','support-shield','revive','stun','explosion','dark-explosion'].includes(e.type)){
+      const u=battle.units.find(v=>v.id===e.id);if(u){const n=document.createElement('span'),pos=visualPosition(u);n.className=`damage-number effect-${e.type}`;n.textContent=e.type==='gold'?`+${e.amount||1} GOLD`:e.type==='inheritance'?'INHERITED':e.type==='revive'?'REVIVED':e.type==='stun'?'STUNNED':e.type==='jump'?(e.kind==='shadow-killer'||e.kind==='royal-dancer'?'DASH':'JUMP'):e.type==='support-shield'?`+${Math.round(e.amount)} SHIELD`:e.execute?'EXECUTED':e.type==='ejected'?'OUT':`${e.type==='heal'?'+':'−'}${Math.round(e.amount)}`;n.style.left=`${Math.min(7,pos.x)*12.5+6.25}%`;n.style.top=`${pos.y*12.5+3}%`;$('#floaters').append(n);setTimeout(()=>n.remove(),820);}continue;
     }
     if(e.type!=='attack')continue;
     const from=battle.units.find(u=>u.id===e.id),to=battle.units.find(u=>u.id===e.targetId);if(!from||!to)continue;
@@ -477,9 +503,10 @@ function effects(events){
     attackView?.classList.add('attacking');hitView?.classList.add('hit');
     setTimeout(()=>{attackView?.classList.remove('attacking');hitView?.classList.remove('hit');},140/playbackSpeed());
     const line=document.createElementNS('http://www.w3.org/2000/svg','line');line.classList.add('shot');
-    for(const [k,v] of Object.entries({x1:from.x*100+50,y1:from.y*100+50,x2:to.x*100+50,y2:to.y*100+50,stroke:from.team==='azure'?'#b8efce':'#ee9d8d'}))line.setAttribute(k,String(v));
+    const start=visualPosition(from),end=visualPosition(to);
+    for(const [k,v] of Object.entries({x1:start.x*100+50,y1:start.y*100+50,x2:end.x*100+50,y2:end.y*100+50,stroke:from.team==='azure'?'#b8efce':'#ee9d8d'}))line.setAttribute(k,String(v));
     $('#effects').append(line);setTimeout(()=>line.remove(),360);
-    const number=document.createElement('span');number.className='damage-number'+(e.dodged||e.repelled?' effect-dodge':e.critical?' effect-critical':'');number.textContent=e.repelled?'REPEL':e.dodged?'DODGE':e.execute?'EXECUTED':`${e.critical?'CRIT ':''}−${Math.round(e.amount)}`;number.style.left=`${to.x*12.5+6.25}%`;number.style.top=`${to.y*12.5+3}%`;$('#floaters').append(number);setTimeout(()=>number.remove(),820);
+    const number=document.createElement('span');number.className='damage-number'+(e.dodged||e.repelled?' effect-dodge':e.critical?' effect-critical':'');number.textContent=e.repelled?'REPEL':e.dodged?'DODGE':e.execute?'EXECUTED':`${e.critical?'CRIT ':''}−${Math.round(e.amount)}`;number.style.left=`${end.x*12.5+6.25}%`;number.style.top=`${end.y*12.5+3}%`;$('#floaters').append(number);setTimeout(()=>number.remove(),820);
     if(!played){tone(battle.catalog[from.type].combatRole==='ranger'?600:160,.035);played=true;}
   }
 }

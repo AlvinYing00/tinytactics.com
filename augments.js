@@ -1,8 +1,10 @@
 import {CHAMPIONS} from './catalog.js';
+import {hasClass} from './class-rules.js';
+import {TRAIT_AUGMENTS,traitAugmentMatches} from './trait-augments.js';
 
 export const AUGMENT_SECONDS=30;
 export const AUGMENT_ROUNDS=Object.freeze([4,11,18,25,32]);
-export const AUGMENT_TYPE_STAGES=Object.freeze({economy:[1,2,5],trait:[2,3,4],class:[2,3,4],combat:[2,3,5]});
+export const AUGMENT_TYPE_STAGES=Object.freeze({economy:[1,2,5],trait:[2,3,4,5],class:[2,3,4],combat:[2,3,5]});
 const entries=[];
 const add=(id,name,stages,description,effect,icon='coins')=>entries.push(Object.freeze({id,name,stages,type:'economy',description,effect,icon}));
 add('snowballing','Snowballing',[1,2],'Earn 1 interest per 10 gold, with no interest cap.',{interest:true});
@@ -52,6 +54,7 @@ combat('solo-hero','Solo hero','Allies alone in their starting row take no damag
 combat('anti-shield','Anti Shield','Your champions deal 25% extra basic-attack damage to shielded enemies. Stacks with Assassin shield bypass.','broken-shield');
 combat('fire-fighter','Fire Fighter','Your champions take 20% less Fire Burn damage.','fire');
 combat('anti-shock','Anti Shock','Your champions take 50% less Thunder damage. Thunder’s low-HP execution rule is unchanged.','electric');
+entries.push(...TRAIT_AUGMENTS);
 export const AUGMENTS=Object.freeze(Object.fromEntries(entries.map(a=>[a.id,a])));
 export const hasAugment=(player,id)=>(player.augments||[]).includes(id);
 export const maxLevel=player=>hasAugment(player,'quick-formation')?7:hasAugment(player,'higher')?11:10;
@@ -65,13 +68,13 @@ const rowFor=(game,player,row)=>player.team==='ember'&&game.mode!=='fight'?(row=
 export function combatAugmentMatchesTeam(game,player,augment){
  const deployed=deployedFor(player),rule=augment.requires||{};
  if(!deployed.length)return false;
- if(rule.role&&!deployed.some(u=>CHAMPIONS[u.type].traits.includes(rule.role)))return false;
+ if(rule.role&&!deployed.some(u=>hasClass(u,rule.role,CHAMPIONS)))return false;
  if(rule.row&&deployed.filter(u=>u.position.y===rowFor(game,player,rule.row)).length<rule.minimum)return false;
  if(rule.loneRow&&!deployed.some(u=>deployed.filter(v=>v.position.y===u.position.y).length===1))return false;
  return true;
 }
 export function eligibleAugments(game,player,seen=[]){
- return entries.filter(a=>AUGMENT_TYPE_STAGES[a.type].includes(game.stage)&&a.stages.includes(game.stage)&&!hasAugment(player,a.id)&&!seen.includes(a.id)&&!(a.effect.higher&&hasAugment(player,'quick-formation'))&&(a.type!=='combat'||combatAugmentMatchesTeam(game,player,a)));
+ return entries.filter(a=>AUGMENT_TYPE_STAGES[a.type].includes(game.stage)&&a.stages.includes(game.stage)&&!hasAugment(player,a.id)&&!seen.includes(a.id)&&!(a.effect.higher&&hasAugment(player,'quick-formation'))&&(a.type!=='combat'||combatAugmentMatchesTeam(game,player,a))&&(!['trait','class'].includes(a.type)||traitAugmentMatches(player,a)));
 }
 const pick=(items,random)=>items[Math.min(items.length-1,Math.floor(random()*items.length))];
 export function createChoice(game,player){
@@ -99,12 +102,19 @@ export function selectAugment(game,team,id){
  if(e.freeRound)p.freeRerollRound=e.freeRound;
  if(e.purchase)p.purchaseBoosts={...p.purchaseBoosts,[e.purchase.cost]:e.purchase};
  if(e.gifts)for(const cost of e.gifts)game.giftChampion(team,{cost,...e.filter});
+ if(e.virtual)for(const [trait,count] of Object.entries(e.virtual)){p.virtualTraits??={};p.virtualTraits[trait]=(p.virtualTraits[trait]||0)+count;}
+ if(e.gift)game.giftChampion(team,e.gift);
  if(e.elite){const unit=game.giftChampion(team,{cost:4});p.eliteJourney={type:unit.type,pending:[7,10]};}
  game.rebuildBattle();return a;
 }
 export function chooseBotAugment(game,player){
  const score=id=>{
   const a=AUGMENTS[id],e=a.effect,s=player.style?.id;
+  if(a.type==='trait'||a.type==='class'){
+   const deployed=deployedFor(player),trait=Object.keys(e.virtual||{})[0]||a.requires?.element;
+   const matching=deployed.filter(u=>CHAMPIONS[u.type].traits.includes(trait)).length;
+   return 12+matching*3+(e.gift?4:0)+(trait===player.style?.element?6:0);
+  }
   if(a.type==='combat'){
    const deployed=deployedFor(player),rule=a.requires,matching=rule.role?deployed.filter(u=>CHAMPIONS[u.type].traits.includes(rule.role)).length:rule.row?deployed.filter(u=>u.position.y===rowFor(game,player,rule.row)).length:deployed.length;
    // Only the bot's own public formation influences its combat pick.

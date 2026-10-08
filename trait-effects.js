@@ -4,7 +4,7 @@ import {NatureEffects} from './nature-effects.js';
 // Combat time, not browser time, drives every trait effect (10 ticks = 1 second).
 export class TraitEffects {
   constructor(battle){
-    this.battle=battle;this.burns={};this.meteors=[];this.waves=[];this.walls=[];this.thunderstorms=[];this.inheritedDeaths=new Set();
+    this.battle=battle;this.burns={};this.meteors=[];this.waves=[];this.walls=[];this.thunderstorms=[];this.inheritedDeaths=new Set();this.nextMeteor={};this.meteorSerial=0;
     this.baseStats=new Map(battle.units.map(u=>[u.id,{maxHp:u.maxHp,attackDamage:u.attackDamage}]));
     this.teams=Object.fromEntries(['azure','ember'].map(team=>[team,teamTraits(battle.living(team),battle.catalog,battle.traitCounts[team])]));
     // Both walls exist before summons choose cells; summons never cross the wall.
@@ -12,7 +12,8 @@ export class TraitEffects {
     this.nature=new NatureEffects(this);
     for(const team of ['azure','ember']){
       const traits=this.teams[team];
-      if(traits.meteor)battle.living().filter(u=>u.team!==team).forEach((u,i)=>{
+      if(traits.meteor&&this.has(team,'million-meteors'))this.nextMeteor[team]=0;
+      if(traits.meteor&&!this.has(team,'million-meteors'))battle.living().filter(u=>u.team!==team).forEach((u,i)=>{
         const launchTick=i*5;
         this.meteors.push({id:`${team}-${i}`,team,targetId:u.id,x:u.x,y:u.y,launchTick,impactTick:launchTick+30,impacted:false});
       });
@@ -26,6 +27,7 @@ export class TraitEffects {
       }
     }
   }
+  has(team,id){return this.battle.teamAugments[team]?.includes(id);}
   isGolden(unit){return this.battle.phase==='combat'&&this.battle.tick<unit.goldenUntil;}
   wallActive(wall){return this.battle.phase==='combat'&&this.battle.tick<wall.endTick;}
   canTarget(attacker,target,from=attacker){
@@ -59,7 +61,7 @@ export class TraitEffects {
       const old=this.burns[target.id];
       this.burns[target.id]={rate:Math.max(old?.rate||0,team.burnPercent),sourceId:attacker.id,expires:this.battle.tick+30,nextTick:old?.nextTick||this.battle.tick+10};
     }
-    if(stats.element==='air'&&team.coinChance&&this.battle.random()<team.coinChance){
+    if(stats.element==='air'&&((this.has(attacker.team,'air-windfall')&&attacker.basicAttacks%5===0)||(team.coinChance&&this.battle.random()<team.coinChance))){
       this.battle.goldEarned[attacker.team]++;this.battle.onGold?.(attacker.team,1);
       this.battle.events.push({type:'gold',id:attacker.id,team:attacker.team,amount:1});
     }
@@ -88,8 +90,9 @@ export class TraitEffects {
     for(const team of ['azure','ember']){
       const {inheritanceHpPercent:hpRate,inheritanceAttackPercent:attackRate}=this.teams[team];if(!hpRate&&!attackRate)continue;
       const losses=fresh.filter(u=>u.team===team&&this.battle.catalog[u.type].element==='electric');
-      const hp=losses.reduce((sum,u)=>sum+this.baseStats.get(u.id).maxHp*hpRate,0);
-      const attack=losses.reduce((sum,u)=>sum+this.baseStats.get(u.id).attackDamage*attackRate,0);
+      const multiplier=this.has(team,'double-inheritance')?2:1;
+      const hp=losses.reduce((sum,u)=>sum+this.baseStats.get(u.id).maxHp*hpRate*multiplier,0);
+      const attack=losses.reduce((sum,u)=>sum+this.baseStats.get(u.id).attackDamage*attackRate*multiplier,0);
       if(!losses.length)continue;
       for(const u of this.battle.living(team).filter(u=>this.battle.catalog[u.type].element==='electric')){
         u.maxHp+=hp;u.hp=Math.min(u.maxHp,u.hp+hp);u.attackDamage+=attack;
@@ -114,7 +117,7 @@ export class TraitEffects {
       wave.x=-.5+battle.width*Math.min(1,(battle.tick-wave.startTick)/(wave.endTick-wave.startTick));
       for(const unit of battle.living().filter(u=>u.team!==wave.team)){
         if(!unit.sweptBy&&!wave.hitIds.includes(unit.id)&&!wave.resistedIds.includes(unit.id)&&unit.x<=wave.x){
-          if(this.isGolden(unit)||battle.augments?.controlImmune(unit)){wave.resistedIds.push(unit.id);continue;}
+          if(!this.has(wave.team,'tidal-wave')&&(this.isGolden(unit)||battle.augments?.controlImmune(unit))){wave.resistedIds.push(unit.id);continue;}
           unit.sweptBy=wave.id;unit.targetId=null;wave.hitIds.push(unit.id);
           battle.events.push({type:'swept',id:unit.id});
         }
@@ -125,7 +128,13 @@ export class TraitEffects {
     for(const wave of this.waves)if(battle.tick>=wave.endTick)this.eject(wave);
   }
   damageIntents(){
-    const {battle}=this,hits=[];
+    const {battle}=this,hits=this.cosmic?.damageIntents()||[];
+    for(const team of Object.keys(this.nextMeteor))while(battle.tick>=this.nextMeteor[team]){
+      const launchTick=this.nextMeteor[team];this.nextMeteor[team]+=5;
+      const enemies=battle.living().filter(u=>u.team!==team);if(!enemies.length)break;
+      const index=this.meteorSerial++,u=enemies[index%enemies.length];
+      this.meteors.push({id:`rain-${team}-${index}`,team,targetId:u.id,x:u.x,y:u.y,launchTick,impactTick:launchTick+20,impacted:false});
+    }
     for(const storm of this.thunderstorms){
       if(storm.triggered||battle.tick<storm.impactTick)continue;
       storm.triggered=true;
@@ -155,6 +164,7 @@ export class TraitEffects {
   }
   finish(){
     this.nature.finish();
+    this.cosmic?.finish();
     this.battle.controls?.finish();
     this.battle.classes?.finish();
     this.battle.augments?.finish();

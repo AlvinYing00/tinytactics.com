@@ -29,7 +29,7 @@
 .territory-ambience .scene-ice{background-position:50% 0}
 .territory-ambience .scene-light{background-position:50% 33.333333%}
 .territory-ambience .scene-dark{background-position:50% 66.666667%}
-.territory-ambience .scene-cosmic{background-position:50% 100%}
+.territory-ambience .scene-cosmic{background-image:url('assets/terrain/cosmic.png');background-size:cover;background-position:center}
 .max-territory-label{display:none}
 .element-nature{--element:#a9e875}
 .element-light{--element:#ffe18b}.element-dark{--element:#cf8dff}.element-ice{--element:#a1e3ff}
@@ -46,4 +46,14 @@
 .unit.summoned .unit-stars{color:#c9efb4;font-size:8px;letter-spacing:.4px}
 .unit.nature-growing:not(.summoned) .unit-portrait{box-shadow:0 0 12px #8eea7070}
 .effect-nature-growth,.effect-summon{color:#b5f48e}
+.element-cosmic{--element:#f1b7ff}.cost-6{color:#ffa9e5}.cost-7{color:#d8b5ff}
+.unit.cosmic-held{filter:drop-shadow(0 0 9px #d6a4ff)}
+.cosmic-vortex{position:absolute;left:50%;top:50%;width:58%;aspect-ratio:1;border-radius:50%;background:url('assets/terrain/cosmic.png') center/cover;mask-image:radial-gradient(circle,#000 15%,#000b 35%,transparent 70%);transform:translate(-50%,-50%) rotate(var(--turn)) scale(var(--vortex-scale));opacity:.88;pointer-events:none}
+.cosmic-countdown{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);padding:5px 8px;background:#171025dc;border:1px solid #efc0fc66;border-radius:4px;color:#fff2ff;font:700 11px var(--heading);white-space:nowrap;letter-spacing:.7px}
+.cosmic-burst{position:absolute;inset:0;background:radial-gradient(circle,#fff7ffc9,#d596ff70 18%,#9775fc20 45%,transparent 70%)}
+.cosmic-asteroid{width:38px;height:38px;background:#ffeec6;box-shadow:0 0 0 6px #bc82ff99,0 0 35px 16px #cd98ff77}
+.cosmic-asteroid:before{width:32px;height:160px;background:linear-gradient(0deg,#f0bbff,#846bf780,transparent)}
+.cosmic-impact-target{width:38%;border:2px dashed #e2baff77}
+.cosmic-impact-blast{width:100%;background:radial-gradient(circle,#fff2ffce,#ba8aff88 35%,transparent 70%);border-color:#d0aaff99}
+.effect-asteroid,.effect-cosmic-out,.effect-electric-strike{color:#e0b9ff}.effect-fire-cracker{color:#ffbf88}
 @media(prefers-reduced-motion:reduce){.sandbox-card .catalog-portrait .champion-image{transition:none}.ice-snowstorm span{animation:none;top:var(--snow-start)}}

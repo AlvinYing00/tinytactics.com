@@ -1,7 +1,8 @@
 import {CLASS_IDS,classBonuses} from './class-rules.js';
-export const ELEMENTS=['fire','water','electric','air','mountain','nature','light','dark','ice'];
-export const ELEMENT_LABELS={fire:'Fire',water:'Water',electric:'Electric',air:'Air',mountain:'Mountain',nature:'Nature',light:'Light',dark:'Dark',ice:'Ice'};
+export const ELEMENTS=['fire','water','electric','air','mountain','nature','light','dark','ice','cosmic'];
+export const ELEMENT_LABELS={fire:'Fire',water:'Water',electric:'Electric',air:'Air',mountain:'Mountain',nature:'Nature',light:'Light',dark:'Dark',ice:'Ice',cosmic:'Cosmic'};
 export const ARCHETYPES=Object.freeze({
+  cosmic:{name:'Row class',role:'Cosmic',moveTicks:3,range:1,glyph:'C',description:'Starting row grants Tanker / Duelist / Assassin / Ranger effects. Does not add to class counts.'},
   sentinel:{name:'Tanker',role:'Frontline',hp:250,damage:20,attackTicks:6,moveTicks:5,range:1,glyph:'S',description:'Holds the frontline and absorbs champion attacks.'},
   ranger:{name:'Ranger',role:'Ranged',hp:150,damage:50,attackTicks:12,moveTicks:5,range:3,glyph:'R',description:'Strikes from three tiles away. Keep your Rangers behind the frontline.'},
   duelist:{name:'Duelist',role:'Skirmisher',hp:200,damage:35,attackTicks:8,moveTicks:3,range:1,glyph:'D',description:'Quick feet and faster blades. Closes the gap and attacks rapidly.'},
@@ -40,7 +41,7 @@ const newRoleNames={
   electric:{support:['Charge Tender','Pulse Oracle','Arc Cantor','Storm Hierophant'],assassin:['Spark Stalker','Volt Fang','Arc Shade','Thunder Reaper']},
   air:{support:['Breeze Tender','Gale Oracle','Cloud Cantor','Sky Hierophant'],assassin:['Zephyr Stalker','Gale Fang','Cloud Shade','Tempest Reaper']}
 };
-for(const element of ELEMENTS)Object.assign(names[element],newRoleNames[element]);
+for(const element of ELEMENTS)if(names[element])Object.assign(names[element],newRoleNames[element]);
 const champions={};
 // Entries are ordered by cost 1–5. Tankers use the Sentinel combat role.
 export const HP_MULTIPLIER=2;
@@ -123,18 +124,23 @@ function champion(id,name,element,combatRole,cost){
   champions[id]=Object.freeze({...base,id,name,portrait,portraitFrame,element,combatRole,cost,sideTrait:combatRole,traits:Object.freeze([element,combatRole]),hp:stats.hp[cost-1],damage:stats.damage[cost-1],attackTicks:stats.attackTicks,damageType:element==='electric'?'true':'physical',legendary:cost===5});
 }
 for(const element of ELEMENTS){
-  for(const [cost,role] of ROSTER_DESIGN[element]){
+  for(const [cost,role] of ROSTER_DESIGN[element]||[]){
     const id=cost===5&&role===primaryLegendary[element]?`${element}-legendary`:`${element}-${role}-${cost}`;
     champion(id,cost===5?legendary[element][role]:names[element][role][cost-1],element,role,cost);
   }
 }
+// Cosmic HP is authored as final 1-star HP, exempt from HP_MULTIPLIER.
+for(const [index,name,hp,damage] of [[0,'Asterion',2500,800],[1,'Dragonoid',3500,1000],[2,'Elyndra',5000,2000]]){
+  const cost=index+5,id=`cosmic-${cost}`;
+  champions[id]=Object.freeze({...ARCHETYPES.cosmic,id,name,hp,damage,cost,attackTicks:12.5,element:'cosmic',combatRole:'cosmic',sideTrait:null,traits:Object.freeze(['cosmic']),damageType:'physical',legendary:true,shopAvailable:cost===5,portrait:'assets/champions/cosmic-roster.png',portraitSize:[1536,1024],portraitFrame:[index*512+2,2,508,1020]});
+}
 export const CHAMPIONS=Object.freeze(champions);
 // Only the authored identities enter Fight shops and the Sandbox catalog.
-export const SHOP_CHAMPIONS=CHAMPIONS;
+export const SHOP_CHAMPIONS=Object.freeze(Object.fromEntries(Object.entries(CHAMPIONS).filter(([,c])=>c.shopAvailable!==false)));
 export function virtualTraitCounts(input={}){
-  const counts=Object.fromEntries(ELEMENTS.map(element=>[element,0]));
+  const allowed=[...ELEMENTS,...CLASS_IDS],counts=Object.fromEntries(allowed.map(element=>[element,0]));
   for(const [element,count] of Object.entries(input)){
-    if(!ELEMENTS.includes(element)||!Number.isInteger(count)||count<0)throw new Error('Virtual trait counts must be non-negative whole numbers for an element.');
+    if(!allowed.includes(element)||!Number.isInteger(count)||count<0)throw new Error('Virtual trait counts must be non-negative whole numbers for an element or class.');
     counts[element]=count;
   }
   return counts;
@@ -156,9 +162,9 @@ export function teamTraits(units,catalog=CHAMPIONS,virtual={}){
   const unique=new Set();
   for(const u of units){if(u.summoned||u.overflow||u.position?.bench!==undefined||unique.has(u.type))continue;unique.add(u.type);for(const trait of catalog[u.type]?.traits||[])counts[trait]++;}
   const boardCounts={...counts},virtualCounts=virtualTraitCounts(virtual);
-  for(const element of ELEMENTS)counts[element]+=virtualCounts[element];
+  for(const element of [...ELEMENTS,...CLASS_IDS])counts[element]+=virtualCounts[element];
   const fire=counts.fire,water=counts.water,mountain=counts.mountain,electric=counts.electric,air=counts.air,nature=counts.nature,light=counts.light,dark=counts.dark,ice=counts.ice;
-  return {counts,boardCounts,virtualCounts,classes:classBonuses(boardCounts),burnPercent:fire>=5?.1:fire>=3?.07:fire>=1?.05:0,
+  return {counts,boardCounts,virtualCounts,classes:classBonuses(counts),cosmicAsteroid:counts.cosmic>=2,cosmicVortex:counts.cosmic>=3,burnPercent:fire>=5?.1:fire>=3?.07:fire>=1?.05:0,
     healPercent:water>=9?.25:water>=6?.15:water>=3?.05:0,meteor:fire>=7,tsunami:water>=10,
     shieldPercent:mountain>=6?1:mountain>=4?.5:mountain>=2?.25:mountain>=1?.1:0,goldenShield:mountain>=6,
     reflectPercent:mountain>=6?.3:mountain>=4?.2:mountain>=2?.1:0,

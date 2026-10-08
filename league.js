@@ -102,6 +102,12 @@ export class League extends Campaign {
   }
   beginPreparation(){
     this.phase='preparation';this.preparationRemaining=PREPARATION_SECONDS;this.preparationSerial++;this.botsPrepared=false;this.matches=[];this.results={};this.result=null;
+    this.offeringAugments=true;
+    try{for(const p of this.livingPlayers){
+      this.combineReadyCopies(p.team);
+      for(const type of p.cosmicRewards||[])this.giftChampion(p.team,{type});
+      p.cosmicRewards=[];
+    }}finally{this.offeringAugments=false;}
     if(this.player.hp>0)this.viewId='azure';
     this.pairs=this.isMonsterRound?this.livingPlayers.map(p=>({azureId:p.team,monster:true})):this.makePairs();
     if(this.round>1){this.refreshRoundShops();for(const p of this.livingPlayers)p.shopLocked=false;}
@@ -149,6 +155,7 @@ export class League extends Campaign {
       const b=new Battle({catalog:COMBAT_CATALOG,teamCaps:{azure:this.maxLevel(pair.azureId),ember:pair.monster?10:this.maxLevel(pair.emberId)},timeout:Infinity,seed:(this.round*2654435761+index*7919)>>>0,
         teamAugments:{azure:this.players[pair.azureId].augments,ember:pair.monster?[]:this.players[pair.emberId].augments},
         traitCounts:{azure:this.players[pair.azureId].virtualTraits,ember:pair.monster?{}:this.players[pair.emberId].virtualTraits},
+        onChampionReward:(team,type)=>{if(team==='ember'&&(pair.ghost||pair.monster))return;const p=this.players[sides[team]];p.cosmicRewards??=[];p.cosmicRewards.push(type);},
         onGold:(team,amount)=>{if(team==='ember'&&(pair.ghost||pair.monster))return;this.players[sides[team]].gold+=amount;}});
       for(const side of ['azure','ember'])for(const owned of side==='ember'&&monster?monster.roster:roundRosters[sides[side]]){
         const u=b.place(owned.type,side,owned.position.x,side==='azure'?owned.position.y:7-owned.position.y,owned.stars);u.id=side==='ember'&&(pair.ghost||monster)?-(index*100+Math.abs(owned.id)+1):owned.id;

@@ -1,7 +1,17 @@
 export const CLASS_IDS=['sentinel','duelist','ranger','support','assassin'];
 export const CLASS_NAMES={sentinel:'Tanker',duelist:'Duelist',ranger:'Ranger',support:'Support',assassin:'Assassin'};
 export const classTier=count=>count>=6?6:count>=4?4:count>=2?2:0;
-export const hasClass=(unit,role,catalog)=>!!catalog[unit.type]?.traits?.includes(role);
+// Cosmic borrows a role from its starting row, without adding a class count.
+export function unitClass(unit,catalog,height=8){
+  const champion=catalog[unit.type];
+  if(champion?.element!=='cosmic')return champion?.combatRole;
+  if(unit.cosmicClass)return unit.cosmicClass;
+  const y=unit.position?.y??unit.y;
+  if(!Number.isInteger(y))return null;
+  const row=unit.team==='ember'?height/2-1-y:y-height/2;
+  return ['sentinel','duelist','assassin','ranger'][row]||null;
+}
+export const hasClass=(unit,role,catalog)=>catalog[unit.type]?.element==='cosmic'?unitClass(unit,catalog)===role:!!catalog[unit.type]?.traits?.includes(role);
 export function classBonuses(counts){
   const tier=Object.fromEntries(CLASS_IDS.map(role=>[role,classTier(counts[role]||0)]));
   return {

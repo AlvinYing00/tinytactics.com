@@ -54,7 +54,7 @@ export function resolveCombat(battle,hits){
     const reflected=repelled?damageAmount(target,amount,{source:attacker,battle,category:'basic',kind:'basic'}):traits.reflection(target,dealt.hpDamage);
     if(reflected)reflections.push({source:target,target:attacker,amount:reflected,kind:repelled?'repel':'reflection'});
     if(!dodged&&!repelled)pierces.push(...traits.windPierce(attacker,target,dealt.hpDamage+dealt.shieldDamage));
-    augments?.afterBasic(hit,dealt);
+    controlHits.push(...augments?.afterBasic(hit,dealt)||[]);
     controlHits.push(...battle.controls?.afterBasic(hit,dealt)||[]);
   }
   for(const hit of controlHits){

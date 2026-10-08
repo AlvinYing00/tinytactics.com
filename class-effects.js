@@ -12,8 +12,8 @@ export class ClassEffects {
   has(unit,role){return hasClass(unit,role,this.battle.catalog);}
   active(){return this.battle.phase==='combat';}
   vulnerable(unit){return this.has(unit,'ranger')||this.has(unit,'support');}
-  attackRange(unit){return this.battle.catalog[unit.type].range+(this.active()&&this.has(unit,'ranger')?this.teams[unit.team].ranger.rangeBonus:0);}
-  attackInterval(unit){return this.battle.catalog[unit.type].attackTicks/(1+(this.active()?unit.attackSpeedBonus||0:0));}
+  attackRange(unit){return (this.battle.catalog[unit.type].element==='cosmic'?(this.has(unit,'ranger')?3:1):this.battle.catalog[unit.type].range)+(this.active()&&this.has(unit,'ranger')?this.teams[unit.team].ranger.rangeBonus:0);}
+  attackInterval(unit){const divine=this.active()&&this.battle.catalog[unit.type].element==='light'&&this.battle.augments?.has(unit.team,'divine-squad');return this.battle.catalog[unit.type].attackTicks/(1+(this.active()?unit.attackSpeedBonus||0:0))/(divine?1.5:1);}
   basicMultiplier(unit,target){return this.active()&&this.has(unit,'ranger')&&distance(unit,target)>=3?1+this.teams[unit.team].ranger.damageBonus:1;}
   championMultiplier(unit,target){return this.active()&&this.battle.tick<50&&this.has(unit,'assassin')&&this.vulnerable(target)?1+this.teams[unit.team].assassin.damageBonus:1;}
   reduction(unit){return this.active()&&this.has(unit,'sentinel')?this.teams[unit.team].sentinel.reduction:0;}

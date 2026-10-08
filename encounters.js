@@ -5,7 +5,7 @@ export const MONSTERS=Object.freeze({wolf:neutral('wolf','Wolf',1000,150,'🐺')
 export const COMBAT_CATALOG=Object.freeze({...CHAMPIONS,...MONSTERS});
 export function encounter(stage,random=Math.random){
   const index=Math.min(5,stage)-1,reward=[2,4,8,12,20][index],penalty=[1,2,4,6,10][index];
-  const legends=Object.values(CHAMPIONS).filter(c=>c.legendary);
+  const legends=Object.values(CHAMPIONS).filter(c=>c.cost===5);
   const types=stage===1?['wolf','wolf','wolf']:stage===2?['tiger','tiger']:stage===3?['bear']:stage===4?['dragon']:[legends[Math.min(legends.length-1,Math.floor(random()*legends.length))].id];
   return {name:stage<5?['Wolf pack','Tiger den','Bear encounter','Dragon encounter'][index]:'Legendary guardian',reward,penalty,roster:types.map((type,i)=>({id:-1-i,type,stars:stage>=5?3:1,position:{x:types.length===3?[2,4,6][i]:types.length===2?[2,5][i]:3,y:5}}))};
 }

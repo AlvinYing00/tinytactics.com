@@ -68,17 +68,23 @@ export class Campaign {
     }
     return roster;
   }
-  giftChampion(team,{type,cost,element,combatRole}){
+  lockedMergeIds(team){return new Set(this.phase==='preparation'?[]:this.deployed(team).map(u=>u.id));}
+  combineReadyCopies(team){
+    const p=this.players[team];
+    for(const type of new Set(p.roster.map(u=>u.type)))p.roster=combineCopies(p.roster,type,null,this.lockedMergeIds(team)).roster;
+    this.replaceMaxedOffers(team);
+  }
+  giftChampion(team,{type,cost,maxCost,element,combatRole}){
     const p=this.players[team];
     if(!type){
-      const choices=Object.values(CHAMPIONS).filter(c=>c.cost===cost&&(!element||c.element===element)&&(!combatRole||c.combatRole===combatRole));
+      const choices=Object.values(CHAMPIONS).filter(c=>(maxCost?c.cost<=maxCost:c.cost===cost)&&(!element||c.element===element)&&(!combatRole||c.combatRole===combatRole));
       const nonMax=choices.filter(c=>!this.maxedTypes(team).has(c.id)),eligible=nonMax.length?nonMax:choices;
       type=eligible[Math.min(eligible.length-1,Math.floor(this.random()*eligible.length))]?.id;
     }
     if(!CHAMPIONS[type])throw new Error('No champion matches this gift.');
     // Augment gifts are generated copies: they neither need nor reserve bag stock.
     const id=this.nextId++,unit={id,type,team:p.team,stars:1,poolCopies:0,position:{bench:BENCH_SIZE},overflow:true};
-    const plan=combineCopies([...p.roster,unit],type,id);p.roster=this.arrangeGifts(plan.roster,new Set([id]));
+    const plan=combineCopies([...p.roster,unit],type,id,this.lockedMergeIds(team));p.roster=this.arrangeGifts(plan.roster,new Set([id]));
     this.replaceMaxedOffers(team);this.rebuildBattle();return p.roster.find(u=>u.id===plan.unit.id);
   }
   sellOverflow(team){
@@ -88,7 +94,7 @@ export class Campaign {
     const p=this.players[team],boost=p.purchaseBoosts?.[CHAMPIONS[type].cost],count=boost?.count||1,stars=boost?.stars||1;
     // Only the purchased card comes from the shop. Every bonus copy is gifted.
     const candidates=Array.from({length:count},(_,i)=>({id:this.nextId+i,type,team:p.team,stars,...(boost?{poolCopies:i===0?1:0,overflow:true}:{}),position:{bench:(this.freeBench(team)??BENCH_SIZE)+i}}));
-    const plan=combineCopies([...p.roster,...candidates],type,candidates[0].id);plan.added=count;plan.boost=boost;
+    const plan=combineCopies([...p.roster,...candidates],type,candidates[0].id,this.lockedMergeIds(team));plan.added=count;plan.boost=boost;
     if(boost)this.arrangeGifts(plan.roster,new Set(candidates.map(u=>u.id)));
     return plan;
   }

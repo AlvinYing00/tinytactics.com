@@ -1,10 +1,11 @@
 import {championStats,CHAMPIONS} from './catalog.js';
 import {TRAIT_DETAILS,traitTier,isMaxTrait} from './trait-ui.js';
+import {unitClass} from './class-rules.js';
 
 export function controlPresentation(unit,tick=Infinity,active=false){
   const alive=active&&unit.hp>0&&!unit.eliminated&&!unit.sweptBy;
   const frozen=alive&&tick<(unit.frozenUntil||0),feared=alive&&tick<(unit.fearedUntil||0),chilled=alive&&tick<(unit.chilledUntil||0),stunned=alive&&tick<(unit.stunnedUntil||0);
-  return {frozen,feared,chilled,stunned,label:frozen?'FROZEN':stunned?'STUN':feared?'FEAR':chilled?'CHILL':'',
+  return {frozen,feared,chilled,stunned,label:alive&&unit.cosmicHeld?'VORTEX':frozen?'FROZEN':stunned?'STUN':feared?'FEAR':chilled?'CHILL':'',
     stacks:alive?[unit.lightStacks?`L${unit.lightStacks}`:'',unit.iceStacks?`❄${unit.iceStacks}`:''].filter(Boolean).join(' · '):''};
 }
 
@@ -23,7 +24,7 @@ export class ResultReveal {
 export function scoutOpponent(roster,traits,units=[],catalog=CHAMPIONS,tick=Infinity){
   const champions=roster.filter(u=>u.position.bench===undefined&&!u.overflow).map(u=>{
     const stats=championStats(u.type,u.stars||1,catalog),live=units.find(v=>v.id===u.id);
-    return {id:u.id,type:u.type,portrait:stats.portrait,portraitFrame:stats.portraitFrame,summoned:!!u.summoned,name:u.summoned?stats.name+' · Doppelganger':stats.name,element:stats.element,role:stats.combatRole,cost:stats.cost,stars:u.stars||1,
+    return {id:u.id,type:u.type,portrait:stats.portrait,portraitFrame:stats.portraitFrame,portraitSize:stats.portraitSize,summoned:!!u.summoned,name:u.summoned?stats.name+' · Doppelganger':stats.name,element:stats.element,role:unitClass(live||u,catalog),cost:stats.cost,stars:u.stars||1,
       x:live?.x??u.position.x,y:live?.y??u.position.y,hp:live?.hp??stats.hp,maxHp:live?.maxHp??stats.hp,
       attack:live?.attackDamage??stats.damage,seconds:(live?.effectiveAttackTicks??stats.attackTicks/(1+(live?.attackSpeedBonus||0)))/10,
       range:live?.effectiveRange??stats.range,

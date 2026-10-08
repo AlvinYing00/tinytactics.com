@@ -1,10 +1,10 @@
 // Work on a prospective roster so a purchase either completes fully or changes nothing.
-export function combineCopies(roster,type,trackedId){
+export function combineCopies(roster,type,trackedId,lockedIds=new Set()){
   const result=roster.map(u=>({...u,stars:u.stars||1,position:{...u.position}}));
   const upgrades=[];
   for(let stars=1;stars<3;stars++){
     let matches;
-    while((matches=result.filter(u=>u.type===type&&u.stars===stars)).length>=3){
+    while((matches=result.filter(u=>u.type===type&&u.stars===stars&&!lockedIds.has(u.id))).length>=3){
       // A deployed copy survives on its existing tile; otherwise retain the oldest copy.
       matches.sort((a,b)=>Number(!!a.overflow)-Number(!!b.overflow)||Number(a.position.bench!==undefined)-Number(b.position.bench!==undefined)||a.id-b.id);
       const [survivor,...consumed]=matches.slice(0,3),removed=new Set(consumed.map(u=>u.id));

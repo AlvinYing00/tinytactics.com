@@ -2,7 +2,7 @@ export function registerGameTools(actions,context=globalThis.document?.modelCont
   if(!context?.registerTool)return null;
   const lifecycle=new AbortController(),empty={type:'object',properties:{},additionalProperties:false};
   const specs=[
-    ['read_champion_catalog','Read champion catalog','Read the 59 shop champions, costs, traits and combat roles.',empty,true,()=>actions.catalog()],
+    ['read_champion_catalog','Read champion catalog','Read all 62 champions, including 60 shop identities and two Cosmic champions unlocked by Augments, with costs, traits and combat roles.',empty,true,()=>actions.catalog()],
     ['read_battle','Read match','Read round, economy, shop, owned champions, combat and result.',empty,true,()=>actions.snapshot()],
     ['buy_champion','Buy champion','Spend the card price to recruit while alive, including during combat. A fight already underway keeps its starting lineup.',{type:'object',properties:{slot:{type:'integer',minimum:0,maximum:4}},required:['slot'],additionalProperties:false},false,input=>actions.buy(input.slot)],
     ['refresh_shop','Refresh shop','Roll five cards using current level odds. Costs 2 gold unless an Augment grants free rerolls.',empty,false,()=>actions.refresh()],

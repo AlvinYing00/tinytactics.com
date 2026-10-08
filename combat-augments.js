@@ -6,10 +6,15 @@ const alive=unit=>unit&&unit.hp>0&&!unit.eliminated;
 
 // Apply permanent Augments to fresh cost/star stats, never to last round's stats.
 // Smaller and Smaller changes basic attacks, not the champion's base Attack.
-export function combatAugmentStats(stats,ids=[]){
+export function combatAugmentStats(stats,ids=[],placement={}){
   const selected=new Set(ids);
-  const multiplier=(selected.has('bigger-and-bigger')?1.2:1)*(selected.has('smaller-and-smaller')?.75:1);
-  return {...stats,hp:Math.max(1,Math.round(stats.hp*multiplier))};
+  let multiplier=(selected.has('bigger-and-bigger')?1.2:1)*(selected.has('smaller-and-smaller')?.75:1),damage=stats.damage;
+  if(stats.element==='mountain'&&selected.has('mountain-rock'))multiplier*=1.5;
+  if(stats.element==='cosmic'&&selected.has('cosmic-aura')&&Number.isInteger(placement.y)){
+    const half=(placement.height||8)/2,row=placement.team==='ember'?half-1-placement.y:placement.y-half;
+    if(row<2)damage*=1.5;else multiplier*=1.5;
+  }
+  return {...stats,damage,hp:Math.max(1,Math.round(stats.hp*multiplier))};
 }
 
 export class CombatAugmentEffects {
@@ -34,7 +39,7 @@ export class CombatAugmentEffects {
   role(unit,role){return hasClass(unit,role,this.battle.catalog);}
   controlImmune(unit){return this.active()&&this.has(unit.team,'anti-control')&&this.battle.tick<30;}
   immune(unit){
-    return this.active()&&((this.battle.tick<30&&this.has(unit.team,'backline-angel')&&this.role(unit,'support'))||(this.battle.tick<20&&this.solo.has(unit.id)));
+    return this.active()&&((this.battle.traits.isGolden(unit)&&this.has(unit.team,'golden-reflection')&&this.battle.catalog[unit.type].element==='mountain')||(this.battle.tick<30&&this.has(unit.team,'backline-angel')&&this.role(unit,'support'))||(this.battle.tick<20&&this.solo.has(unit.id)));
   }
   start(){
     if(this.started)return;this.started=true;
@@ -45,6 +50,7 @@ export class CombatAugmentEffects {
       unit.augmentControlUntil=this.has(unit.team,'anti-control')?30:0;
       unit.augmentImmuneUntil=Math.max(this.has(unit.team,'backline-angel')&&this.role(unit,'support')?30:0,this.solo.has(unit.id)?20:0);
       unit.guardianRevived=false;unit.shadowKillerEmpowered=false;
+      if(this.battle.catalog[unit.type].element==='cosmic'&&this.has(unit.team,'cosmic-wish'))unit.hp*=.5;
     }
     for(const team of ['azure','ember']){
       if(!this.has(team,'hold-on'))continue;
@@ -56,6 +62,12 @@ export class CombatAugmentEffects {
   modifyDamage(target,amount,{source,category,kind}={}){
     if(!this.active())return amount;
     if(category==='basic'){
+      const element=source&&this.battle.catalog[source.type]?.element;
+      if(element==='water'&&this.has(source.team,'water-spark'))amount*=2;
+      if(element==='air'&&this.has(source.team,'wind-assault')&&this.battle.traits.walls.some(w=>w.team===source.team&&this.battle.traits.wallActive(w)))amount*=1.5;
+      if(element==='light'&&this.has(source.team,'lighten-the-way')&&this.battle.tick<(target.stunnedUntil||0))amount*=1.5;
+      if(element==='dark'&&this.has(source.team,'darken-the-world')&&this.battle.controls.feared(target))amount*=1.5;
+      if(element==='ice'&&this.has(source.team,'in-freeze')&&this.battle.controls.frozen(target))amount*=2;
       if(source&&this.has(source.team,'smaller-and-smaller'))amount*=1.5;
       if(source&&this.has(source.team,'anti-shield')&&target.shield>0)amount*=1.25;
       if(this.rowProtected.has(target.id))amount*=.9;
@@ -119,7 +131,7 @@ export class CombatAugmentEffects {
     if(cells.length)this.jump(attacker,cells[Math.floor(b.random()*cells.length)],alive(target)?target:null,'royal-dancer');
   }
   afterBasic(hit,dealt){
-    if(!this.active())return;
+    if(!this.active())return [];
     const {attacker,target}=hit,b=this.battle;
     const total=typeof dealt==='number'?dealt:(dealt?.hpDamage||0)+(dealt?.shieldDamage||0);
     if(total>0&&this.has(attacker.team,'spirit-helper')&&this.role(attacker,'support')){
@@ -129,6 +141,14 @@ export class CombatAugmentEffects {
     if(hit.royal&&alive(attacker)&&!attacker.sweptBy){
       this.heal(attacker,attacker.maxHp*.1,'royal-dancer');
     }
+    const element=b.catalog[attacker.type]?.element,intents=[];
+    if(element==='cosmic'&&this.has(attacker.team,'cosmic-wish'))this.heal(attacker,total,'cosmic-wish');
+    if(!hit.dodged&&!hit.repelled&&total>0&&element==='fire'&&this.has(attacker.team,'fire-cracker')){
+      for(const enemy of b.living().filter(u=>u.team!==attacker.team&&u.id!==target.id&&Math.max(Math.abs(u.x-target.x),Math.abs(u.y-target.y))<=1))intents.push({source:attacker,target:enemy,amount:hit.amount*.5,kind:'fire-cracker'});
+    }
+    // A completed attack emits a separate global shock, never another on-hit.
+    if(element==='electric'&&this.has(attacker.team,'electric-strike'))for(const enemy of b.living().filter(u=>u.team!==attacker.team))intents.push({source:attacker,target:enemy,amount:attacker.attackDamage*.05,kind:'electric-strike'});
+    return intents;
   }
   shadowDash(killer){
     const b=this.battle;
@@ -147,6 +167,10 @@ export class CombatAugmentEffects {
     if(!this.active()||unit.hp>0||unit.eliminated||this.deaths.has(unit.id))return [];
     this.deaths.add(unit.id);
     const intents=[];
+    if(killer&&killer.team!==unit.team&&this.battle.catalog[killer.type]?.element==='ice'&&this.has(killer.team,'xmas-gift')){
+      const amount=this.battle.catalog[unit.type]?.cost||0;
+      this.battle.goldEarned[killer.team]+=amount;this.battle.onGold?.(killer.team,amount);this.battle.events.push({type:'gold',id:killer.id,team:killer.team,amount});
+    }
     if(this.has(unit.team,'suicide-frontliner')&&this.role(unit,'sentinel')){
       const separation=enemy=>Math.abs((unit.sweepX??unit.x)-(enemy.sweepX??enemy.x))+Math.abs(unit.y-enemy.y);
       const target=this.battle.living().filter(enemy=>enemy.team!==unit.team).sort((a,c)=>separation(a)-separation(c)||a.id-c.id)[0];

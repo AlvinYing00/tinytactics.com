@@ -13,11 +13,12 @@ export class ElementalControls {
   frozen(unit){return this.active()&&this.battle.tick<(unit.frozenUntil||0);}
   feared(unit){return this.active()&&this.battle.tick<(unit.fearedUntil||0);}
   chilled(unit){return this.active()&&this.battle.tick<(unit.chilledUntil||0);}
-  immobile(unit){return this.active()&&(this.battle.tick<(unit.stunnedUntil||0)||this.frozen(unit));}
+  immobile(unit){return this.active()&&(unit.cosmicHeld||this.battle.tick<(unit.stunnedUntil||0)||this.frozen(unit));}
   cannotAttack(unit){return this.immobile(unit)||this.feared(unit);}
   protected(unit){return this.battle.traits.isGolden(unit)||!!this.battle.augments?.controlImmune(unit);}
   apply(unit,kind,duration,emit=true){
     if(!this.active()||unit.hp<=0||unit.eliminated||unit.sweptBy||this.protected(unit))return false;
+    if(this.element(unit)==='light'&&['stun','fear'].includes(kind)&&this.battle.augments?.has(unit.team,'divine-squad'))return false;
     const resist=this.element(unit)==='light'&&['stun','fear'].includes(kind)?this.battle.traits.teams[unit.team].lightControlResist||0:0;
     if(resist&&this.battle.random()<resist){this.battle.events.push({type:'control-resist',id:unit.id,kind});return false;}
     const fields={stun:'stunnedUntil',fear:'fearedUntil',freeze:'frozenUntil',chill:'chilledUntil'},field=fields[kind];
@@ -95,10 +96,11 @@ export class ElementalControls {
   onDeath(unit){
     if(!this.active()||unit.hp>0||unit.eliminated||this.element(unit)!=='dark')return [];
     const rule=this.battle.traits.teams[unit.team];if(!rule.darkExplosionPercent)return [];
-    const targets=this.battle.living().filter(u=>u.team!==unit.team&&Math.max(Math.abs((u.sweepX??u.x)-(unit.sweepX??unit.x)),Math.abs(u.y-unit.y))<=1);
+    const suicide=this.battle.augments?.has(unit.team,'suicide-squad');
+    const targets=this.battle.living().filter(u=>u.team!==unit.team&&Math.max(Math.abs((u.sweepX??u.x)-(unit.sweepX??unit.x)),Math.abs(u.y-unit.y))<=(suicide?2:1));
     return targets.map(target=>{
       this.apply(target,'fear',rule.darkDeathFearTicks);
-      return {source:unit,target,amount:unit.attackDamage*rule.darkExplosionPercent*(this.element(target)==='light'?2:1),kind:'dark-explosion'};
+      return {source:unit,target,amount:(suicide?unit.maxHp*.5:unit.attackDamage*rule.darkExplosionPercent)*(this.element(target)==='light'?2:1),kind:'dark-explosion'};
     });
   }
   finish(){
