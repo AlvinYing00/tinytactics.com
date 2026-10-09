@@ -2,7 +2,7 @@
 #sandbox-augments-dialog .shop-dialog-head{margin-bottom:8px}
 #sandbox-augments-dialog h2{font-size:26px;margin:0}
 #sandbox-augment-hint{font-size:14px;line-height:1.5;color:var(--muted);margin:8px 0 16px}
-.sandbox-augment-filters{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:10px}
+.sandbox-augment-filters{display:grid;grid-template-columns:1fr 1fr 1fr 1.4fr;gap:10px}
 .sandbox-augment-filters label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted);min-width:0}
 .sandbox-augment-filters select,.sandbox-augment-filters input{width:100%;min-width:0;font:500 14px var(--body);color:var(--text);background:#10212a;border:1px solid #536e65;border-radius:5px;padding:8px;min-height:38px}
 .sandbox-augment-selection-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:12px 0 4px;font-size:14px}
@@ -28,7 +28,6 @@
  #sandbox-augments-dialog{padding:14px;width:calc(100% - 20px)}
  #sandbox-augments-dialog h2{font-size:22px}
  .sandbox-augment-filters{grid-template-columns:1fr 1fr;gap:8px}
- .sandbox-augment-search{grid-column:1/-1}
  #sandbox-augment-catalog{grid-template-columns:1fr;max-height:34dvh}
  .sandbox-augment-card{padding:12px}
 }

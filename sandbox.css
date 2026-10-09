@@ -11,7 +11,7 @@
 .sandbox-tools label{display:flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap}
 .sandbox-tools select{padding-inline:5px}.sandbox-tools button{font-size:12px;padding-inline:8px}
 #sandbox-dialog{width:min(900px,calc(100% - 28px));max-width:900px;max-height:calc(100dvh - 24px);padding:22px;overflow:auto;border-color:#60776b}
-.sandbox-filters{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:10px}
+.sandbox-filters{display:grid;grid-template-columns:1.2fr .7fr 1fr 1.2fr 1fr;gap:10px}
 .sandbox-filters label{display:flex;flex-direction:column;gap:7px;font-size:14px;color:#becfc9}
 .sandbox-filters select{width:100%;min-width:0}
 #sandbox-capacity,#sandbox-feedback{font-size:14px;line-height:1.5;color:var(--muted)}

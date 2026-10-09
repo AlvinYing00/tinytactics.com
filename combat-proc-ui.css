@@ -1,0 +1,17 @@
+.combat-proc{pointer-events:none;animation:proc-fade var(--proc-duration,700ms) ease-out both}
+.fire-cracker-burst{--proc-bright:#fff0ad;--proc-main:#ff963d;--proc-dark:#f74919}
+.dark-death-burst{--proc-bright:#ecc9ff;--proc-main:#be6aff;--proc-dark:#551984}
+.proc-aura{animation:proc-expand var(--proc-duration,700ms) ease-out both;transform-origin:0 0}
+.proc-halo{fill:var(--proc-dark);fill-opacity:.16;stroke:var(--proc-main);stroke-width:4}
+.proc-ring{fill:none;stroke:var(--proc-bright);stroke-width:3;stroke-dasharray:24 9}
+.proc-flash{fill:var(--proc-bright);opacity:.7}
+.proc-spark{stroke:var(--proc-bright);stroke-width:4;stroke-linecap:round}
+.proc-ember{fill:var(--proc-main)}
+.dark-death-burst .proc-halo{fill-opacity:.3;stroke-width:6}.dark-death-burst .proc-spark{stroke:var(--proc-main)}
+.shock-glow,.shock-core{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.shock-glow{stroke:#9154f0;stroke-width:12;opacity:.48}
+.shock-core{stroke:#d9d0ff;stroke-width:3}
+.shock-contact{fill:#b4c4ff;fill-opacity:.18;stroke:#dfedff;stroke-width:3}
+@keyframes proc-expand{from{transform:scale(.18)}45%{transform:scale(.9)}to{transform:scale(1.1)}}
+@keyframes proc-fade{0%{opacity:.9}45%{opacity:1}100%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.proc-aura{animation:none}.combat-proc{animation:none;opacity:.65}}

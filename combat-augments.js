@@ -144,10 +144,15 @@ export class CombatAugmentEffects {
     const element=b.catalog[attacker.type]?.element,intents=[];
     if(element==='cosmic'&&this.has(attacker.team,'cosmic-wish'))this.heal(attacker,total,'cosmic-wish');
     if(!hit.dodged&&!hit.repelled&&total>0&&element==='fire'&&this.has(attacker.team,'fire-cracker')){
+      b.events.push({type:'fire-cracker-burst',sourceId:attacker.id,targetId:target.id,x:target.sweepX??target.x,y:target.y,radius:1});
       for(const enemy of b.living().filter(u=>u.team!==attacker.team&&u.id!==target.id&&Math.max(Math.abs(u.x-target.x),Math.abs(u.y-target.y))<=1))intents.push({source:attacker,target:enemy,amount:hit.amount*.5,kind:'fire-cracker'});
     }
     // A completed attack emits a separate global shock, never another on-hit.
-    if(element==='electric'&&this.has(attacker.team,'electric-strike'))for(const enemy of b.living().filter(u=>u.team!==attacker.team))intents.push({source:attacker,target:enemy,amount:attacker.attackDamage*.05,kind:'electric-strike'});
+    if(element==='electric'&&this.has(attacker.team,'electric-strike')){
+      const enemies=b.living().filter(u=>u.team!==attacker.team);
+      b.events.push({type:'electric-strike-chain',sourceId:attacker.id,targetId:target.id,from:{x:attacker.sweepX??attacker.x,y:attacker.y},targets:enemies.map(u=>({id:u.id,x:u.sweepX??u.x,y:u.y}))});
+      for(const enemy of enemies)intents.push({source:attacker,target:enemy,amount:attacker.attackDamage*.05,kind:'electric-strike'});
+    }
     return intents;
   }
   shadowDash(killer){

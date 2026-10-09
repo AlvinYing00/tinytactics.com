@@ -1,5 +1,6 @@
 // Presentation only. Combat continues to use the rules in catalog/trait-effects.
 import {CHAMPIONS} from './catalog.js';
+import {portraitImage} from './champion-portraits.js';
 export const TRAIT_DETAILS={
   cosmic:{name:'Cosmic',steps:[1,2,3],rows:[
     'Starting row grants Tanker / Duelist / Assassin / Ranger effects and matching Augment bonuses. Cosmic adds no class count.',
@@ -107,9 +108,13 @@ export function traitTier(element,count){
 }
 export const isMaxTrait=(element,count)=>traitTier(element,count)===TRAIT_DETAILS[element].steps.at(-1);
 export const maxTraits=traits=>(traits?.counts.cosmic||0)>=3?['cosmic']:Object.keys(TRAIT_DETAILS).filter(e=>TRAIT_DETAILS[e].category!=='class'&&TRAIT_DETAILS[e].boardEffect!==false&&isMaxTrait(e,traits?.counts[e]||0));
+export const championsForTrait=trait=>Object.values(CHAMPIONS).filter(c=>c.traits.includes(trait)).sort((a,b)=>a.cost-b.cost||a.name.localeCompare(b.name));
+export function traitChampionCards(trait,placed=new Set()){
+  return championsForTrait(trait).map(c=>`<li class="trait-champion ${placed.has(c.id)?'is-deployed':''}" data-champion="${c.id}" tabindex="0" title="${c.name} · ${c.cost} cost · ${placed.has(c.id)?'On this board':'Not deployed'}" aria-label="${c.name}, ${c.cost} cost, ${placed.has(c.id)?'on this board':'not deployed'}"><span class="trait-champion-frame rarity-${c.cost}"><span class="trait-champion-image">${portraitImage(c)}</span><b>${c.cost}</b></span><span class="trait-champion-name">${c.name}</span></li>`).join('');
+}
 
 export function createTraitHud({rail,dialog,ambience,enemyAmbience,onOpen,onClose}){
-  let latest=null,selected=null,lastCounts='',previousUnits=new Map();
+  let latest=null,selected=null,lastCounts='',previousUnits=new Map(),placed=new Set(),lastRoster='';
   const lastMax=new Map();
   const buttons=new Map();
   for(const [element,t] of Object.entries(TRAIT_DETAILS).sort((a,b)=>Number(a[1].category==='class')-Number(b[1].category==='class'))){
@@ -133,6 +138,7 @@ export function createTraitHud({rail,dialog,ambience,enemyAmbience,onOpen,onClos
     dialog.querySelector('#trait-dialog-status').textContent=`${count} total${virtual?` (${count-virtual} board + ${virtual} Augment)`: ' on board'} · ${tier?`Tier ${tier}${isMaxTrait(selected,count)?' · MAX':''} active`:'Inactive'}${t.exact?' · Exact counts':''}`;
     dialog.querySelector('#trait-detail-list').innerHTML=t.steps.map((n,i)=>`<li${tier===n?' class="current" aria-current="true"':''}><span class="detail-tier">${n}${i===t.steps.length-1?'<small>MAX</small>':''}</span><p>${t.rows[i]}</p></li>`).join('');
     dialog.querySelector('#trait-dialog-note').textContent=t.note||'The highest reached tier applies to champions with this trait.';
+    dialog.querySelector('#trait-champions').innerHTML=traitChampionCards(selected,placed);
   }
   function renderAmbience(node,traits){
     if(!node)return;
@@ -145,6 +151,8 @@ export function createTraitHud({rail,dialog,ambience,enemyAmbience,onOpen,onClos
   }
   function render(traits,units,views,preparation,enemyTraits){
     latest=traits;
+    placed=new Set(units.filter(u=>u.team==='azure'&&!u.summoned&&!u.overflow).map(u=>u.type));
+    const roster=[...placed].sort().join(),rosterChanged=roster!==lastRoster;lastRoster=roster;
     const counts=JSON.stringify(traits.counts);
     if(counts!==lastCounts){
       for(const [element,button] of buttons){
@@ -157,6 +165,7 @@ export function createTraitHud({rail,dialog,ambience,enemyAmbience,onOpen,onClos
       empty.hidden=[...buttons.values()].some(button=>!button.hidden);
       lastCounts=counts;if(dialog.open)renderDetails();
     }
+    else if(rosterChanged&&dialog.open)renderDetails();
     const nextUnits=new Map();
     for(const u of units){
       const view=views.get(u.id);if(!view||u.team!=='azure')continue;

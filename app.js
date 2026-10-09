@@ -8,6 +8,10 @@ import { attachBoardDrag } from './drag.js';
 import { createTraitHud,traitIcon } from './trait-ui.js';
 import { ResultReveal,scoutOpponent,controlPresentation } from './ui-state.js';
 import { Sandbox } from './sandbox.js';
+import { portraitImage } from './champion-portraits.js';
+import { championMatchesFilters } from './catalog-filters.js';
+import { setupFieldGuide } from './field-guide.js';
+import { renderCombatProc } from './combat-proc-ui.js';
 import { interestFor,hasAugment,freeRoundRerolls } from './augments.js';
 import { createAugmentUI,pendingAugment,selectedAugmentCards } from './augment-ui.js';
 import { createSandboxAugmentUI } from './sandbox-augment-ui.js';
@@ -15,6 +19,7 @@ import { combatAugmentStats } from './combat-augments.js';
 
 const $=selector=>document.querySelector(selector);
 const board=$('#board'),unitLayer=$('#units'),shell=$('.board-shell');
+setupFieldGuide();
 let campaign=new League(),battle=campaign.battle,selection=null,paused=false,speed=1;
 let fightCampaign=campaign,sandboxCampaign=null;
 const isSandbox=()=>campaign.mode==='sandbox';
@@ -30,7 +35,6 @@ const traitHud=createTraitHud({rail:$('#trait-list'),dialog:$('#trait-dialog'),a
 });
 const coordinate=(x,y)=>y===8?'Bench '+(x+1):String.fromCharCode(65+x)+(8-y);
 const starLabel=u=>'★'.repeat(u.stars||1);
-const portraitImage=c=>c.portraitFrame?`<svg class="champion-image" viewBox="${c.portraitFrame.join(' ')}" preserveAspectRatio="xMidYMin slice" aria-hidden="true" focusable="false"><image href="${c.portrait}" width="${c.portraitSize?.[0]||1448}" height="${c.portraitSize?.[1]||1086}"/></svg>`:c.portrait?`<img class="champion-image" src="${c.portrait}" alt="" draggable="false">`:'';
 const cardArt=c=>`<span class="card-art character-art">${portraitImage(c)}${roleMarker(c)}</span>`;
 const roleMarker=c=>['support','assassin'].includes(c.combatRole)?`<span class="role-mark" title="${ROLES[c.combatRole].name}">${traitIcon(c.combatRole)}</span>`:'';
 const editable=()=>campaign.phase==='preparation'&&(isSandbox()||(campaign.player.hp>0&&campaign.viewId==='azure'));
@@ -122,13 +126,13 @@ function switchMode(mode){
   say(isSandbox()?'Choose Champions to build both teams. Drag to position; click a unit to change its stars.':paused?'Fight match restored.':'Fight match restored.');
 }
 function renderSandboxCatalog(){
-  const team=$('#sandbox-team').value,stars=Number($('#sandbox-stars').value),element=$('#sandbox-element').value,cost=$('#sandbox-cost').value;
+  const team=$('#sandbox-team').value,stars=Number($('#sandbox-stars').value),element=$('#sandbox-element').value,cost=$('#sandbox-cost').value,role=$('#sandbox-class').value;
   const count=campaign.deployed(team).length;
   $('#sandbox-capacity').textContent=(team==='azure'?'Azure':'Ember')+' · '+count+'/10 placed · '+stars+'★ · Free';
-  $('#sandbox-catalog').innerHTML=campaign.availableChampions(team).filter(c=>(element==='all'||c.element===element)&&(cost==='all'||c.cost===Number(cost))).sort((a,b)=>a.cost-b.cost||a.name.localeCompare(b.name)).map(c=>{
+  $('#sandbox-catalog').innerHTML=campaign.availableChampions(team).filter(c=>championMatchesFilters(c,{element,role,cost})).sort((a,b)=>a.cost-b.cost||a.name.localeCompare(b.name)).map(c=>{
     const stats=championStats(c.id,stars);
     return `<button class="sandbox-card element-${c.element}" data-sandbox-type="${c.id}" ${count>=10?'disabled':''} aria-label="Add ${c.name}, ${stars} stars, to ${team}"><span class="catalog-portrait">${portraitImage(c)}</span><strong>${c.name}</strong><span>${ELEMENT_LABELS[c.element]} · ${c.sideTrait?ROLES[c.sideTrait].name:c.element==='cosmic'?'Row class':'Legendary'} · Cost ${c.cost}</span><small>${Math.round(stats.hp)} HP · ${Math.round(stats.damage)} ATK</small></button>`;
-  }).join('')||'<p class="sandbox-empty">All matching champions are already on this team. Change filters or remove one from the board.</p>';
+  }).join('')||'<p class="sandbox-empty">No available champions match these filters. Change filters or remove a matching champion from this team.</p>';
   $('#sandbox-catalog').querySelectorAll('[data-sandbox-type]').forEach(button=>button.onclick=()=>perform(()=>{
     const unit=campaign.add(button.dataset.sandboxType,team,stars);selection={id:unit.id};
     say(ARCHETYPES[unit.type].name+' '+starLabel(unit)+' added to '+(team==='azure'?'Azure':'Ember')+'.');renderSandboxCatalog();
@@ -472,6 +476,7 @@ function showResult(){
 function effects(events){
   let played=false;
   for(const e of events){
+    if(renderCombatProc(e,$('#effects'),playbackSpeed()))continue;
     if(e.type==='cosmic-loot'){
       if(!isSandbox())say(e.champion?`${battle.catalog[e.champion].name} earned · arrives next preparation.`:`Cosmic reward: +${e.amount} gold.`);
       continue;
@@ -531,7 +536,7 @@ $('#sell-zone').onclick=openSellDialog;
 $('#sell-zone').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openSellDialog();}};
 $('#close-sell').onclick=()=>$('#sell-dialog').close();
 $('#game-mode').onchange=event=>switchMode(event.target.value);
-for(const id of ['sandbox-team','sandbox-stars','sandbox-element','sandbox-cost'])$('#'+id).onchange=renderSandboxCatalog;
+for(const id of ['sandbox-team','sandbox-stars','sandbox-element','sandbox-class','sandbox-cost'])$('#'+id).onchange=renderSandboxCatalog;
 $('#close-sandbox').onclick=$('#done-sandbox').onclick=()=>$('#sandbox-dialog').close();
 $('#sandbox-unit-stars').onchange=event=>perform(()=>{campaign.setStars(selection?.id,Number(event.target.value));say('Star level updated.');});
 $('#sandbox-reset').onclick=resetSandbox;

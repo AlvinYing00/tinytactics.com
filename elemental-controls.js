@@ -97,6 +97,7 @@ export class ElementalControls {
     if(!this.active()||unit.hp>0||unit.eliminated||this.element(unit)!=='dark')return [];
     const rule=this.battle.traits.teams[unit.team];if(!rule.darkExplosionPercent)return [];
     const suicide=this.battle.augments?.has(unit.team,'suicide-squad');
+    this.battle.events.push({type:'dark-death-burst',sourceId:unit.id,x:unit.sweepX??unit.x,y:unit.y,radius:suicide?2:1});
     const targets=this.battle.living().filter(u=>u.team!==unit.team&&Math.max(Math.abs((u.sweepX??u.x)-(unit.sweepX??unit.x)),Math.abs(u.y-unit.y))<=(suicide?2:1));
     return targets.map(target=>{
       this.apply(target,'fear',rule.darkDeathFearTicks);

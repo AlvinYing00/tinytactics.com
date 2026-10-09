@@ -1,6 +1,7 @@
 import {SANDBOX_AUGMENTS,SANDBOX_AUGMENT_LIMIT} from './sandbox.js';
 import {augmentIcon} from './augment-ui.js';
 import {CHAMPIONS} from './catalog.js';
+import {augmentMatchesFilters} from './catalog-filters.js';
 
 const labels={combat:'Combat',trait:'Trait',class:'Class'};
 export function createSandboxAugmentUI({getGame,onChanged,beforeOpen}){
@@ -20,7 +21,7 @@ export function createSandboxAugmentUI({getGame,onChanged,beforeOpen}){
     beforeOpen();key='';feedback('Choose Augments for either team. Reset battle to edit after fighting.');render();$('sandbox-augment-catalog').scrollTop=0;dialog.showModal();
   };
   $('close-sandbox-augments').onclick=$('done-sandbox-augments').onclick=()=>dialog.close();
-  for(const id of ['sandbox-augment-team','sandbox-augment-type'])$(id).onchange=()=>{key='';feedback('Selections are saved separately for each team.');render();$('sandbox-augment-catalog').scrollTop=0;};
+  for(const id of ['sandbox-augment-team','sandbox-augment-type','sandbox-augment-element'])$(id).onchange=()=>{key='';feedback('Selections are saved separately for each team.');render();$('sandbox-augment-catalog').scrollTop=0;};
   $('sandbox-augment-search').oninput=()=>{render();$('sandbox-augment-catalog').scrollTop=0;};
   $('sandbox-augments-clear').onclick=()=>change(()=>{getGame().clearAugments($('sandbox-augment-team').value);return 'Team Augments cleared. Champions stay on the board.';});
   $('sandbox-augment-selected').onclick=event=>{const button=event.target.closest('[data-remove-augment]');if(button)remove(button.dataset.removeAugment);};
@@ -40,8 +41,8 @@ export function createSandboxAugmentUI({getGame,onChanged,beforeOpen}){
     if(lastGame!==game){lastGame=game;key='';}
     $('sandbox-augments-button').textContent=`Augments · Azure ${game.player.augments.length} · Ember ${game.opponent.augments.length}`;
     const team=$('sandbox-augment-team').value,selected=game.players[team].augments;
-    const type=$('sandbox-augment-type').value,query=$('sandbox-augment-search').value.trim().toLowerCase(),editable=game.phase==='preparation';
-    const next=JSON.stringify([team,selected,type,query,editable]);if(next===key)return;key=next;
+    const type=$('sandbox-augment-type').value,element=$('sandbox-augment-element').value,query=$('sandbox-augment-search').value.trim().toLowerCase(),editable=game.phase==='preparation';
+    const next=JSON.stringify([team,selected,type,element,query,editable]);if(next===key)return;key=next;
     $('sandbox-augment-count').textContent=`${team==='azure'?'Azure':'Ember'} · ${selected.length}/${SANDBOX_AUGMENT_LIMIT} selected`;
     $('sandbox-augment-hint').textContent=editable?'Choose up to 5 per team, from any stage. Effects still need matching champions or breakpoints.':'Viewing this battle’s Augments. Reset the battle to change selections.';
     $('sandbox-augments-clear').disabled=!editable||!selected.length;
@@ -49,7 +50,7 @@ export function createSandboxAugmentUI({getGame,onChanged,beforeOpen}){
       const a=SANDBOX_AUGMENTS.find(a=>a.id===id);
       return `<button type="button" data-remove-augment="${id}" aria-label="Remove ${a.name}" ${editable?'':'disabled'}>${a.name}<span aria-hidden="true"> ×</span></button>`;
     }).join('')||'<span class="sandbox-augment-empty">No Augments selected.</span>';
-    const matches=SANDBOX_AUGMENTS.filter(a=>(type==='all'||a.type===type)&&(!query||`${a.name} ${a.description}`.toLowerCase().includes(query)));
+    const matches=SANDBOX_AUGMENTS.filter(a=>augmentMatchesFilters(a,{type,element,query}));
     $('sandbox-augment-results').textContent=`${matches.length} Augments`;
     $('sandbox-augment-catalog').innerHTML=matches.map(a=>{
       const chosen=selected.includes(a.id),disabled=!editable||(!chosen&&selected.length>=SANDBOX_AUGMENT_LIMIT);
