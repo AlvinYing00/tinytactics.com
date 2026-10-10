@@ -175,8 +175,8 @@ export function teamTraits(units,catalog=CHAMPIONS,virtual={}){
     criticalMultiplier:air===4?2:air===8?2.5:air===10?3:1,windWall:air===10,windPiercePercent:air===10?.5:0,
     natureGrowthPercent:nature>=4?.02:nature>=2?.01:0,natureDoppelgangers:nature>=4,
     lightStacksRequired:light>=6?6:light>=4?8:light>=2?10:0,lightStacksPerHit:light>=8?2:1,
-    lightStunTicks:light>=8?20:10,lightControlResist:light>=8?.5:light>=6?.25:0,
-    darkFearEvery:dark>=8?3:dark>=6?6:dark>=4?8:dark>=2?10:0,darkFearTicks:dark>=8?20:10,
+    lightStunTicks:light>=8?20:10,lightControlResist:light>=8?.5:light>=6?.25:0,heavensJudgment:light>=8,
+    darkFearEvery:dark>=8?3:dark>=6?6:dark>=4?8:dark>=2?10:0,darkFearTicks:dark>=8?20:10,eternalNight:dark>=8,
     darkExplosionPercent:dark>=8?.5:dark>=6?.25:0,darkDeathFearTicks:dark>=8?30:dark>=6?20:0,
     iceChillTicks:ice>=10?20:ice>=3?10:0,iceFreezePercent:ice>=7?.4:ice>=5?.25:ice>=3?.1:0,
     iceFreezeTicks:ice>=7?20:ice>=3?10:0,iceStorm:ice>=10};

@@ -12,6 +12,7 @@ import { portraitImage } from './champion-portraits.js';
 import { championMatchesFilters } from './catalog-filters.js';
 import { setupFieldGuide } from './field-guide.js';
 import { renderCombatProc } from './combat-proc-ui.js';
+import { renderLightDarkMax } from './light-dark-max-ui.js';
 import { interestFor,hasAugment,freeRoundRerolls } from './augments.js';
 import { createAugmentUI,pendingAugment,selectedAugmentCards } from './augment-ui.js';
 import { createSandboxAugmentUI } from './sandbox-augment-ui.js';
@@ -262,14 +263,14 @@ function openScout(){
 }
 function visualPosition(unit){
   if(!unit.cosmicHeld||!unit.cosmicOrigin)return {x:unit.sweepX??unit.x,y:unit.y};
-  const tick=battle.tick+(paused||battle.phase==='finished'?0:battle.accumulator*10),p=Math.max(0,Math.min(1,tick/50));
+  const tick=battle.tick+(paused||battle.phase==='finished'?0:Math.max(0,battle.accumulator)*10),p=Math.max(0,Math.min(1,tick/50));
   const dx=unit.cosmicOrigin.x-3.5,dy=unit.cosmicOrigin.y-3.5,angle=p*Math.PI*.8;
   return {x:3.5+(dx*Math.cos(angle)-dy*Math.sin(angle))*(1-p),y:3.5+(dx*Math.sin(angle)+dy*Math.cos(angle))*(1-p)};
 }
 function renderHazards(){
   const fx=battle.traits;if(!fx){$('#trait-effects').replaceChildren();return;}
-  const tick=battle.tick+(paused||battle.phase==='finished'?0:battle.accumulator*10);
-  let html='';
+  const tick=battle.tick+(paused||battle.phase==='finished'?0:Math.max(0,battle.accumulator)*10);
+  let html=renderLightDarkMax(battle,tick);
   for(const vortex of fx.cosmic?.vortices||[]){
     const p=Math.max(0,Math.min(1,(tick-vortex.startTick)/(vortex.endTick-vortex.startTick)));
     if(!vortex.exploded&&battle.phase==='combat')html+=`<div class="cosmic-vortex" style="--turn:${p*540}deg;--vortex-scale:${.55+p*.7}" aria-hidden="true"></div><div class="cosmic-countdown">COSMIC VORTEX · ${Math.max(0,(vortex.endTick-tick)/10).toFixed(1)}s</div>`;
@@ -340,6 +341,7 @@ function render(){
     stackBadge.hidden=!control.stacks;stackBadge.textContent=control.stacks;
     el.classList.toggle('augment-immune',!!battle.augments?.immune(u));
     el.classList.toggle('control-protected',!!battle.augments?.controlImmune(u));
+    el.classList.toggle('heaven-protected',!!battle.controls?.max.heavenImmune(u));
     const visual=visualPosition(u);
     el.classList.toggle('cosmic-held',!!u.cosmicHeld&&!u.eliminated);
     el.style.left=(visual.x*12.5)+'%';el.style.top=(visual.y*12.5)+'%';el.style.transitionDuration=(u.cosmicHeld?0:.22/playbackSpeed())+'s';

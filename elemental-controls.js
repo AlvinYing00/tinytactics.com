@@ -1,7 +1,9 @@
 // Shared combat statuses and per-target counters. All deadlines use battle ticks.
+import {LightDarkMaxEffects} from './light-dark-max.js';
 export class ElementalControls {
   constructor(battle){
     this.battle=battle;this.storms=[];this.pending=[];this.started=false;this.finished=false;
+    this.max=new LightDarkMaxEffects(this);
     for(const u of battle.units){
       u.frozenUntil=0;u.fearedUntil=0;u.chilledUntil=0;u.chillActive=false;
       u.lightStacks=0;u.iceStacks=0;u.lightCooldownUntil=0;u.iceCooldownUntil=0;
@@ -18,7 +20,7 @@ export class ElementalControls {
   protected(unit){return this.battle.traits.isGolden(unit)||!!this.battle.augments?.controlImmune(unit);}
   apply(unit,kind,duration,emit=true){
     if(!this.active()||unit.hp<=0||unit.eliminated||unit.sweptBy||this.protected(unit))return false;
-    if(this.element(unit)==='light'&&['stun','fear'].includes(kind)&&this.battle.augments?.has(unit.team,'divine-squad'))return false;
+    if(['stun','fear'].includes(kind)&&(this.max.heavenImmune(unit)||this.element(unit)==='light'&&this.battle.augments?.has(unit.team,'divine-squad')))return false;
     const resist=this.element(unit)==='light'&&['stun','fear'].includes(kind)?this.battle.traits.teams[unit.team].lightControlResist||0:0;
     if(resist&&this.battle.random()<resist){this.battle.events.push({type:'control-resist',id:unit.id,kind});return false;}
     const fields={stun:'stunnedUntil',fear:'fearedUntil',freeze:'frozenUntil',chill:'chilledUntil'},field=fields[kind];
@@ -36,6 +38,7 @@ export class ElementalControls {
   start(){
     if(this.started)return;this.started=true;
     // Both teams already have Golden Shield and Augment protection installed.
+    this.max.start();
     for(const team of ['azure','ember']){
       if(!this.battle.traits.teams[team].iceStorm)continue;
       this.storms.push({team,startTick:0,endTick:30});
@@ -53,22 +56,24 @@ export class ElementalControls {
       u.chillActive=false;
     }
   }
-  damageIntents(){const hits=this.pending;this.pending=[];return hits;}
+  damageIntents(){const hits=this.pending;this.pending=[];return [...hits,...this.max.damageIntents()];}
+  addLightStacks(target,sourceTeam){
+    const b=this.battle,team=b.traits.teams[sourceTeam];
+    if(!this.active()||target.hp<=0||target.eliminated||target.sweptBy||!team.lightStacksRequired||b.tick<(target.lightCooldownUntil||0))return;
+    target.lightStacks=(target.lightStacks||0)+team.lightStacksPerHit;
+    b.events.push({type:'light-stack',id:target.id,stacks:target.lightStacks});
+    if(target.lightStacks>=team.lightStacksRequired){
+      target.lightStacks=0;target.lightCooldownUntil=b.tick+60;
+      this.apply(target,'stun',team.lightStunTicks);
+    }
+  }
   afterBasic(hit,dealt){
     const {attacker,target}=hit,b=this.battle,team=b.traits.teams[attacker.team],hits=[];
     const landed=(dealt?.hpDamage||0)+(dealt?.shieldDamage||0);
     if(!this.active()||hit.dodged||hit.repelled||landed<=0||target.eliminated||target.sweptBy)return hits;
     switch(this.element(attacker)){
       case 'light':
-        if(target.hp<=0)break;
-        if(team.lightStacksRequired&&b.tick>=target.lightCooldownUntil){
-          target.lightStacks+=team.lightStacksPerHit;
-          b.events.push({type:'light-stack',id:target.id,stacks:target.lightStacks});
-          if(target.lightStacks>=team.lightStacksRequired){
-            target.lightStacks=0;target.lightCooldownUntil=b.tick+60;
-            this.apply(target,'stun',team.lightStunTicks);
-          }
-        }
+        this.addLightStacks(target,attacker.team);
         break;
       case 'dark':
         if(team.darkFearEvery&&b.tick>=attacker.darkFearReady){
@@ -105,7 +110,7 @@ export class ElementalControls {
     });
   }
   finish(){
-    this.finished=true;this.pending=[];
+    this.finished=true;this.pending=[];this.max.finish();
     for(const u of this.battle.units)for(const key of ['frozenUntil','fearedUntil','chilledUntil','chillActive','lightStacks','iceStacks','lightCooldownUntil','iceCooldownUntil','darkFearCount','darkFearReady'])delete u[key];
   }
 }

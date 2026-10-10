@@ -8,7 +8,7 @@ const summaries={
   fire:'Refreshing Burn. MAX adds Meteor Rain.',water:'Heal on attacks. MAX sweeps enemies OUT with Tsunami.',
   mountain:'Opening shields, then HP-damage reflection. MAX adds Golden Shield.',electric:'Inherit stats from fallen Electric allies. MAX adds Thunder Judgment.',
   air:'Attack gold, dodge and critical hits. MAX adds Wind Wall and Wind Pierce.',nature:'Compounding HP and Attack growth. Tier 4 summons copies.',
-  light:'Stack hits to stun enemies; higher tiers resist stun and fear.',dark:'Repeated attacks cause fear. Higher tiers explode on death.',
+  light:'Stack hits to stun. MAX opens with 5s of golden arrows and stun/fear immunity.',dark:'Attacks cause fear; higher tiers explode on death. MAX opens with 3s of team-wide Fear.',
   ice:'Chill on hit; Snowflakes trigger Freeze. MAX opens with Snowstorm.',cosmic:'Borrow a class by row. Asteroid at 2; a vortex at 3 eliminates non-Cosmic units on both teams.',
   sentinel:'Reduce champion damage. Trait damage is unaffected.',duelist:'Repeated attacks build attack speed.',ranger:'More damage from 3+ tiles away. MAX adds range.',
   support:'Heal the lowest-health allies every 5s. MAX adds shields.',assassin:'Jump toward the backline. Wind Wall blocks the opening jump.'

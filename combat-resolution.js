@@ -35,7 +35,7 @@ export function applyDamage(target,amount,{source,sourceTeam=source?.team,execut
 
 export function resolveCombat(battle,hits){
   hits=hits.filter(({attacker,target})=>!attacker.eliminated&&!target.eliminated&&!attacker.sweptBy&&!target.sweptBy);
-  const traits=battle.traits,augments=battle.augments,alive=battle.living(),healing=new Map(),reflections=[],pierces=[],controlHits=battle.controls?.damageIntents()||[];
+  const traits=battle.traits,augments=battle.augments,alive=battle.living(),healing=new Map(),reflections=[],pierces=[],controlHits=[];
   for(const hit of hits){
     hit.repelled=!!augments?.repels(hit);
     const heal=traits.onAttack(hit.attacker,hit.target,hit.dodged||hit.repelled);
@@ -57,8 +57,11 @@ export function resolveCombat(battle,hits){
     controlHits.push(...augments?.afterBasic(hit,dealt)||[]);
     controlHits.push(...battle.controls?.afterBasic(hit,dealt)||[]);
   }
+  // Royal Dancer can move during a committed attack; sample arrow tiles afterward.
+  controlHits.unshift(...battle.controls?.damageIntents()||[]);
   for(const hit of controlHits){
     const dealt=applyDamage(hit.target,hit.amount,{source:hit.source,sourceTeam:hit.sourceTeam??hit.source?.team,battle,kind:hit.kind});
+    if(hit.kind==='heaven-arrow')battle.controls.addLightStacks(hit.target,hit.sourceTeam);
     battle.events.push({type:hit.kind,id:hit.target.id,sourceId:hit.source?.id,amount:dealt.hpDamage+dealt.shieldDamage,storm:hit.storm,...dealt});
   }
   for(const {attacker,target,through,amount} of pierces){

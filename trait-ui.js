@@ -63,14 +63,14 @@ export const TRAIT_DETAILS={
     'Hits mark the target. At 10 stacks, stun for 1s; that target cannot gain stacks for 6s.',
     'Stun requires 8 stacks. Duration 1s; target cooldown 6s.',
     'Stun requires 6 stacks. Light champions have 25% chance to resist stun and fear.',
-    'Hits add 2 stacks. At 6 stacks, stun for 2s; target cooldown 6s. 50% chance to resist stun and fear.'
+    'Hits add 2 stacks: 6 → 2s stun, then 6s stack cooldown. Heaven’s Judgment rains arrows over the enemy half for 5s: up to 20 hits per tile, each dealing 1% max HP and adding 2 stacks. Light is immune to stun/fear for those 5s, then has 50% resistance.'
   ],note:'Always: Light deals double champion damage to Dark. Light resistance does not avoid Freeze, Chill or Tsunami.'},
   dark:{name:'Dark',steps:[2,4,6,8],rows:[
     'Every 10th attack fears its target for 1s. Each Dark champion has a 6s fear cooldown.',
     'Every 8th attack fears for 1s; cooldown 6s.',
     'Every 6th attack fears for 1s. On death, deal 25% attack damage to enemies within 1 tile and fear for 2s.',
-    'Every 3rd attack fears for 2s. On death, deal 50% attack damage within 1 tile and fear for 3s.'
-  ],note:'Fear blocks attacks, but allows movement. Death explosion deals double damage to Light. Fear refreshes without stacking.'},
+    'Eternal Night immediately fears all enemies for 3s, without damage. Keep every 3rd attack’s 2s fear and death explosions: 50% attack damage within 1 tile, plus 3s fear.'
+  ],note:'Fear blocks attacks, but allows movement. Golden Shield, Anti-Control and Heaven immunity block Eternal Night. Death explosions deal double damage to Light. Fear refreshes without stacking.'},
   ice:{name:'Ice',steps:[3,5,7,10],rows:[
     'Hits Chill for 1s. At 6 Snowflakes, freeze for 1s and deal 10% target max HP. Target cooldown 6s.',
     'Six-stack Freeze damage increases to 25% max HP; duration 1s.',
