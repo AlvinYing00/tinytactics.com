@@ -1,8 +1,9 @@
+import {combatDisplayPoint} from './combat-coordinates.js';
 const ns='http://www.w3.org/2000/svg';
 function svg(tag,attributes={}){
   const node=document.createElementNS(ns,tag);for(const [key,value] of Object.entries(attributes))node.setAttribute(key,String(value));return node;
 }
-const point=p=>({x:p.x*100+50,y:p.y*100+50});
+const point=p=>{const v=p.displayCoordinates?p:combatDisplayPoint(p);return {x:v.x*100+50,y:v.y*100+50};};
 // Snapshot coordinates keep effects attached to their trigger, even after movement/death.
 export function lightningRoute(event){
   const remaining=event.targets.map(p=>({...p})),route=[];let previous=event.from;
@@ -14,7 +15,7 @@ export function lightningRoute(event){
   return route;
 }
 export function renderCombatProc(event,layer,speed=1){
-  if(!['fire-cracker-burst','electric-strike-chain','dark-death-burst'].includes(event.type))return false;
+  if(!['fire-cracker-burst','electric-strike-chain','dark-death-burst','aurora-explosion'].includes(event.type))return false;
   const duration=700/Math.sqrt(Math.max(1,speed));
   const group=svg('g',{'class':`combat-proc ${event.type}`,'data-proc':event.type,'aria-hidden':'true','style':`--proc-duration:${duration}ms`});
   if(event.type==='electric-strike-chain'){
@@ -28,13 +29,18 @@ export function renderCombatProc(event,layer,speed=1){
       group.append(svg('polyline',{points,'class':'shock-glow'}),svg('polyline',{points,'class':'shock-core'}),svg('circle',{cx:to.x,cy:to.y,r:18,'class':'shock-contact'}));from=to;
     }
   }else{
-    const center=point(event),radius=event.radius*100+45,burst=svg('g',{transform:`translate(${center.x} ${center.y})`});
+    const center=point(event),radius=event.radius*100+(event.type==='aurora-explosion'?0:45),burst=svg('g',{transform:`translate(${center.x} ${center.y})`});
     const aura=svg('g',{'class':'proc-aura'});
     aura.append(svg('circle',{r:radius,'class':'proc-halo'}),svg('circle',{r:radius*.68,'class':'proc-ring'}),svg('circle',{r:radius*.24,'class':'proc-flash'}));
     for(let i=0;i<12;i++){
       const angle=i*Math.PI/6,inner=radius*.45,outer=radius*(i%2?.92:1.12);
       aura.append(svg('line',{x1:Math.cos(angle)*inner,y1:Math.sin(angle)*inner,x2:Math.cos(angle)*outer,y2:Math.sin(angle)*outer,'class':'proc-spark'}));
       aura.append(svg('circle',{cx:Math.cos(angle)*outer,cy:Math.sin(angle)*outer,r:i%2?3:5,'class':'proc-ember'}));
+    }
+    if(event.type==='aurora-explosion'){
+      const id=`aurora-halo-${event.collisionId.replace(/[^a-z0-9]/gi,'-')}`;
+      const defs=svg('defs');defs.innerHTML=`<linearGradient id="${id}"><stop stop-color="#62ffe0"/><stop offset=".25" stop-color="#72dcff"/><stop offset=".5" stop-color="#8199ff"/><stop offset=".75" stop-color="#d995ff"/><stop offset="1" stop-color="#c2ffec"/></linearGradient>`;
+      group.append(defs);aura.querySelector('.proc-halo').style.stroke=`url(#${id})`;
     }
     burst.append(aura);group.append(burst);
   }

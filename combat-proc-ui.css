@@ -1,6 +1,14 @@
 .combat-proc{pointer-events:none;animation:proc-fade var(--proc-duration,700ms) ease-out both}
 .fire-cracker-burst{--proc-bright:#fff0ad;--proc-main:#ff963d;--proc-dark:#f74919}
 .dark-death-burst{--proc-bright:#ecc9ff;--proc-main:#be6aff;--proc-dark:#551984}
+.aurora-explosion{--proc-bright:#f2ffff;--proc-main:#9cf0ff;--proc-dark:#9670ee}
+.aurora-explosion .proc-halo{fill-opacity:.05;stroke-width:6;filter:drop-shadow(0 0 6px #8c9dff)}
+.aurora-explosion .proc-ring{stroke:#b3ffe9;stroke-width:2;stroke-dasharray:12 15}
+.aurora-explosion .proc-flash{animation:aurora-flash var(--proc-duration,700ms) ease-out both}
+.aurora-explosion .proc-aura{animation-name:aurora-expand}
+.aurora-explosion .proc-spark{stroke-width:2;stroke:#d1aeff}
+@keyframes aurora-expand{from{transform:scale(.08)}55%,to{transform:scale(1)}}
+@keyframes aurora-flash{0%{opacity:1}30%,100%{opacity:0}}
 .proc-aura{animation:proc-expand var(--proc-duration,700ms) ease-out both;transform-origin:0 0}
 .proc-halo{fill:var(--proc-dark);fill-opacity:.16;stroke:var(--proc-main);stroke-width:4}
 .proc-ring{fill:none;stroke:var(--proc-bright);stroke-width:3;stroke-dasharray:24 9}

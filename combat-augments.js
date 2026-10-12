@@ -23,6 +23,7 @@ export class CombatAugmentEffects {
     this.teams=Object.fromEntries(['azure','ember'].map(team=>[team,new Set(battle.teamAugments?.[team]||[])]));
     this.rowProtected=new Set();this.solo=new Set();this.revived=new Set();this.deaths=new Set();this.redeemed=new Set();
     this.started=false;this.finished=false;
+    this.crystalMovements=[];
     // Eligibility belongs to the placed formation, before any opening jumps.
     for(const team of ['azure','ember']){
       const units=battle.living(team).filter(u=>!u.summoned),front=team==='azure'?battle.height/2:battle.height/2-1,back=team==='azure'?battle.height-1:0;
@@ -36,7 +37,7 @@ export class CombatAugmentEffects {
   }
   has(team,id){return this.teams[team]?.has(id)||false;}
   active(){return this.battle.phase==='combat'&&!this.finished;}
-  role(unit,role){return hasClass(unit,role,this.battle.catalog);}
+  role(unit,role){return !unit.crystalMirror&&hasClass(unit,role,this.battle.catalog);}
   controlImmune(unit){return this.active()&&this.has(unit.team,'anti-control')&&this.battle.tick<30;}
   immune(unit){
     return this.active()&&((this.battle.traits.isGolden(unit)&&this.has(unit.team,'golden-reflection')&&this.battle.catalog[unit.type].element==='mountain')||(this.battle.tick<30&&this.has(unit.team,'backline-angel')&&this.role(unit,'support'))||(this.battle.tick<20&&this.solo.has(unit.id)));
@@ -54,7 +55,7 @@ export class CombatAugmentEffects {
     }
     for(const team of ['azure','ember']){
       if(!this.has(team,'hold-on'))continue;
-      const targets=b.living().filter(unit=>unit.team!==team);
+      const targets=b.living().filter(unit=>unit.team!==team&&!unit.crystalDormant);
       for(let i=targets.length-1;i>0;i--){const j=Math.floor(b.random()*(i+1));[targets[i],targets[j]]=[targets[j],targets[i]];}
       for(const unit of targets.slice(0,3))if(!this.controlImmune(unit)&&b.traits.applyStun(unit,20))b.events.push({type:'stun',id:unit.id,duration:20,kind:'hold-on'});
     }
@@ -68,8 +69,8 @@ export class CombatAugmentEffects {
       if(element==='light'&&this.has(source.team,'lighten-the-way')&&this.battle.tick<(target.stunnedUntil||0))amount*=1.5;
       if(element==='dark'&&this.has(source.team,'darken-the-world')&&this.battle.controls.feared(target))amount*=1.5;
       if(element==='ice'&&this.has(source.team,'in-freeze')&&this.battle.controls.frozen(target))amount*=2;
-      if(source&&this.has(source.team,'smaller-and-smaller'))amount*=1.5;
-      if(source&&this.has(source.team,'anti-shield')&&target.shield>0)amount*=1.25;
+      if(source&&!source.crystalMirror&&this.has(source.team,'smaller-and-smaller'))amount*=1.5;
+      if(source&&!source.crystalMirror&&this.has(source.team,'anti-shield')&&target.shield>0)amount*=1.25;
       if(this.rowProtected.has(target.id))amount*=.9;
     }
     if(kind==='burn'&&this.has(target.team,'fire-fighter'))amount*=.8;
@@ -77,7 +78,7 @@ export class CombatAugmentEffects {
     return amount;
   }
   prepareAttack(hit){
-    if(!this.active())return hit;
+    if(!this.active()||hit.attacker.crystalMirror)return hit;
     const {attacker}=hit;
     if(this.has(attacker.team,'weak-hunter')&&this.role(attacker,'assassin')&&this.battle.random()<.25){
       const oldMultiplier=hit.criticalMultiplier||1,newMultiplier=Math.max(oldMultiplier,2);
@@ -96,7 +97,8 @@ export class CombatAugmentEffects {
     hit.shadowKiller=true;
     attacker.shadowKillerEmpowered=false;
   }
-    hit.royal=this.has(attacker.team,'royal-dancer')&&this.role(attacker,'duelist')&&attacker.basicAttacks>0&&attacker.basicAttacks%3===0;
+    const crystalCanMove=this.battle.catalog[attacker.type].element!=='crystal'||this.battle.crystal?.canClassMove(attacker);
+    hit.royal=!!crystalCanMove&&this.has(attacker.team,'royal-dancer')&&this.role(attacker,'duelist')&&attacker.basicAttacks>0&&attacker.basicAttacks%3===0;
     if(hit.royal)hit.amount*=1.5;
     return hit;
   }
@@ -120,13 +122,36 @@ export class CombatAugmentEffects {
     return offsets.map(([dx,dy])=>({x:origin.x+dx,y:origin.y+dy})).filter(cell=>b.inside(cell.x,cell.y)&&!b.at(cell.x,cell.y)&&b.traits.canStep(unit,unit,cell));
   }
   jump(unit,to,target,kind){
+    if(this.battle.catalog[unit.type].element==='crystal'&&!this.battle.crystal?.canClassMove(unit))return false;
     const from={x:unit.x,y:unit.y};unit.x=to.x;unit.y=to.y;
     if(target)unit.targetId=target.id;
     this.battle.events.push({type:'jump',id:unit.id,from,to:{...to},targetId:target?.id,kind});
+    return true;
+  }
+  cancelCrystalMovement(unit){this.crystalMovements=this.crystalMovements.filter(move=>move.unit.id!==unit.id);}
+  deferCrystalMovement(unit,kind,target){
+    if(!this.battle.crystal?.pairs.has(unit.crystalPairId))return false;
+    this.crystalMovements.push({unit,kind,target});return true;
+  }
+  flushCrystalMovement(){
+    const pending=this.crystalMovements;this.crystalMovements=[];
+    // All committed hits, reflections and deaths get their exchange opportunity
+    // before a linked owner's class movement. Cancelled dashes are never retried.
+    for(const {unit,kind,target} of pending){
+      if(!this.battle.crystal?.canClassMove(unit))continue;
+      if(kind==='royal-dancer')this.royalDash({attacker:unit,target,royal:true});
+      else this.shadowDash(unit,true);
+    }
   }
   beforeBasic(hit){
+    const {attacker}=hit;
+    if(!hit.royal)return;
+    if(this.deferCrystalMovement(attacker,'royal-dancer',hit.target))return;
+    this.royalDash(hit);
+  }
+  royalDash(hit){
     const {attacker,target}=hit,b=this.battle;
-    if(!this.active()||!hit.royal||!alive(attacker)||attacker.sweptBy||b.controls?.cannotAttack(attacker)||b.tick<(attacker.stunnedUntil||0))return;
+    if(attacker.crystalMirror||b.crystal?.onPlatform(attacker)||!this.active()||!hit.royal||!alive(attacker)||attacker.sweptBy||b.controls?.cannotAttack(attacker)||b.tick<(attacker.stunnedUntil||0))return;
     const cells=this.openCells(attacker,attacker);
     if(cells.length)this.jump(attacker,cells[Math.floor(b.random()*cells.length)],alive(target)?target:null,'royal-dancer');
   }
@@ -135,7 +160,7 @@ export class CombatAugmentEffects {
     const {attacker,target}=hit,b=this.battle;
     const total=typeof dealt==='number'?dealt:(dealt?.hpDamage||0)+(dealt?.shieldDamage||0);
     if(total>0&&this.has(attacker.team,'spirit-helper')&&this.role(attacker,'support')){
-      const ally=b.living(attacker.team).sort((a,c)=>a.hp/a.maxHp-c.hp/c.maxHp||a.id-c.id)[0];
+      const ally=b.living(attacker.team).filter(u=>!u.crystalMirror).sort((a,c)=>a.hp/a.maxHp-c.hp/c.maxHp||a.id-c.id)[0];
       this.heal(ally,total*.2,'spirit-helper');
     }
     if(hit.royal&&alive(attacker)&&!attacker.sweptBy){
@@ -155,16 +180,16 @@ export class CombatAugmentEffects {
     }
     return intents;
   }
-  shadowDash(killer){
+  shadowDash(killer,deferred=false){
     const b=this.battle;
-    if(!alive(killer)||killer.sweptBy||b.controls?.immobile(killer)||b.tick<(killer.stunnedUntil||0))return;
-    const enemies=b.living().filter(unit=>unit.team!==killer.team&&!unit.sweptBy).sort((a,c)=>distance(killer,a)-distance(killer,c)||a.id-c.id);
+    if(killer.crystalMirror||b.crystal?.onPlatform(killer)||!alive(killer)||killer.sweptBy||b.controls?.immobile(killer)||b.tick<(killer.stunnedUntil||0))return;
+    if(!deferred&&this.deferCrystalMovement(killer,'shadow-killer'))return;
+    const enemies=b.living().filter(unit=>unit.team!==killer.team&&!unit.sweptBy&&b.targetable(killer,unit)).sort((a,c)=>distance(killer,a)-distance(killer,c)||a.id-c.id);
     for(const target of enemies){
       const cells=this.openCells(killer,target,[[0,-1],[-1,0],[1,0],[0,1]])
         .filter(cell=>b.traits.canTarget(killer,target,cell)).sort((a,c)=>distance(killer,a)-distance(killer,c)||a.y-c.y||a.x-c.x);
       if(!cells.length)continue;
-      this.jump(killer,cells[0],target,'shadow-killer');
-      killer.shadowKillerEmpowered=true;return;
+      if(this.jump(killer,cells[0],target,'shadow-killer'))killer.shadowKillerEmpowered=true;return;
     return;
     }
   }
@@ -193,7 +218,7 @@ export class CombatAugmentEffects {
     }
   }
   finish(){
-    this.finished=true;
+    this.finished=true;this.crystalMovements=[];
     for(const unit of this.battle.units){delete unit.augmentRowProtection;delete unit.augmentControlUntil;delete unit.augmentImmuneUntil;delete unit.guardianRevived;delete unit.shadowKillerEmpowered;}
   }
 }

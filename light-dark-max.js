@@ -38,7 +38,7 @@ export class LightDarkMaxEffects {
           tile.hits++;
           // Resolve current occupants after movement; empty tiles still use a hit.
           const target=b.at(tile.x,tile.y);
-          if(target&&target.team!==event.team&&!target.overflow)hits.push({
+          if(target&&target.team!==event.team&&!target.overflow&&!b.crystal?.isDormant(target))hits.push({
             source:null,sourceTeam:event.team,target,amount:target.maxHp*.01,kind:'heaven-arrow'
           });
         }

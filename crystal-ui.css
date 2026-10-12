@@ -1,0 +1,46 @@
+.element-crystal{--element:#bfeeff}
+.element-crystal .trait-logo{position:relative;border:0;background:none;box-shadow:none}
+.element-crystal .trait-logo svg{filter:drop-shadow(-2px 0 3px #8effe580) drop-shadow(2px 0 3px #d5a0ff99);color:#d3f4ff}
+.campaign-game .board-traits .trait-chip.element-crystal{border:2px solid transparent;background:linear-gradient(#14232f,#14232f) padding-box,conic-gradient(#8effe5,#86c4ff,#c296ff,#ffa9d4,#fff2b0,#8effe5) border-box;box-shadow:0 0 12px #bbddff44}
+.crystal-combat-surface{width:100%;position:relative;isolation:isolate}
+.crystal-platform{position:relative;width:100%;aspect-ratio:8;background:linear-gradient(120deg,#81e4fb18,#c481ff22,#f0cdff18);border:1px solid #abd8fb80;border-radius:7px;box-shadow:inset 0 0 20px #99ceff20,0 0 15px #a3afff18}
+.crystal-platform::before{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(12.5% - 1px),#d0d9ff44 calc(12.5% - 1px),#d0d9ff44 12.5%)}
+.crystal-platform-label{position:absolute;left:50%;top:0;transform:translate(-50%,-100%);padding:4px 8px;font-size:9px;font-weight:600;letter-spacing:1.8px;white-space:nowrap;color:#c5e9ff;background:#162130e8;border-radius:3px}
+.crystal-platform-top{margin-top:22px}
+.crystal-platform-bottom .crystal-platform-label{top:auto;bottom:0;transform:translate(-50%,100%)}
+.crystal-platform-bottom{margin-bottom:23px}
+.crystal-gap{display:none;width:100%;aspect-ratio:8;pointer-events:none}
+.crystal-gap.crystal-gap-active{display:block}
+.crystal-platform-units{position:absolute;inset:0;z-index:3}
+.crystal-platform-units .unit{height:100%;top:0!important;pointer-events:auto;cursor:pointer}
+.crystal-platform-units .unit-portrait{background:#142438}
+.unit.crystal-mirror .unit-portrait{border:2px solid transparent;background:linear-gradient(#182d36,#182d36) padding-box,conic-gradient(#7effe5,#86baff,#db9cff,#fff0ac,#7effe5) border-box;box-shadow:0 0 9px #c4c1ff99;opacity:.9}
+.unit.crystal-dormant .unit-portrait{filter:saturate(.55);box-shadow:0 0 0 2px #bfecff99,0 0 13px #81baff66}
+.unit.crystal-dormant::after{content:'◇';position:absolute;inset:7%;font-size:clamp(20px,4vw,40px);color:#c6f0ff55;display:grid;place-items:center;pointer-events:none}
+.prismatic-tile{background:linear-gradient(135deg,#7abca8b8,#6899bcb8,#9678b9b8,#b3a478b8)!important;border:1px solid #d8efffe0!important;box-shadow:inset 0 0 0 1px #cbdfff88,inset 0 0 15px #a8d1ff44,0 0 4px #c4b9ff44}
+.prismatic-tile .coordinate{color:#eef8ff!important;text-shadow:0 1px 3px #08111f,0 0 3px #08111f}
+.placing .prismatic-tile{outline:1px solid #bedfff}
+.crystal-domain{position:absolute;inset:8px;z-index:1;pointer-events:none;overflow:hidden;border-radius:3px;background:linear-gradient(#07132b99,#11173155),url('assets/terrain/crystal.png') center/cover}
+.crystal-domain[hidden]{display:none}
+.crystal-max .tile:not(.prismatic-tile){background:rgba(8,18,27,.19);border:1px solid rgba(213,232,237,.2)}
+.crystal-arena-animation{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.9}
+.crystal-arena-playing .crystal-aurora{opacity:.55}
+.crystal-arena-playing .crystal-emblem{opacity:.35}
+.crystal-max .territory-ambience{visibility:hidden}
+.crystal-aurora{position:absolute;inset:-50%;background:conic-gradient(from 25deg,transparent,#4bd7ff30,transparent,#b187ff35,transparent,#5fffd025,transparent);filter:blur(22px);animation:crystal-aurora-flow 60s linear infinite}
+.crystal-emblem{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:100px;color:#cbfaff80;text-shadow:0 0 18px #73a7ff;font-weight:200}
+.crystal-star{position:absolute;width:2px;height:2px;background:#e9fcff;box-shadow:0 0 4px #94c8ff;border-radius:50%;animation:crystal-star-twinkle var(--twinkle) ease-in-out var(--delay) infinite}
+.crystal-beam{stroke:#d4f8ff;stroke-width:5;stroke-linecap:round;filter:drop-shadow(0 0 4px #91d2ff) drop-shadow(0 0 10px #ca99ff);animation:crystal-beam-flash .7s ease-out forwards}
+.crystal-exchange-beam{stroke-width:3;stroke-dasharray:42 9;stroke:#e2d0ff}
+.crystal-projectile{pointer-events:none;filter:drop-shadow(0 0 3px #101329) drop-shadow(0 0 9px var(--crystal-glow)) drop-shadow(0 0 17px var(--crystal-glow))}
+.crystal-projectile-trail{fill:url(#crystal-trail-gradient)}
+.crystal-projectile-shell{fill:url(#crystal-beam-gradient);stroke:#332756;stroke-width:3;stroke-linejoin:round}
+.crystal-projectile-core{fill:#fff;stroke:var(--crystal-glow);stroke-width:2}
+.crystal-projectile-facet{fill:none;stroke:#fff;stroke-width:1.5}
+.crystal-teleport{stroke-width:2;stroke-dasharray:7 10;opacity:.7}
+.effect-crystal-projectile{color:#ddbfff}
+.scene-crystal{background-image:url('assets/terrain/crystal.png');background-size:cover;background-position:center}
+@keyframes crystal-aurora-flow{0%{transform:rotate(0deg) scale(1)}50%{transform:rotate(180deg) scale(1.12)}100%{transform:rotate(360deg) scale(1)}}
+@keyframes crystal-star-twinkle{0%,100%{opacity:.2;transform:scale(.65)}50%{opacity:1;transform:scale(1.2)}}
+@keyframes crystal-beam-flash{0%{opacity:0;stroke-dashoffset:180}20%{opacity:1}100%{opacity:0;stroke-dashoffset:0}}
+@media(max-width:600px){.crystal-platform-label{font-size:8px;letter-spacing:1px}.crystal-platform-top{margin-top:19px}.crystal-platform-bottom{margin-bottom:19px}}

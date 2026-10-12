@@ -32,6 +32,8 @@ export class CosmicEffects{
       const augments=b.teamAugments[vortex.team]||[];
       const types=['cosmic-5',...(augments.includes('dragon-orb')?['cosmic-6']:[]),...(augments.includes('universe-orb')?['cosmic-7']:[])];
       for(const victim of victims){
+        // Mirrored bodies disappear in the vortex, but never create extra loot.
+        if(victim.crystalMirror)continue;
         if(b.random()<.75){
           const amount=3+Math.min(4,Math.floor(b.random()*5));
           b.goldEarned[vortex.team]+=amount;b.onGold?.(vortex.team,amount);

@@ -12,14 +12,14 @@ function damageAmount(target,amount,options){
 }
 
 export function applyDamage(target,amount,{source,sourceTeam=source?.team,execute=false,battle,category='trait',kind=category}={}){
-  if(target.hp<=0||target.eliminated||battle?.augments?.immune(target))return {hpDamage:0,shieldDamage:0};
+  if(target.hp<=0||target.eliminated||battle?.crystal?.isDormant(target)||battle?.augments?.immune(target))return {hpDamage:0,shieldDamage:0};
   amount=damageAmount(target,amount,{source,sourceTeam,battle,category,kind});
   const bypass=category==='basic'&&source?(battle?.classes?.shieldBypass(source,target)||0):0;
   const before=target.hp;
   const shieldDamage=execute?0:absorbShield(target,amount*(1-bypass));
   target.hp=execute?0:Math.max(0,target.hp-(amount-shieldDamage));
   // Execution is tied to a damaging team hit, not a passive HP scan or reflection.
-  if(amount>0&&category!=='reflection'&&sourceTeam!==target.team&&battle?.augments?.has(sourceTeam,'executioner')&&target.hp>0&&target.hp<target.maxHp*.1){target.hp=0;execute=true;}
+  if(amount>0&&!source?.crystalMirror&&category!=='reflection'&&sourceTeam!==target.team&&battle?.augments?.has(sourceTeam,'executioner')&&target.hp>0&&target.hp<target.maxHp*.1){target.hp=0;execute=true;}
   const hpDamage=before-target.hp;
   let revived=false;
   if(target.hp===0){
@@ -29,12 +29,13 @@ export function applyDamage(target,amount,{source,sourceTeam=source?.team,execut
       if(source)source.kills=(source.kills||0)+1;
     }
   }
+  if(target.hp>0&&!revived)battle?.crystal?.onDamage(target,before,{kind});
   if(source)source.damageDealt=(source.damageDealt||0)+hpDamage+shieldDamage;
   return {hpDamage,shieldDamage,...(execute&&!revived?{execute:true}:{}),...(revived?{revived:true}:{})};
 }
 
 export function resolveCombat(battle,hits){
-  hits=hits.filter(({attacker,target})=>!attacker.eliminated&&!target.eliminated&&!attacker.sweptBy&&!target.sweptBy);
+  hits=hits.filter(({attacker,target})=>!attacker.eliminated&&!target.eliminated&&!battle.crystal?.isDormant(attacker)&&!battle.crystal?.isDormant(target)&&!battle.crystal?.inTransit(attacker)&&!attacker.sweptBy&&!target.sweptBy);
   const traits=battle.traits,augments=battle.augments,alive=battle.living(),healing=new Map(),reflections=[],pierces=[],controlHits=[];
   for(const hit of hits){
     hit.repelled=!!augments?.repels(hit);
@@ -56,6 +57,7 @@ export function resolveCombat(battle,hits){
     if(!dodged&&!repelled)pierces.push(...traits.windPierce(attacker,target,dealt.hpDamage+dealt.shieldDamage));
     controlHits.push(...augments?.afterBasic(hit,dealt)||[]);
     controlHits.push(...battle.controls?.afterBasic(hit,dealt)||[]);
+    battle.crystal?.afterBasic(hit,dealt);
   }
   // Royal Dancer can move during a committed attack; sample arrow tiles afterward.
   controlHits.unshift(...battle.controls?.damageIntents()||[]);
@@ -73,10 +75,12 @@ export function resolveCombat(battle,hits){
     const target=battle.units.find(u=>u.id===effect.targetId);if(!target||target.hp<=0||target.eliminated)continue;
     const source=battle.units.find(u=>u.id===effect.sourceId);
     const execute=effect.executeBelow!==undefined&&target.hp<target.maxHp*effect.executeBelow;
-    const dealt=applyDamage(target,effect.amount,{source,sourceTeam:effect.sourceTeam??source?.team,execute,battle,kind:effect.kind});
+    const dealt=applyDamage(target,effect.amount,{source,sourceTeam:effect.sourceTeam??source?.team,execute,battle,category:effect.category||'trait',kind:effect.kind});
+    battle.crystal?.projectiles.recordDamage(effect,dealt);
     if(dealt.execute&&target.hp<=0)target.eliminatedBy=effect.kind;
     battle.events.push({type:effect.kind,id:target.id,amount:dealt.hpDamage+dealt.shieldDamage,...dealt});
   }
+  battle.crystal?.projectiles.resolveHealing();
   for(const hit of reflections){
     const dealt=applyDamage(hit.target,hit.amount,{source:hit.source,battle,category:'reflection',kind:hit.kind});
     battle.events.push({type:'reflection',kind:hit.kind,id:hit.target.id,sourceId:hit.source.id,amount:dealt.hpDamage+dealt.shieldDamage,...dealt});
@@ -86,7 +90,7 @@ export function resolveCombat(battle,hits){
   for(;;){
     const fresh=battle.units.filter(u=>u.hp<=0&&!u.eliminated&&!u.overflow&&!battle.resolvedDeaths.has(u.id));
     if(!fresh.length)break;
-    for(const u of fresh){battle.resolvedDeaths.add(u.id);fallen.push(u);battle.events.push({type:'death',id:u.id});}
+    for(const u of fresh){battle.crystal?.onDeath(u);battle.resolvedDeaths.add(u.id);fallen.push(u);battle.events.push({type:'death',id:u.id});}
     for(const u of fresh){
       const killer=battle.units.find(v=>v.id===u.lastKillerId);
       for(const hit of [...(augments?.onDeath(u,killer)||[]),...(battle.controls?.onDeath(u)||[])]){
@@ -96,4 +100,5 @@ export function resolveCombat(battle,hits){
     }
   }
   traits.inherit(fallen);
+  augments?.flushCrystalMovement();
 }

@@ -5,6 +5,7 @@ import { ClassEffects } from './class-effects.js';
 import { CombatAugmentEffects, combatAugmentStats } from './combat-augments.js';
 import { resolveCombat } from './combat-resolution.js';
 import { ElementalControls } from './elemental-controls.js';
+import {CrystalEffects,crystalPreparationTiles,prismaticTiles} from './crystal-effects.js';
 import { CosmicEffects } from './cosmic-effects.js';
 import {unitClass} from './class-rules.js';
 export { ARCHETYPES } from './catalog.js';
@@ -13,7 +14,7 @@ const key = p => `${p.x},${p.y}`;
 const clone = value => JSON.parse(JSON.stringify(value));
 const freshUnit=(id,type,team,x,y,stars,stats)=>({id,type,team,x,y,stars,hp:stats.hp,maxHp:stats.hp,attackDamage:stats.damage,damageType:stats.damageType||'physical',shield:0,maxShield:0,goldenUntil:0,stunnedUntil:0,basicAttacks:0,targetId:null,attackReady:0,moveReady:0,damageDealt:0,kills:0});
 export class Battle {
-  constructor({width=8,height=8,cap=10,teamCaps={},previewOnly=false,timeout=600,catalog=CHAMPIONS,seed=1,random,onGold,onChampionReward,traitCounts={},teamAugments={}}={}) {
+  constructor({width=8,height=8,cap=10,teamCaps={},previewOnly=false,timeout=600,catalog=CHAMPIONS,seed=1,random,onGold,onChampionReward,traitCounts={},teamAugments={},crystalTiles={}}={}) {
     this.width=width; this.height=height; this.cap=Math.min(10,cap); this.timeout=timeout; this.catalog=catalog;this.previewOnly=previewOnly;
     // An explicit per-team cap is granted by the league's level-11 Augment only.
     this.teamCaps=Object.fromEntries(['azure','ember'].map(team=>[team,Number.isInteger(teamCaps[team])?Math.max(1,Math.min(11,teamCaps[team])):this.cap]));
@@ -23,10 +24,15 @@ export class Battle {
     this.units=[]; this.nextId=1; this.phase='preparation'; this.outcome=null;
     this.tick=0; this.accumulator=0; this.events=[]; this.roster=null;
     this.traits=null;this.classes=null;this.controls=null;
+    this.crystal=null;this.crystalTiles=Object.fromEntries(['azure','ember'].map(team=>[team,(crystalTiles[team]||crystalPreparationTiles(seed,width,height,team)).map(p=>({...p}))]));
     this.seed=seed>>>0||1;this.randomState=this.seed;this.onGold=onGold;this.goldEarned={azure:0,ember:0};
     this.onChampionReward=onChampionReward;this.championRewards={azure:[],ember:[]};
     this.random=random||(()=>{let x=this.randomState;x^=x<<13;x^=x>>>17;x^=x<<5;this.randomState=x>>>0;return this.randomState/4294967296;});
   }
+  prismaticTiles(team){return prismaticTiles(this,team);}
+  targetable(attacker,target){return target.hp>0&&!target.eliminated&&!target.sweptBy&&(!this.crystal||this.crystal.canTarget(attacker,target));}
+  combatInside(unit,x,y){return this.crystal?.onPlatform(unit)?Number.isInteger(x)&&x>=0&&x<this.width&&y===unit.y:this.inside(x,y);}
+  canReach(attacker,target,from=attacker){return this.targetable(attacker,target)&&(!this.traits||this.traits.canTarget(attacker,target,from))&&(this.crystal?this.crystal.canReach(attacker,target,from):distance(from,target)<=this.attackRange(attacker));}
   inside(x,y) { return Number.isInteger(x)&&Number.isInteger(y)&&x>=0&&x<this.width&&y>=0&&y<this.height; }
   home(team,y) { return team==='azure' ? y>=this.height/2 : y<this.height/2; }
   at(x,y) { return this.units.find(u=>u.hp>0&&!u.eliminated&&!u.sweptBy&&u.x===x&&u.y===y); }
@@ -89,13 +95,15 @@ export class Battle {
     this.randomState=this.seed;this.goldEarned={azure:0,ember:0};this.championRewards={azure:[],ember:[]};this.nextSummonId=Math.min(0,...this.units.map(u=>u.id))-1;
     this.traits=new TraitEffects(this);
     this.controls=new ElementalControls(this);
-    this.resolvedDeaths.clear();this.augments=new CombatAugmentEffects(this);this.augments.start();
+    this.resolvedDeaths.clear();this.augments=new CombatAugmentEffects(this);
+    this.crystal=new CrystalEffects(this);this.augments.start();
     this.traits.cosmic=new CosmicEffects(this);
     this.controls.start();
     this.classes=new ClassEffects(this);
     if(this.controls.pending.length){resolveCombat(this,[]);this.checkOutcome();}
   }
   reset() {
+    this.crystal?.finish();this.crystal=null;
     if(this.roster) this.units=clone(this.roster);
     this.phase='preparation';this.tick=0;this.accumulator=0;this.outcome=null;this.events=[];this.roster=null;
     this.traits=null;this.classes=null;this.controls=null;this.augments=null;this.resolvedDeaths.clear();
@@ -111,6 +119,7 @@ export class Battle {
   }
   // BFS considers every reachable cell; a blocked nearest enemy cannot trap targeting.
   targetPlan(unit,enemies,occupied){
+    enemies=enemies.filter(e=>this.targetable(unit,e));
     const preferred=this.classes?.priorityTargets(unit,enemies)||[];
     if(preferred.length){const route=this.routeToGroup(unit,preferred,occupied);if(route)return {route,enemies:preferred};}
     return {route:this.routeToGroup(unit,enemies,occupied),enemies};
@@ -122,7 +131,7 @@ export class Battle {
     const range=this.attackRange(unit);
     for(let i=0;i<queue.length;i++) {
       const cell=queue[i];
-      const targets=enemies.filter(e=>(!this.traits||this.traits.canTarget(unit,e,cell))&&distance(cell,e)<=range).sort((a,b)=>distance(unit,a)-distance(unit,b)||a.id-b.id);
+      const targets=enemies.filter(e=>this.canReach(unit,e,cell)).sort((a,b)=>distance(unit,a)-distance(unit,b)||a.id-b.id);
       if(targets.length) return {target:targets[0],next:cell.first};
       // Break equal-length paths toward the largest remaining gap. After a jump,
       // a team's normal forward direction may point away from every opponent.
@@ -130,7 +139,7 @@ export class Battle {
       const directions=nearest?dirs.slice().sort(([ax,ay],[bx,by])=>Math.max(Math.abs(cell.x+ax-nearest.x),Math.abs(cell.y+ay-nearest.y))-Math.max(Math.abs(cell.x+bx-nearest.x),Math.abs(cell.y+by-nearest.y))):dirs;
       for(const [dx,dy] of directions) {
         const p={x:cell.x+dx,y:cell.y+dy},k=key(p);
-        if(this.inside(p.x,p.y)&&!seen.has(k)&&!occupied.has(k)&&(!this.traits||this.traits.canStep(unit,cell,p))) {seen.add(k);queue.push({...p,first:cell.first||p});}
+        if(this.combatInside(unit,p.x,p.y)&&!seen.has(k)&&!occupied.has(k)&&(!this.traits||this.traits.canStep(unit,cell,p))) {seen.add(k);queue.push({...p,first:cell.first||p});}
       }
     }
     return null;
@@ -141,6 +150,7 @@ export class Battle {
     this.controls.update();
     this.traits.nature.update();
     this.traits.cosmic.update();
+    this.crystal.syncPairs();
     this.traits.sweep();
     this.augments.update();
     this.classes.update();
@@ -152,8 +162,8 @@ export class Battle {
       if(this.controls.immobile(u)){u.targetId=null;continue;}
       // Later movers see already-reserved destinations, so two enemies stop
       // when they meet instead of endlessly chasing each other's old tile.
-      const enemies=planned.filter(e=>e.team!==u.team);
-      const opening=enemies.find(e=>e.id===u.openingTargetId&&this.traits.canTarget(u,e)&&distance(u,e)<=this.attackRange(u));
+      const enemies=planned.filter(e=>e.team!==u.team&&this.targetable(u,e));
+      const opening=enemies.find(e=>e.id===u.openingTargetId&&this.canReach(u,e));
       const route=opening?{target:opening,next:null}:this.route(u,enemies,occupied);u.targetId=route?.target.id??null;
       u.openingTargetId=null;
       if(route?.next&&this.tick>=u.moveReady&&!reserved.has(key(route.next))) {
@@ -172,10 +182,10 @@ export class Battle {
     const occupiedAfterMoves=new Set(this.living().filter(u=>!u.sweptBy).map(key));
     for(const u of alive) {
       if(u.sweptBy||u.eliminated||u.hp<=0||this.controls.cannotAttack(u))continue;
-      const targets=alive.filter(e=>!e.sweptBy&&!e.eliminated&&e.hp>0&&e.team!==u.team);
+      const targets=alive.filter(e=>!e.sweptBy&&!e.eliminated&&e.hp>0&&e.team!==u.team&&this.targetable(u,e));
       const preferred=this.classes.priorityTargets(u,targets);
       const allowed=preferred.length?this.targetPlan(u,targets,occupiedAfterMoves).enemies:targets;
-      const candidates=allowed.filter(e=>this.traits.canTarget(u,e)&&distance(u,e)<=this.attackRange(u))
+      const candidates=allowed.filter(e=>this.canReach(u,e))
         .sort((a,b)=>(a.id===u.targetId?-1:b.id===u.targetId?1:distance(u,a)-distance(u,b)||a.id-b.id));
       if(candidates.length)u.targetId=candidates[0].id;
       if(candidates.length&&this.tick>=u.attackReady) {
@@ -190,6 +200,7 @@ export class Battle {
     this.checkOutcome();
   }
   checkOutcome(){
+    this.crystal?.syncPairs();
     const azure=this.living('azure').length,ember=this.living('ember').length;
     if(!azure||!ember||this.tick>=this.timeout) {
       this.phase='finished';this.outcome=!azure&&!ember?'draw':!ember?'azure':!azure?'ember':'draw';
@@ -197,8 +208,14 @@ export class Battle {
       this.events.push({type:'end',outcome:this.outcome});
     }
   }
-  attackRange(unit){return this.classes?this.classes.attackRange(unit):this.catalog[unit.type].element==='cosmic'&&unitClass(unit,this.catalog)==='ranger'?3:this.catalog[unit.type].range;}
-  attackInterval(unit){return (this.classes?this.classes.attackInterval(unit):this.catalog[unit.type].attackTicks)/(this.controls?.chilled(unit)?.5:1);}
+  attackRange(unit){
+    if(this.catalog[unit.type].element==='crystal')return this.crystal&&!this.crystal.finished&&this.crystal.onPlatform(unit)?Infinity:this.catalog[unit.type].range;
+    return this.classes?this.classes.attackRange(unit):this.catalog[unit.type].element==='cosmic'&&unitClass(unit,this.catalog)==='ranger'?3:this.catalog[unit.type].range;
+  }
+  attackInterval(unit){
+    const reflection=this.catalog[unit.type].element==='crystal'&&this.teamAugments[unit.team]?.includes('rainbow-reflection');
+    return (unit.crystalMirror?unit.crystalAttackTicks:this.classes?this.classes.attackInterval(unit):this.catalog[unit.type].attackTicks)/(this.controls?.chilled(unit)?.5:1)/(reflection?2:1);
+  }
 }
 export const FORMATIONS = [
   [['sentinel',2,2],['sentinel',5,2],['duelist',4,1],['ranger',1,0],['ranger',6,0]],

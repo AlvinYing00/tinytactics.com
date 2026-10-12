@@ -31,10 +31,14 @@ export class TraitEffects {
   isGolden(unit){return this.battle.phase==='combat'&&this.battle.tick<unit.goldenUntil;}
   wallActive(wall){return this.battle.phase==='combat'&&this.battle.tick<wall.endTick;}
   canTarget(attacker,target,from=attacker){
+    if(this.battle.crystal&&!this.battle.crystal.canTarget(attacker,target))return false;
+    if(this.battle.crystal?.onPlatform(attacker))return true;
     if(this.battle.catalog[attacker.type].element==='air'&&this.teams[attacker.team].windWall)return true;
     return !(attacker.team!==target.team&&this.battle.catalog[target.type].element==='air'&&this.walls.some(w=>w.team===target.team&&this.wallActive(w)&&(from.y<w.y)!==(target.y<w.y)));
   }
   canStep(unit,from,to){
+    if(this.battle.crystal&&!this.battle.crystal.canStep(unit,from,to))return false;
+    if(this.battle.crystal?.onPlatform(unit))return true;
     return !this.walls.some(w=>this.wallActive(w)&&(from.y<w.y)!==(to.y<w.y));
   }
   applyStun(unit,durationTicks){
@@ -106,6 +110,7 @@ export class TraitEffects {
     for(const u of b.living().filter(u=>u.sweptBy===wave.id)){
       // Removal is not death: preserve HP and never resolve death/on-kill effects.
       u.eliminated=true;u.eliminatedBy='tsunami';u.x=b.width;u.targetId=null;
+      b.crystal?.onTsunamiExit(u);
       delete u.sweptBy;delete u.sweepX;delete this.burns[u.id];
       b.events.push({type:'ejected',id:u.id});
     }
@@ -115,9 +120,11 @@ export class TraitEffects {
     for(const wave of this.waves){
       if(wave.completed)continue;
       wave.x=-.5+battle.width*Math.min(1,(battle.tick-wave.startTick)/(wave.endTick-wave.startTick));
-      for(const unit of battle.living().filter(u=>u.team!==wave.team)){
+      for(const unit of battle.living().filter(u=>u.team!==wave.team).sort((a,c)=>Number(!!a.crystalMirror)-Number(!!c.crystalMirror)||a.id-c.id)){
         if(!unit.sweptBy&&!wave.hitIds.includes(unit.id)&&!wave.resistedIds.includes(unit.id)&&unit.x<=wave.x){
           if(!this.has(wave.team,'tidal-wave')&&(this.isGolden(unit)||battle.augments?.controlImmune(unit))){wave.resistedIds.push(unit.id);continue;}
+          if(battle.crystal?.resolveTsunami(unit)){wave.hitIds.push(unit.id);continue;}
+          if(unit.eliminated)continue;
           unit.sweptBy=wave.id;unit.targetId=null;wave.hitIds.push(unit.id);
           battle.events.push({type:'swept',id:unit.id});
         }
@@ -128,7 +135,7 @@ export class TraitEffects {
     for(const wave of this.waves)if(battle.tick>=wave.endTick)this.eject(wave);
   }
   damageIntents(){
-    const {battle}=this,hits=this.cosmic?.damageIntents()||[];
+    const {battle}=this,hits=[...(this.cosmic?.damageIntents()||[]),...(this.battle.crystal?.damageIntents()||[])];
     for(const team of Object.keys(this.nextMeteor))while(battle.tick>=this.nextMeteor[team]){
       const launchTick=this.nextMeteor[team];this.nextMeteor[team]+=5;
       const enemies=battle.living().filter(u=>u.team!==team);if(!enemies.length)break;
@@ -163,6 +170,7 @@ export class TraitEffects {
     return hits;
   }
   finish(){
+    this.battle.crystal?.finish();
     this.nature.finish();
     this.cosmic?.finish();
     this.battle.controls?.finish();

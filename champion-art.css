@@ -14,7 +14,7 @@
 .board-shell>.units{z-index:3}
 .board-shell>.trait-effects,.board-shell>.effects{z-index:4}
 .board-shell>.floaters{z-index:5}
-.board-shell.has-home-theme .home-tile,.board-shell.has-enemy-theme .enemy-tile{background:rgba(8,18,27,.19);border:1px solid rgba(213,232,237,.2);box-shadow:inset 0 0 5px #07101830}
+.board-shell.has-home-theme .home-tile,.board-shell.has-enemy-theme .enemy-tile{background:rgba(8,18,27,.19);border:1px solid rgba(213,232,237,.2);box-shadow:inset 0 0 5px #07101860}
 .board-shell.has-home-theme .home-tile:hover,.board-shell.has-enemy-theme .enemy-tile:hover{background:#e3fff228}
 .board-shell.has-home-theme .home-tile.selected,.board-shell.has-enemy-theme .enemy-tile.selected{background:#b8efce30;border-color:var(--mint)}
 .board-shell.has-home-theme .home-tile .coordinate,.board-shell.has-enemy-theme .enemy-tile .coordinate{color:#e5f4f29c;text-shadow:0 1px 3px #000}

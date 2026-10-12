@@ -10,6 +10,7 @@ const summaries={
   air:'Attack gold, dodge and critical hits. MAX adds Wind Wall and Wind Pierce.',nature:'Compounding HP and Attack growth. Tier 4 summons copies.',
   light:'Stack hits to stun. MAX opens with 5s of golden arrows and stun/fear immunity.',dark:'Attacks cause fear; higher tiers explode on death. MAX opens with 3s of team-wide Fear.',
   ice:'Chill on hit; Snowflakes trigger Freeze. MAX opens with Snowstorm.',cosmic:'Borrow a class by row. Asteroid at 2; a vortex at 3 eliminates non-Cosmic units on both teams.',
+  crystal:'Fixed tiles activate platform mirrors. Crystal 4 swaps after 25% HP loss; MAX swaps every 3 hits and fires two projectiles. Rainbow Reflection lets both bodies fight.',
   sentinel:'Reduce champion damage. Trait damage is unaffected.',duelist:'Repeated attacks build attack speed.',ranger:'More damage from 3+ tiles away. MAX adds range.',
   support:'Heal the lowest-health allies every 5s. MAX adds shields.',assassin:'Jump toward the backline. Wind Wall blocks the opening jump.'
 };

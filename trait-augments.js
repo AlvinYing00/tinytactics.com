@@ -8,7 +8,7 @@ for(const role of CLASS_IDS){
   add(`class-${role}`,name,[2,3],'class',`Your team counts as having +1 ${name}.`,{virtual:{[role]:1}},role);
   add(`class-${role}-chest`,`${name} Chest`,[4],'class',`+1 ${name} count. Gain a random ${name} champion costing up to 4 gold.`,{virtual:{[role]:1},gift:{maxCost:4,combatRole:role}},role);
 }
-for(const element of ['water','air','mountain','fire','electric','light','dark','ice','nature']){
+for(const element of ['water','air','mountain','fire','electric','light','dark','ice','nature','crystal']){
   const name=ELEMENT_LABELS[element];
   add(`${element}-orb`,`${name} Orb`,[2],'trait',`Your team counts as having +1 ${name}.`,{virtual:{[element]:1}},element);
   add(`${element}-chest`,`${name} Chest`,[3],'trait',`+1 ${name} count. Gain a random ${name} champion costing up to 3 gold.`,{virtual:{[element]:1},gift:{maxCost:3,element}},element);
@@ -39,6 +39,8 @@ special('in-freeze','In Freeze','ice',3,'Ice basic attacks deal double damage to
 special('xmas-gift','Xmas Gift','ice',3,'When an Ice champion kills an enemy, gain gold equal to that enemy’s cost, regardless of stars.');
 special('nature-enhancement','Nature Enhancement','nature',2,'Double Nature’s per-second growth: 2% at Nature 2 and 4% at Nature 4.');
 special('greener-and-greener','Greener and Greener','nature',4,'Every 5s, each living Nature champion summons another doppelganger with 25% of its current max HP and 50% Attack. Copies do not grow; no summon when tiles are full.');
+special('aurora-dance','Aurora Dance','crystal',6,'Allied Crystal projectiles collide in a 1-tile prismatic explosion, dealing 100% of the strongest projectile’s damage. Each collision heals every involved owner and mirror once for its total damage dealt. Direct hits are unchanged.');
+special('rainbow-reflection','Rainbow Reflection','crystal',2,'Crystal originals and mirrors attack twice as fast. Both bodies can fight, but lose battlefield Prismatic Protection. At Crystal 6, battlefield bodies may cross into the enemy half. Platform range and exchanges are unchanged.');
 
 export const TRAIT_AUGMENTS=Object.freeze(entries);
 export function traitAugmentMatches(player,augment){

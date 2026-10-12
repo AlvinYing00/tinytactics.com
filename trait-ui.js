@@ -5,8 +5,8 @@ export const TRAIT_DETAILS={
   cosmic:{name:'Cosmic',steps:[1,2,3],rows:[
     'Starting row grants Tanker / Duelist / Assassin / Ranger effects and matching Augment bonuses. Cosmic adds no class count.',
     'A mega asteroid lands after 5s: 25% enemy max HP damage and a 3s stun.',
-    'A 5s vortex pulls in and disables non-Cosmic units, then eliminates them. Per removal: 75% chance for 3–7 gold, otherwise a Cosmic copy. Keep the asteroid.'
-  ],note:'Both teams’ Cosmic champions are safe from the vortex. Dragonoid and Elyndra copies require their Orbs; they never appear in the shop. Cosmic MAX terrain takes priority.'},
+    'A 5s vortex pulls in and disables non-Cosmic units, then eliminates them. Per removal, except Crystal mirrors: 75% chance for 3–7 gold, otherwise a Cosmic copy. Keep the asteroid.'
+  ],note:'Both teams’ Cosmic champions are safe from the vortex. Dragonoid and Elyndra copies require their Orbs; they never appear in the shop. Cosmic MAX terrain takes priority beneath the temporary Crystal MAX animation.'},
   sentinel:{name:'Tanker',category:'class',steps:[2,4,6],rows:[
     'Tankers take 10% less damage from champion attacks and abilities.',
     'Champion damage reduction increases to 20%.',
@@ -55,6 +55,11 @@ export const TRAIT_DETAILS={
     'Inheritance increases to 10% HP and attack.',
     '25% HP + 15% attack inheritance. Thunder once at 3s: 25% enemy max HP damage; execute targets already below 25% HP.'
   ],note:'Inherited bonuses never transfer again.'},
+  crystal:{name:'Crystal',steps:[2,4,6],rows:[
+    'One fixed Prismatic Tile, kept across rounds. Its Crystal champion creates a mirror with 25% HP and Attack on the enemy-side Crystal Platform.',
+    'Two fixed Prismatic Tiles. Mirrors inherit 50% HP and Attack. Each active body swaps after losing 25% of its max HP. The body back on the board is protected and cannot act.',
+    'All Crystal champions mirror at 50% stats. Every 3 damaging basic attacks, the active body swaps. Two line projectiles each deal 50% of their source’s Attack: one from the owner, one from the mirror. Aurora animation lasts up to 60s, ending early when all MAX mirrors are gone.'
+  ],note:'Swaps take 0.5s. At 2/4, unmirrored Crystal moves within its own half: Tanker, Duelist and Assassin range 1; Ranger and Support range 3. Only Crystal bodies fighting on the Platform have unlimited range. Crystal never performs the opening Assassin jump. Platform bodies cannot jump or dash off. Mirrors gain no class effects or class-specific Augments. Tsunami carries an owner off the board and locks its swaps while swept. Losing a mirror returns an unswept platform owner to its starting tile. Mirror mechanics bypass Wind Wall. Five unique champions plus +1 Crystal unlock MAX.'},
   nature:{name:'Nature',steps:[2,4],boardEffect:false,rows:[
     'From 2s onward, gain 1% of current max HP and attack every second. Heal the HP gained; growth compounds.',
     'Summon a doppelganger per Nature champion at combat start, with 25% starting HP and 50% attack. Growth increases to 2% per second.'
@@ -85,6 +90,7 @@ export const TRAIT_DETAILS={
   ],note:'Exact counts only. Other counts disable Air. Wind Wall does not block trait effects or grant stats.'}
 };
 const paths={
+  crystal:'<path d="m12 2 7 7-3 11H8L5 9l7-7Z M5 9h14M12 2 8 9l4 11 4-11-4-7Z"/>',
   cosmic:'<ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(-35 12 12)"/><circle cx="12" cy="12" r="4"/><path d="m19 2 .8 2.2L22 5l-2.2.8L19 8l-.8-2.2L16 5l2.2-.8L19 2Z"/>',
   sentinel:'<path d="m12 2 8 3v6c0 5-4 9-8 11-4-2-8-6-8-11V5l8-3Z"/><path d="M12 6v11M8 10h8"/>',
   duelist:'<path d="m4 2 16 16m-4-1 4-4m-2 5 3 3M20 2 4 18m4-1-4-4m2 5-3 3M4 2l1 5M20 2l-1 5"/>',

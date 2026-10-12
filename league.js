@@ -1,6 +1,7 @@
 import {Campaign} from './campaign.js';
 import {drawChampion} from './shop.js';
 import {Battle} from './engine.js';
+import {crystalPreparationTiles} from './crystal-effects.js';
 import {CHAMPIONS,championStats,teamTraits} from './catalog.js';
 import {BOT_STYLES,planBot} from './bot-planner.js';
 import {COMBAT_CATALOG,encounter} from './encounters.js';
@@ -100,6 +101,18 @@ export class League extends Campaign {
     }
     this.rotation=[order[0],order.at(-1),...order.slice(1,-1)];this.rotationIndex++;return pairs;
   }
+  playerCrystalTiles(id){const index=Object.keys(this.players).indexOf(id);return crystalPreparationTiles((2654435761+(index+1)*7919)>>>0);}
+  positionBotCrystal(player){
+    const board=player.roster.filter(onBoard),tier=teamTraits(board,CHAMPIONS,player.virtualTraits).crystalTier;
+    if(tier!==2&&tier!==4)return;
+    const tiles=this.playerCrystalTiles(player.team).slice(0,tier===4?2:1),assigned=new Set();
+    for(const tile of tiles){
+      const occupant=board.find(u=>u.position.x===tile.x&&u.position.y===tile.y);
+      if(occupant&&CHAMPIONS[occupant.type].element==='crystal'){assigned.add(occupant.id);continue;}
+      const unit=board.find(u=>CHAMPIONS[u.type].element==='crystal'&&!assigned.has(u.id));if(!unit)continue;
+      if(occupant)occupant.position={...unit.position};unit.position={...tile};assigned.add(unit.id);
+    }
+  }
   beginPreparation(){
     this.phase='preparation';this.preparationRemaining=PREPARATION_SECONDS;this.preparationSerial++;this.botsPrepared=false;this.matches=[];this.results={};this.result=null;
     this.offeringAugments=true;
@@ -128,7 +141,7 @@ export class League extends Campaign {
   prepareBots(positionOnly=false,ids=null){
     // Snapshot every scoutable formation before planning, avoiding order-dependent peeking.
     const scout=new Map(this.livingPlayers.map(p=>[p.team,this.visibleOpponent(p.team)]));
-    for(const p of this.livingPlayers.filter(p=>p.bot&&(!ids||ids.includes(p.team))))planBot(this,p,scout.get(p.team),{positionOnly});
+    for(const p of this.livingPlayers.filter(p=>p.bot&&(!ids||ids.includes(p.team)))){planBot(this,p,scout.get(p.team),{positionOnly});this.positionBotCrystal(p);}
     this.botsPrepared=true;this.rebuildBattle();
   }
   revealOpponents(){
@@ -152,7 +165,7 @@ export class League extends Campaign {
     this.matches=this.pairs.map((pair,index)=>{
       const monster=pair.monster?encounter(this.stage,this.random):null;
       const sides={azure:pair.azureId,ember:pair.emberId};
-      const b=new Battle({catalog:COMBAT_CATALOG,teamCaps:{azure:this.maxLevel(pair.azureId),ember:pair.monster?10:this.maxLevel(pair.emberId)},timeout:Infinity,seed:(this.round*2654435761+index*7919)>>>0,
+      const b=new Battle({crystalTiles:{azure:this.playerCrystalTiles(pair.azureId),ember:pair.monster?undefined:this.playerCrystalTiles(pair.emberId).map(p=>({x:p.x,y:7-p.y}))},catalog:COMBAT_CATALOG,teamCaps:{azure:this.maxLevel(pair.azureId),ember:pair.monster?10:this.maxLevel(pair.emberId)},timeout:Infinity,seed:(this.round*2654435761+index*7919)>>>0,
         teamAugments:{azure:this.players[pair.azureId].augments,ember:pair.monster?[]:this.players[pair.emberId].augments},
         traitCounts:{azure:this.players[pair.azureId].virtualTraits,ember:pair.monster?{}:this.players[pair.emberId].virtualTraits},
         onChampionReward:(team,type)=>{if(team==='ember'&&(pair.ghost||pair.monster))return;const p=this.players[sides[team]];p.cosmicRewards??=[];p.cosmicRewards.push(type);},
@@ -178,7 +191,7 @@ export class League extends Campaign {
   matchFor(id){return this.matches.find(m=>m.azureId===id||(!m.ghost&&!m.monster&&m.emberId===id));}
   previewFor(id){
     if(!this.previewBoards.has(id)){
-      const b=new Battle({catalog:COMBAT_CATALOG,previewOnly:true,teamCaps:{azure:this.maxLevel(id)},teamAugments:{azure:this.players[id].augments},traitCounts:{azure:this.players[id].virtualTraits}});
+      const b=new Battle({crystalTiles:{azure:this.playerCrystalTiles(id)},catalog:COMBAT_CATALOG,previewOnly:true,teamCaps:{azure:this.maxLevel(id)},teamAugments:{azure:this.players[id].augments},traitCounts:{azure:this.players[id].virtualTraits}});
       for(const own of this.players[id].roster.filter(u=>u.position.bench===undefined)){const u=b.place(own.type,'azure',own.position.x,own.position.y,own.stars);u.id=own.id;u.overflow=!!own.overflow;}
       this.previewBoards.set(id,b);
     }

@@ -9,7 +9,7 @@ export class ClassEffects {
     for(const unit of battle.units){unit.duelistStacks=0;unit.attackSpeedBonus=0;unit.assassinDodgeUntil=0;unit.openingTargetId=null;unit.completedOpeningJump=false;}
     this.openingJumps();
   }
-  has(unit,role){return hasClass(unit,role,this.battle.catalog);}
+  has(unit,role){return !unit.crystalMirror&&hasClass(unit,role,this.battle.catalog);}
   active(){return this.battle.phase==='combat';}
   vulnerable(unit){return this.has(unit,'ranger')||this.has(unit,'support');}
   attackRange(unit){return (this.battle.catalog[unit.type].element==='cosmic'?(this.has(unit,'ranger')?3:1):this.battle.catalog[unit.type].range)+(this.active()&&this.has(unit,'ranger')?this.teams[unit.team].ranger.rangeBonus:0);}
@@ -37,9 +37,9 @@ export class ClassEffects {
     // Both sides plan from the same opening positions, then land simultaneously.
     const snapshot=b.living().map(u=>({...u})),occupied=new Set(snapshot.map(u=>u.x+','+u.y)),reserved=new Set(),plans=[];
     for(const unit of b.units.filter(u=>this.has(u,'assassin'))){
-      if(b.controls?.immobile(unit)||b.tick<unit.stunnedUntil)continue;
+      if(b.catalog[unit.type].element==='crystal'||b.crystal?.onPlatform(unit)||b.controls?.immobile(unit)||b.tick<unit.stunnedUntil)continue;
       const priority=u=>this.has(u,'ranger')?0:this.has(u,'support')?1:2;
-      const enemies=snapshot.filter(u=>u.team!==unit.team).sort((a,c)=>priority(a)-priority(c)||distance(unit,c)-distance(unit,a)||a.id-c.id);
+      const enemies=snapshot.filter(u=>u.team!==unit.team&&b.targetable(unit,u)).sort((a,c)=>priority(a)-priority(c)||distance(unit,c)-distance(unit,a)||a.id-c.id);
       for(const target of enemies){
         const cells=[[0,-1],[-1,0],[1,0],[0,1]].map(([dx,dy])=>({x:target.x+dx,y:target.y+dy})).filter(p=>b.inside(p.x,p.y)&&!occupied.has(p.x+','+p.y)&&!reserved.has(p.x+','+p.y)&&b.traits.canStep(unit,unit,p)&&b.traits.canTarget(unit,target,p)).sort((a,c)=>distance(unit,a)-distance(unit,c)||a.y-c.y||a.x-c.x);
         if(!cells.length)continue;
@@ -59,7 +59,7 @@ export class ClassEffects {
     for(const team of ['azure','ember']){
       if(b.tick<this.nextSupport[team])continue;
       this.nextSupport[team]+=50;
-      const rule=this.teams[team].support,allies=b.living(team);
+      const rule=this.teams[team].support,allies=b.living(team).filter(u=>!u.crystalMirror);
       if(!rule.targets||!allies.some(u=>this.has(u,'support')))continue;
       const selected=allies.sort((a,c)=>a.hp/a.maxHp-c.hp/c.maxHp||a.id-c.id).slice(0,rule.targets);
       for(const unit of selected){

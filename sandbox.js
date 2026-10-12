@@ -94,7 +94,7 @@ export class Sandbox {
     this.rebuildBattle();return unit;
   }
   rebuildBattle(){
-    this.battle=new Battle({cap:10,seed:this.round*2654435761,
+    this.battle=new Battle({cap:10,seed:this.round*2654435761,crystalTiles:this.battle?.crystalTiles,
       traitCounts:Object.fromEntries(Object.keys(this.players).map(team=>[team,this.traitCounts(team)])),
       teamAugments:Object.fromEntries(Object.entries(this.players).map(([team,p])=>[team,p.augments]))});
     for(const player of Object.values(this.players))for(const owned of player.roster){

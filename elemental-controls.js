@@ -15,7 +15,7 @@ export class ElementalControls {
   frozen(unit){return this.active()&&this.battle.tick<(unit.frozenUntil||0);}
   feared(unit){return this.active()&&this.battle.tick<(unit.fearedUntil||0);}
   chilled(unit){return this.active()&&this.battle.tick<(unit.chilledUntil||0);}
-  immobile(unit){return this.active()&&(unit.cosmicHeld||this.battle.tick<(unit.stunnedUntil||0)||this.frozen(unit));}
+  immobile(unit){return this.active()&&(unit.crystalDormant||this.battle.crystal?.inTransit(unit)||unit.cosmicHeld||this.battle.tick<(unit.stunnedUntil||0)||this.frozen(unit));}
   cannotAttack(unit){return this.immobile(unit)||this.feared(unit);}
   protected(unit){return this.battle.traits.isGolden(unit)||!!this.battle.augments?.controlImmune(unit);}
   apply(unit,kind,duration,emit=true){

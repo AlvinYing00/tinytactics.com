@@ -1,6 +1,6 @@
 import {CLASS_IDS,classBonuses} from './class-rules.js';
-export const ELEMENTS=['fire','water','electric','air','mountain','nature','light','dark','ice','cosmic'];
-export const ELEMENT_LABELS={fire:'Fire',water:'Water',electric:'Electric',air:'Air',mountain:'Mountain',nature:'Nature',light:'Light',dark:'Dark',ice:'Ice',cosmic:'Cosmic'};
+export const ELEMENTS=['fire','water','electric','air','mountain','nature','light','dark','ice','cosmic','crystal'];
+export const ELEMENT_LABELS={fire:'Fire',water:'Water',electric:'Electric',air:'Air',mountain:'Mountain',nature:'Nature',light:'Light',dark:'Dark',ice:'Ice',cosmic:'Cosmic',crystal:'Crystal'};
 export const ARCHETYPES=Object.freeze({
   cosmic:{name:'Row class',role:'Cosmic',moveTicks:3,range:1,glyph:'C',description:'Starting row grants Tanker / Duelist / Assassin / Ranger effects. Does not add to class counts.'},
   sentinel:{name:'Tanker',role:'Frontline',hp:250,damage:20,attackTicks:6,moveTicks:5,range:1,glyph:'S',description:'Holds the frontline and absorbs champion attacks.'},
@@ -134,6 +134,17 @@ for(const [index,name,hp,damage] of [[0,'Asterion',2500,800],[1,'Dragonoid',3500
   const cost=index+5,id=`cosmic-${cost}`;
   champions[id]=Object.freeze({...ARCHETYPES.cosmic,id,name,hp,damage,cost,attackTicks:12.5,element:'cosmic',combatRole:'cosmic',sideTrait:null,traits:Object.freeze(['cosmic']),damageType:'physical',legendary:true,shopAvailable:cost===5,portrait:'assets/champions/cosmic-roster.png',portraitSize:[1536,1024],portraitFrame:[index*512+2,2,508,1020]});
 }
+// Crystal HP is supplied as final 1-star HP; standard star scaling still applies.
+for(const [index,cost,role,name,hp,damage,seconds,frame] of [
+  [0,1,'ranger','Prism Archer',360,95,.9,[2,2,477,532]],
+  [1,2,'support','Prism Cantor',900,65,1.4,[485,2,477,532]],
+  [2,3,'duelist','Prism Fencer',1500,140,1.35,[967,2,479,532]],
+  [3,4,'sentinel','Prism Warden',3600,140,1.6,[2,544,719,540]],
+  [4,5,'assassin','Prism Shade',3200,620,1.1,[728,544,718,540]]
+]){
+  const id=`crystal-${role}-${cost}`;
+  champions[id]=Object.freeze({...ARCHETYPES[role],id,name,hp,damage,cost,attackTicks:seconds*10,element:'crystal',combatRole:role,sideTrait:role,traits:Object.freeze(['crystal',role]),damageType:'physical',legendary:cost===5,portrait:'assets/champions/crystal-roster.png',portraitSize:[1448,1086],portraitFrame:Object.freeze(frame)});
+}
 export const CHAMPIONS=Object.freeze(champions);
 // Only the authored identities enter Fight shops and the Sandbox catalog.
 export const SHOP_CHAMPIONS=Object.freeze(Object.fromEntries(Object.entries(CHAMPIONS).filter(([,c])=>c.shopAvailable!==false)));
@@ -164,7 +175,7 @@ export function teamTraits(units,catalog=CHAMPIONS,virtual={}){
   const boardCounts={...counts},virtualCounts=virtualTraitCounts(virtual);
   for(const element of [...ELEMENTS,...CLASS_IDS])counts[element]+=virtualCounts[element];
   const fire=counts.fire,water=counts.water,mountain=counts.mountain,electric=counts.electric,air=counts.air,nature=counts.nature,light=counts.light,dark=counts.dark,ice=counts.ice;
-  return {counts,boardCounts,virtualCounts,classes:classBonuses(counts),cosmicAsteroid:counts.cosmic>=2,cosmicVortex:counts.cosmic>=3,burnPercent:fire>=5?.1:fire>=3?.07:fire>=1?.05:0,
+  return {counts,boardCounts,virtualCounts,crystalDomain:counts.crystal>=6,crystalTier:counts.crystal>=6?6:counts.crystal>=4?4:counts.crystal>=2?2:0,classes:classBonuses(counts),cosmicAsteroid:counts.cosmic>=2,cosmicVortex:counts.cosmic>=3,burnPercent:fire>=5?.1:fire>=3?.07:fire>=1?.05:0,
     healPercent:water>=9?.25:water>=6?.15:water>=3?.05:0,meteor:fire>=7,tsunami:water>=10,
     shieldPercent:mountain>=6?1:mountain>=4?.5:mountain>=2?.25:mountain>=1?.1:0,goldenShield:mountain>=6,
     reflectPercent:mountain>=6?.3:mountain>=4?.2:mountain>=2?.1:0,
