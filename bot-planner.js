@@ -19,6 +19,8 @@ export function planBot(league,player,opponent,{positionOnly=false}={}){
   const style=player.style,p=clone(player),difficulty=p.difficulty||'normal',easy=difficulty==='easy',strong=difficulty==='strong';
   const ctx=Object.create(Campaign.prototype);
   Object.assign(ctx,{players:{azure:opponent||{roster:[]},ember:p},mode:league.mode,phase:'preparation',round:league.round,random:league.random,nextId:league.nextId,levelCosts:league.levelCosts,botElement:style.element});
+  ctx.originProgressFor=()=>league.originProgressFor(player.team);
+  ctx.sandGuaranteeRounds=new Map([['ember',league.sandGuaranteeRounds.get(player.team)??1]]);
   const arrangeOverflow=()=>ctx.arrangeGifts(p.roster,new Set(p.roster.filter(u=>u.overflow).map(u=>u.id)));
   arrangeOverflow();
   // Only the shop system sees shared ownership; strategic scoring still uses scoutable units.

@@ -1,3 +1,4 @@
+import {hasOrigin,isSand} from './origin-inheritance.js';
 import {hasClass} from './class-rules.js';
 import {grantSupportShield,removeSupportShield} from './shields.js';
 const distance=(a,b)=>Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
@@ -12,8 +13,8 @@ export class ClassEffects {
   has(unit,role){return !unit.crystalMirror&&hasClass(unit,role,this.battle.catalog);}
   active(){return this.battle.phase==='combat';}
   vulnerable(unit){return this.has(unit,'ranger')||this.has(unit,'support');}
-  attackRange(unit){return (this.battle.catalog[unit.type].element==='cosmic'?(this.has(unit,'ranger')?3:1):this.battle.catalog[unit.type].range)+(this.active()&&this.has(unit,'ranger')?this.teams[unit.team].ranger.rangeBonus:0);}
-  attackInterval(unit){const divine=this.active()&&this.battle.catalog[unit.type].element==='light'&&this.battle.augments?.has(unit.team,'divine-squad');return this.battle.catalog[unit.type].attackTicks/(1+(this.active()?unit.attackSpeedBonus||0:0))/(divine?1.5:1);}
+  attackRange(unit){if(isSand(unit,this.battle.catalog))return unit.sandRange||1;return (this.battle.catalog[unit.type].element==='cosmic'?(this.has(unit,'ranger')?3:1):this.battle.catalog[unit.type].range)+(this.active()&&this.has(unit,'ranger')?this.teams[unit.team].ranger.rangeBonus:0);}
+  attackInterval(unit){const divine=this.active()&&hasOrigin(unit,'light',this.battle.catalog)&&this.battle.augments?.has(unit.team,'divine-squad');return this.battle.catalog[unit.type].attackTicks/(1+(this.active()?unit.attackSpeedBonus||0:0))/(divine?1.5:1);}
   basicMultiplier(unit,target){return this.active()&&this.has(unit,'ranger')&&distance(unit,target)>=3?1+this.teams[unit.team].ranger.damageBonus:1;}
   championMultiplier(unit,target){return this.active()&&this.battle.tick<50&&this.has(unit,'assassin')&&this.vulnerable(target)?1+this.teams[unit.team].assassin.damageBonus:1;}
   reduction(unit){return this.active()&&this.has(unit,'sentinel')?this.teams[unit.team].sentinel.reduction:0;}
@@ -37,11 +38,11 @@ export class ClassEffects {
     // Both sides plan from the same opening positions, then land simultaneously.
     const snapshot=b.living().map(u=>({...u})),occupied=new Set(snapshot.map(u=>u.x+','+u.y)),reserved=new Set(),plans=[];
     for(const unit of b.units.filter(u=>this.has(u,'assassin'))){
-      if(b.catalog[unit.type].element==='crystal'||b.crystal?.onPlatform(unit)||b.controls?.immobile(unit)||b.tick<unit.stunnedUntil)continue;
+      if(hasOrigin(unit,'crystal',b.catalog)&&!b.augments.has(unit.team,'rainbow-reflection')||b.crystal?.onPlatform(unit)||b.controls?.immobile(unit)||b.tick<unit.stunnedUntil)continue;
       const priority=u=>this.has(u,'ranger')?0:this.has(u,'support')?1:2;
       const enemies=snapshot.filter(u=>u.team!==unit.team&&b.targetable(unit,u)).sort((a,c)=>priority(a)-priority(c)||distance(unit,c)-distance(unit,a)||a.id-c.id);
       for(const target of enemies){
-        const cells=[[0,-1],[-1,0],[1,0],[0,1]].map(([dx,dy])=>({x:target.x+dx,y:target.y+dy})).filter(p=>b.inside(p.x,p.y)&&!occupied.has(p.x+','+p.y)&&!reserved.has(p.x+','+p.y)&&b.traits.canStep(unit,unit,p)&&b.traits.canTarget(unit,target,p)).sort((a,c)=>distance(unit,a)-distance(unit,c)||a.y-c.y||a.x-c.x);
+        const cells=[[0,-1],[-1,0],[1,0],[0,1]].map(([dx,dy])=>({x:target.x+dx,y:target.y+dy})).filter(p=>b.inside(p.x,p.y)&&!occupied.has(p.x+','+p.y)&&!reserved.has(p.x+','+p.y)&&b.traits.canStep(unit,unit,p,{openingJump:true})&&b.traits.canTarget(unit,target,p)).sort((a,c)=>distance(unit,a)-distance(unit,c)||a.y-c.y||a.x-c.x);
         if(!cells.length)continue;
         const to=cells[0];reserved.add(to.x+','+to.y);plans.push({unit,target,to,from:{x:unit.x,y:unit.y}});break;
       }

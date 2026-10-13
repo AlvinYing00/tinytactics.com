@@ -1,9 +1,10 @@
+import {hasOrigin} from './origin-inheritance.js';
 // Committed attacks resolve together. Secondary effects never create attacks.
 import {absorbShield} from './shields.js';
 
 function damageAmount(target,amount,options){
   const {source,battle,category='trait'}=options;
-  if(source&&category!=='reflection'&&battle?.catalog[source.type]?.element==='light'&&battle.catalog[target.type]?.element==='dark')amount*=2;
+  if(source&&category!=='reflection'&&battle&&hasOrigin(source,'light',battle.catalog)&&hasOrigin(target,'dark',battle.catalog))amount*=2;
   if((category==='basic'||category==='ability')&&battle?.classes){
     if(source)amount*=battle.classes.championMultiplier(source,target);
     amount*=1-battle.classes.reduction(target);

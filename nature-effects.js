@@ -1,3 +1,4 @@
+import {hasOrigin} from './origin-inheritance.js';
 // Combat-only growth and summons. Owned formations never contain doppelgangers.
 export class NatureEffects {
   constructor(traits){
@@ -7,7 +8,7 @@ export class NatureEffects {
       if(traits.teams[owner.team].natureDoppelgangers)this.summon(owner);
     }
   }
-  owners(){return this.battle.living().filter(u=>!u.summoned&&this.battle.catalog[u.type].element==='nature');}
+  owners(){return this.battle.living().filter(u=>!u.summoned&&hasOrigin(u,'nature',this.battle.catalog));}
   has(unit,id){return this.battle.teamAugments[unit.team]?.includes(id);}
   summon(owner){
     const b=this.battle,cells=[];

@@ -5,6 +5,7 @@ import {augmentIcon} from './augment-ui.js';
 import {augmentMatchesFilters} from './catalog-filters.js';
 
 const summaries={
+  sand:'Eyphiothan inherits active allied Origins, Classes and their Augments. Cosmic 1 adds its starting-row class, without duplicates. Shadow Killer takes priority over Royal Dancer movement; Royal damage and healing still apply. Unlock by fielding 5 distinct Origins in one combat.',
   fire:'Refreshing Burn. MAX adds Meteor Rain.',water:'Heal on attacks. MAX sweeps enemies OUT with Tsunami.',
   mountain:'Opening shields, then HP-damage reflection. MAX adds Golden Shield.',electric:'Inherit stats from fallen Electric allies. MAX adds Thunder Judgment.',
   air:'Attack gold, dodge and critical hits. MAX adds Wind Wall and Wind Pierce.',nature:'Compounding HP and Attack growth. Tier 4 summons copies.',

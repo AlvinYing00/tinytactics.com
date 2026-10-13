@@ -7,7 +7,7 @@ export class LightDarkMaxEffects {
   heavenImmune(unit){
     // Hold On runs before controls.start(); immunity must already be installed.
     return this.controls.active()&&this.battle.tick<50&&
-      this.controls.element(unit)==='light'&&this.battle.traits.teams[unit.team].heavensJudgment;
+      this.controls.hasOrigin(unit,'light')&&this.battle.traits.teams[unit.team].heavensJudgment;
   }
   start(){
     if(this.started)return;this.started=true;

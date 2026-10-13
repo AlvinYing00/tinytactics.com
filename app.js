@@ -1,4 +1,5 @@
 import {unitClass} from './class-rules.js';
+import {sandClasses} from './origin-inheritance.js';
 import { distance } from './engine.js';
 import { CHAMPIONS as ARCHETYPES, SHOP_CHAMPIONS, ARCHETYPES as ROLES, ELEMENT_LABELS, championStats, sellValue, teamTraits } from './catalog.js';
 import { BENCH_SIZE, shopOdds } from './campaign.js';
@@ -18,11 +19,13 @@ import { interestFor,hasAugment,freeRoundRerolls } from './augments.js';
 import { createAugmentUI,pendingAugment,selectedAugmentCards } from './augment-ui.js';
 import { createSandboxAugmentUI } from './sandbox-augment-ui.js';
 import { combatAugmentStats } from './combat-augments.js';
+import {createSandProgress,deployedOrigins} from './sand-progress.js';
 
 const $=selector=>document.querySelector(selector);
 const board=$('#board'),unitLayer=$('#units'),shell=$('.board-shell');
 setupFieldGuide();
-let campaign=new League(),battle=campaign.battle,selection=null,paused=false,speed=1;
+const originProgress=createSandProgress();
+let campaign=new League({originProgress}),battle=campaign.battle,selection=null,paused=false,speed=1;
 let fightCampaign=campaign,sandboxCampaign=null;
 const isSandbox=()=>campaign.mode==='sandbox';
 let lastTime=0,sound=false,audio=null,shopKey='',draggedId=null;
@@ -67,6 +70,13 @@ const snapshot=()=>({
   units:battle.units.map(u=>({id:u.id,type:u.type,stars:u.stars,summoned:!!u.summoned,crystalMirror:!!u.crystalMirror,crystalDormant:!!u.crystalDormant,sourceId:u.sourceId,cosmicClass:u.cosmicClass,cosmicHeld:!!u.cosmicHeld,natureStacks:u.natureStacks||0,lightStacks:u.lightStacks||0,iceStacks:u.iceStacks||0,frozen:!!battle.controls?.frozen(u),feared:!!battle.controls?.feared(u),chilled:!!battle.controls?.chilled(u),team:u.team,x:u.x,y:u.y,hp:u.hp,maxHp:u.maxHp,shield:u.shield,eliminated:!!u.eliminated,swept:!!u.sweptBy,goldenShield:!!battle.traits?.isGolden(u),basicAttacks:u.basicAttacks,attackDamage:u.attackDamage,damageType:u.damageType,attackInterval:battle.attackInterval(u)/10,range:battle.attackRange(u),attackSpeedBonus:u.attackSpeedBonus||0}))
 });
 function say(message,error=false){$('#notice').textContent=message;$('#notice').classList.toggle('error',error);for(const prefix of ['shop','sandbox'])if($('#'+prefix+'-dialog').open){$('#'+prefix+'-feedback').textContent=message;$('#'+prefix+'-feedback').classList.toggle('error',error);}}
+function renderOriginMission(){
+  const panel=$('#origin-mission');panel.hidden=isSandbox();if(isSandbox())return;
+  const count=deployedOrigins(campaign.deployed('azure')).length,ready=campaign.round>=(campaign.sandGuaranteeRounds.get('azure')??1);
+  panel.classList.toggle('unlocked',originProgress.sandUnlocked);
+  panel.querySelector('strong').textContent=originProgress.sandUnlocked?'Sand unlocked':`Master of Origins · ${Math.min(5,count)}/5`;
+  panel.querySelector('span').textContent=originProgress.sandUnlocked?(originProgress.sandGuaranteePending?(ready?'Reroll to find Eyphiothan · Recruit for 5 gold.':'Next round, reroll to find Eyphiothan · 5 gold.'):'Eyphiothan can appear in 5-cost shops. Resets on page refresh.'):'Finish a combat with 5 distinct Origins. No breakpoints needed.';
+}
 function perform(action){try{const value=action();battle=campaign.battle;render();return value??true;}catch(error){say(error.message,true);return false;}}
 
 for(let y=0;y<8;y++)for(let x=0;x<8;x++){
@@ -133,7 +143,7 @@ function renderSandboxCatalog(){
   $('#sandbox-capacity').textContent=(team==='azure'?'Azure':'Ember')+' · '+count+'/10 placed · '+stars+'★ · Free';
   $('#sandbox-catalog').innerHTML=campaign.availableChampions(team).filter(c=>championMatchesFilters(c,{element,role,cost})).sort((a,b)=>a.cost-b.cost||a.name.localeCompare(b.name)).map(c=>{
     const stats=championStats(c.id,stars);
-    return `<button class="sandbox-card element-${c.element}" data-sandbox-type="${c.id}" ${count>=10?'disabled':''} aria-label="Add ${c.name}, ${stars} stars, to ${team}"><span class="catalog-portrait">${portraitImage(c)}</span><strong>${c.name}</strong><span>${ELEMENT_LABELS[c.element]} · ${c.sideTrait?ROLES[c.sideTrait].name:c.element==='cosmic'?'Row class':'Legendary'} · Cost ${c.cost}</span><small>${Math.round(stats.hp)} HP · ${Math.round(stats.damage)} ATK</small></button>`;
+    return `<button class="sandbox-card element-${c.element}" data-sandbox-type="${c.id}" ${count>=10?'disabled':''} aria-label="Add ${c.name}, ${stars} stars, to ${team}"><span class="catalog-portrait">${portraitImage(c)}</span><strong>${c.name}</strong><span>${ELEMENT_LABELS[c.element]} · ${c.sideTrait?ROLES[c.sideTrait].name:c.element==='sand'?'Universal':c.element==='cosmic'?'Row class':'Legendary'} · Cost ${c.cost}</span><small>${Math.round(stats.hp)} HP · ${Math.round(stats.damage)} ATK</small></button>`;
   }).join('')||'<p class="sandbox-empty">No available champions match these filters. Change filters or remove a matching champion from this team.</p>';
   $('#sandbox-catalog').querySelectorAll('[data-sandbox-type]').forEach(button=>button.onclick=()=>perform(()=>{
     const unit=campaign.add(button.dataset.sandboxType,team,stars);selection={id:unit.id};
@@ -174,7 +184,7 @@ function renderShop(){
       if(!type)return '<div class="shop-empty" aria-label="Empty shop slot '+(slot+1)+'"><span>—</span>No offer</div>';
       const c=ARCHETYPES[type],disabled=!campaign.canBuy(slot),plan=campaign.purchasePlan(type);
       const combines=plan.upgrades.length?' · Combines to '+plan.unit.stars+' stars':'';
-      return '<button class="champion-card element-'+c.element+' cost-tier-'+c.cost+'" data-slot="'+slot+'" '+(disabled?'disabled':'')+' aria-label="Buy '+c.name+', '+c.cost+' gold, '+c.traits.join(' and ')+combines+'">'+cardArt(c)+'<span class="card-content"><span class="card-title">'+c.name+'</span><span class="card-role">'+ELEMENT_LABELS[c.element]+'</span><span class="card-class">'+(c.sideTrait?ROLES[c.sideTrait].name:c.element==='cosmic'?'Row class':'Legendary')+'</span>'+(combines?'<span class="combine-hint">Combine '+starLabel(plan.unit)+'</span>':'')+'</span><span class="cost-badge cost-'+c.cost+'">'+c.cost+' gold</span></button>';
+      return '<button class="champion-card element-'+c.element+' cost-tier-'+c.cost+'" data-slot="'+slot+'" '+(disabled?'disabled':'')+' aria-label="Buy '+c.name+', '+c.cost+' gold, '+c.traits.join(' and ')+combines+'">'+cardArt(c)+'<span class="card-content"><span class="card-title">'+c.name+'</span><span class="card-role">'+ELEMENT_LABELS[c.element]+'</span><span class="card-class">'+(c.sideTrait?ROLES[c.sideTrait].name:c.element==='sand'?'Universal':c.element==='cosmic'?'Row class':'Legendary')+'</span>'+(combines?'<span class="combine-hint">Combine '+starLabel(plan.unit)+'</span>':'')+'</span><span class="cost-badge cost-'+c.cost+'">'+c.cost+' gold</span></button>';
     }).join('');
     document.querySelectorAll('[data-slot]').forEach(card=>card.onclick=()=>buy(Number(card.dataset.slot)));
   }
@@ -302,13 +312,14 @@ function renderHazards(){
 function renderSelection(){
   const own=owned(selection?.id),record=inspected(selection?.id),u=selection?.roster?null:battle.units.find(v=>v.id===selection?.id),type=u?.type||record?.type,panel=$('#selection-panel');
   const augmentIds=u?battle.teamAugments[u.team]:campaign.players[record?.team]?.augments||[];
-  const nextKey=JSON.stringify([isSandbox(),editable(),trading(),augmentIds,selection?.id,selection?.roster,type,record?.stars,record?.position,record?.overflow,u&&[u.stars,u.x,u.y,u.hp,u.maxHp,u.attackDamage,u.shield,u.eliminated,u.sweptBy,u.basicAttacks,battle.attackInterval(u),battle.attackRange(u),battle.traits?.isGolden(u)]]);
+  const inheritedClasses=u&&!u.summoned&&battle.catalog[type]?.element==='sand'?(u.inheritedClasses??sandClasses(teamTraits(battle.units.filter(v=>v.team===u.team),battle.catalog,battle.traitCounts[u.team]),unitClass(u,battle.catalog))):[];
+  const nextKey=JSON.stringify([isSandbox(),editable(),trading(),augmentIds,inheritedClasses,selection?.id,selection?.roster,type,record?.stars,record?.position,record?.overflow,u&&[u.stars,u.x,u.y,u.hp,u.maxHp,u.attackDamage,u.shield,u.eliminated,u.sweptBy,u.basicAttacks,battle.attackInterval(u),battle.attackRange(u),battle.traits?.isGolden(u)]]);
   if(selectionKey===nextKey)return;selectionKey=nextKey;
   if(!type){panel.innerHTML='<span class="selection-kicker">FORMATION TIP</span><p>Frontline first. Rangers behind.</p><span class="tip-caption">'+(isSandbox()?'Control either team. Choose Champions to add units at any star level.':'Drag between the board and bench. Drop on a teammate to swap.')+'</span>';return;}
   const c=combatAugmentStats(championStats(type,(u||record).stars,battle.catalog),augmentIds),location=u?.eliminated?'OUT':u&&battle.crystal?.onPlatform(u)?'Crystal Platform':record?.position.bench!==undefined&&!u?'Bench':u?coordinate(u.x,u.y):'';
   if(u?.summoned)c.name+=u.crystalMirror?' · Crystal Mirror':' · Doppelganger';
   if(u){c.hp=Math.ceil(u.maxHp);c.damage=Math.round(u.attackDamage*100)/100;c.attackTicks=Number(battle.attackInterval(u).toFixed(2));const range=battle.attackRange(u);c.range=Number.isFinite(range)?range:'Unlimited';}
-  panel.innerHTML='<span class="selection-kicker">'+starLabel(u||record)+' · COST '+c.cost+' · '+c.traits.map(t=>ELEMENT_LABELS[t]||ROLES[t].name).join(' + ')+'</span><p>'+c.name+' <span class="selection-coordinate">'+location+'</span></p><span class="tip-caption">'+(c.element==='cosmic'?'Row class: '+(ROLES[unitClass(u||record,battle.catalog)]?.name||'choose a row')+'. ':c.legendary?'Legendary '+ROLES[c.combatRole].name+'. ':'')+c.description+' Attacks every '+c.attackTicks/10+'s.</span><div class="stat-row"><span>HP <strong>'+Math.ceil(u?.hp??c.hp)+'/'+c.hp+'</strong></span><span>'+(c.damageType==='true'?'TRUE DMG':'ATK')+' <strong>'+c.damage+'</strong></span><span>RANGE <strong>'+c.range+'</strong></span></div>'+(own&&sellable(own.id)?'<div class="unit-actions">'+(!isSandbox()&&editable()&&own.position.bench===undefined?'<button id="bench-unit" class="secondary-button">To bench</button>':'')+'<button id="sell-unit" class="secondary-button">'+(isSandbox()?'Remove champion':'Sell · '+sellValue(own)+' gold')+'</button></div>':'');
+  panel.innerHTML='<span class="selection-kicker">'+starLabel(u||record)+' · COST '+c.cost+' · '+c.traits.map(t=>ELEMENT_LABELS[t]||ROLES[t].name).join(' + ')+'</span><p>'+c.name+' <span class="selection-coordinate">'+location+'</span></p><span class="tip-caption">'+(c.element==='sand'?'Inherited classes: '+(inheritedClasses.map(role=>ROLES[role].name).join(' + ')||'none active')+'. ':c.element==='cosmic'?'Row class: '+(ROLES[unitClass(u||record,battle.catalog)]?.name||'choose a row')+'. ':c.legendary?'Legendary '+ROLES[c.combatRole].name+'. ':'')+c.description+' Attacks every '+c.attackTicks/10+'s.</span><div class="stat-row"><span>HP <strong>'+Math.ceil(u?.hp??c.hp)+'/'+c.hp+'</strong></span><span>'+(c.damageType==='true'?'TRUE DMG':'ATK')+' <strong>'+c.damage+'</strong></span><span>RANGE <strong>'+c.range+'</strong></span></div>'+(own&&sellable(own.id)?'<div class="unit-actions">'+(!isSandbox()&&editable()&&own.position.bench===undefined?'<button id="bench-unit" class="secondary-button">To bench</button>':'')+'<button id="sell-unit" class="secondary-button">'+(isSandbox()?'Remove champion':'Sell · '+sellValue(own)+' gold')+'</button></div>':'');
   if(u?.summoned&&!u.crystalMirror)panel.querySelector('.tip-caption').textContent='25% of its owner’s max HP and 50% Attack at the moment it was summoned. Does not gain Nature growth or add trait counts.';
   if(u?.crystalMirror)panel.querySelector('.tip-caption').textContent='Temporary Crystal mirror. Unlimited range on the Crystal Platform; uses its owner’s attack interval, with no class effects or class-specific Augments. Cannot be sold or upgraded.';
   if(u?.crystalDormant)panel.querySelector('.tip-caption').textContent+=' Protected original: its mirror is fighting. Tsunami can still remove it.';
@@ -402,7 +413,7 @@ function render(){
   renderShop();renderBench();renderSelection();renderTraits();renderHazards();renderScouting();renderSandbox();renderSellDialog();
   $('.playback-controls').hidden=!isSandbox();
   if(isSandbox()){if(resultReveal.ready(performance.now()))showResult();else $('#result').hidden=true;}else renderLeague();
-  augmentUI.render();sandboxAugmentUI.render();
+  augmentUI.render();sandboxAugmentUI.render();renderOriginMission();
   const overflow=isSandbox()?[]:campaign.overflow(campaign.viewId);
   $('#gift-overflow-note').hidden=!overflow.length;
   $('#gift-overflow-note').textContent=`${overflow.length} overflow gift${overflow.length===1?'':'s'} · Move to an open bench or team slot to keep. Remaining gifts sell automatically at fight start.`;
@@ -469,7 +480,7 @@ function startOrPause(){perform(()=>{
   else if(campaign.phase==='finished')restartMatch();
   else{paused=!paused;say(paused?'Battle paused.':'Battle resumed.');}
 });}
-function restartMatch(){cleanEffects();traitHud.reset();campaign=fightCampaign=new League();battle=campaign.battle;selection=null;paused=false;shopKey='';$('#result').hidden=true;seenPreparation=0;standingsKey='';campaign.startGame();lastTime=performance.now();say('30 seconds to prepare your team.');}
+function restartMatch(){cleanEffects();traitHud.reset();campaign=fightCampaign=new League({originProgress});battle=campaign.battle;selection=null;paused=false;shopKey='';$('#result').hidden=true;seenPreparation=0;standingsKey='';campaign.startGame();lastTime=performance.now();say('30 seconds to prepare your team.');}
 function showResult(){
   const result=$('#result');if(!result.hidden)return;
   delete result.dataset.league;

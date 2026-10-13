@@ -1,5 +1,5 @@
 // Pure simulation. UI, audio and animation never decide combat outcomes.
-import { CHAMPIONS, ARCHETYPES, championStats, virtualTraitCounts } from './catalog.js';
+import { CHAMPIONS, ARCHETYPES, championStats, virtualTraitCounts, teamTraits } from './catalog.js';
 import { TraitEffects } from './trait-effects.js';
 import { ClassEffects } from './class-effects.js';
 import { CombatAugmentEffects, combatAugmentStats } from './combat-augments.js';
@@ -8,6 +8,7 @@ import { ElementalControls } from './elemental-controls.js';
 import {CrystalEffects,crystalPreparationTiles,prismaticTiles} from './crystal-effects.js';
 import { CosmicEffects } from './cosmic-effects.js';
 import {unitClass} from './class-rules.js';
+import {captureSandInheritance,isSand,hasOrigin} from './origin-inheritance.js';
 export { ARCHETYPES } from './catalog.js';
 export const distance = (a,b) => Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
 const key = p => `${p.x},${p.y}`;
@@ -53,6 +54,7 @@ export class Battle {
     if(!this.previewOnly&&this.living(team).length>=limit) throw new Error(`Your squad is full. Remove a champion first (${limit} maximum).`);
     const u=freshUnit(this.nextId++,type,team,x,y,stars,stats);
     if(this.catalog[type].element==='cosmic')u.cosmicClass=unitClass(u,this.catalog,this.height);
+    if(isSand(u,this.catalog)){u.sandClass=unitClass(u,this.catalog,this.height);u.sandRange=['sentinel','duelist'].includes(u.sandClass)?1:3;}
     this.units.push(u); return u;
   }
   summon(owner,x,y,hpRate=.25,damageRate=.5){
@@ -82,6 +84,7 @@ export class Battle {
   }
   remove(id) { this.editable(); this.units=this.units.filter(u=>u.id!==id); }
   refreshCosmic(u){
+    if(isSand(u,this.catalog)){delete u.sandClass;u.sandClass=unitClass(u,this.catalog,this.height);u.sandRange=['sentinel','duelist'].includes(u.sandClass)?1:3;return;}
     if(this.catalog[u.type].element!=='cosmic')return;
     delete u.cosmicClass;u.cosmicClass=unitClass(u,this.catalog,this.height);
     const stats=combatAugmentStats(championStats(u.type,u.stars,this.catalog),this.teamAugments[u.team],{...u,height:this.height});
@@ -93,6 +96,7 @@ export class Battle {
     if(!this.living('azure').length||!this.living('ember').length) throw new Error('Both teams need at least one champion.');
     this.roster=clone(this.units); this.phase='combat'; this.tick=0; this.accumulator=0; this.outcome=null;this.events=[];
     this.randomState=this.seed;this.goldEarned={azure:0,ember:0};this.championRewards={azure:[],ember:[]};this.nextSummonId=Math.min(0,...this.units.map(u=>u.id))-1;
+    captureSandInheritance(this,Object.fromEntries(['azure','ember'].map(team=>[team,teamTraits(this.living(team),this.catalog,this.traitCounts[team])])));
     this.traits=new TraitEffects(this);
     this.controls=new ElementalControls(this);
     this.resolvedDeaths.clear();this.augments=new CombatAugmentEffects(this);
@@ -209,12 +213,12 @@ export class Battle {
     }
   }
   attackRange(unit){
-    if(this.catalog[unit.type].element==='crystal')return this.crystal&&!this.crystal.finished&&this.crystal.onPlatform(unit)?Infinity:this.catalog[unit.type].range;
+    if(hasOrigin(unit,'crystal',this.catalog)||unit.crystalMirror)return this.crystal&&!this.crystal.finished&&this.crystal.onPlatform(unit)?Infinity:isSand(unit,this.catalog)?unit.sandRange:this.catalog[unit.type].range;
+    if(isSand(unit,this.catalog))return unit.sandRange||1;
     return this.classes?this.classes.attackRange(unit):this.catalog[unit.type].element==='cosmic'&&unitClass(unit,this.catalog)==='ranger'?3:this.catalog[unit.type].range;
   }
   attackInterval(unit){
-    const reflection=this.catalog[unit.type].element==='crystal'&&this.teamAugments[unit.team]?.includes('rainbow-reflection');
-    return (unit.crystalMirror?unit.crystalAttackTicks:this.classes?this.classes.attackInterval(unit):this.catalog[unit.type].attackTicks)/(this.controls?.chilled(unit)?.5:1)/(reflection?2:1);
+    return (unit.crystalMirror?unit.crystalAttackTicks:this.classes?this.classes.attackInterval(unit):this.catalog[unit.type].attackTicks)/(this.controls?.chilled(unit)?.5:1);
   }
 }
 export const FORMATIONS = [

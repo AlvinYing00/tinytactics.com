@@ -40,7 +40,7 @@ special('xmas-gift','Xmas Gift','ice',3,'When an Ice champion kills an enemy, ga
 special('nature-enhancement','Nature Enhancement','nature',2,'Double Nature’s per-second growth: 2% at Nature 2 and 4% at Nature 4.');
 special('greener-and-greener','Greener and Greener','nature',4,'Every 5s, each living Nature champion summons another doppelganger with 25% of its current max HP and 50% Attack. Copies do not grow; no summon when tiles are full.');
 special('aurora-dance','Aurora Dance','crystal',6,'Allied Crystal projectiles collide in a 1-tile prismatic explosion, dealing 100% of the strongest projectile’s damage. Each collision heals every involved owner and mirror once for its total damage dealt. Direct hits are unchanged.');
-special('rainbow-reflection','Rainbow Reflection','crystal',2,'Crystal originals and mirrors attack twice as fast. Both bodies can fight, but lose battlefield Prismatic Protection. At Crystal 6, battlefield bodies may cross into the enemy half. Platform range and exchanges are unchanged.');
+special('rainbow-reflection','Rainbow Reflection','crystal',2,'Crystal originals and mirrors can both fight, but lose battlefield Prismatic Protection. At Crystal 6, battlefield bodies may cross into the enemy half. Original Crystal Assassins can make their opening jump from the battlefield. Attack speed, platform range and exchanges are unchanged.');
 
 export const TRAIT_AUGMENTS=Object.freeze(entries);
 export function traitAugmentMatches(player,augment){

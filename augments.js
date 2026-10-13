@@ -35,7 +35,7 @@ for(const [filter,values] of [['element',['electric','mountain','water','fire','
 const combat=(id,name,description,icon='combat',requires={})=>entries.push(Object.freeze({id,name,stages:[2,3,5],type:'combat',description,effect:{combat:id},icon,requires:Object.freeze(requires)}));
 combat('united-front','United Front','With 3+ allies in the first row at combat start, those allies take 10% less basic-attack damage. Stacks with Tanker.','front',{row:'front',minimum:3});
 combat('guardian-angel','Guardian Angel','Each Ranger revives once per combat with 10% max HP and 50% Attack.','angel',{role:'ranger'});
-combat('shadow-killer','Shadow Killer','An Assassin that scores a kill immediately dashes to its next target and the next basic attack deals 50% extra damage. Assists do not count; Wind Wall blocks crossing.','assassin',{role:'assassin'});
+combat('shadow-killer','Shadow Killer','On a kill, dash beside the enemy with the lowest current HP, or to the nearest free tile around it. The next basic attack deals 50% extra damage. Assists do not count; Wind Wall blocks crossing. Living Crystal 6 pairs retain their existing dash rules.','assassin',{role:'assassin'});
 combat('grand-challenge','Grand Challenge','Duelists have a 30% chance to repel a basic attack and return its damage to the attacker.','duelist',{role:'duelist'});
 combat('spirit-helper','Spirit Helper','Support basic attacks heal the lowest-health ally for 20% of damage dealt.','support',{role:'support'});
 combat('hold-on','Hold on','At combat start, stun 3 random enemies for 2s. Control immunity blocks the stun.','stun');

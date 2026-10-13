@@ -1,4 +1,5 @@
 import {hasClass} from './class-rules.js';
+import {hasOrigin,isSand} from './origin-inheritance.js';
 
 const distance=(a,b)=>Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
 const directions=[[0,-1],[-1,-1],[1,-1],[-1,0],[1,0],[-1,1],[1,1],[0,1]];
@@ -36,11 +37,12 @@ export class CombatAugmentEffects {
     }
   }
   has(team,id){return this.teams[team]?.has(id)||false;}
+  origin(unit,origin){return hasOrigin(unit,origin,this.battle.catalog);}
   active(){return this.battle.phase==='combat'&&!this.finished;}
   role(unit,role){return !unit.crystalMirror&&hasClass(unit,role,this.battle.catalog);}
   controlImmune(unit){return this.active()&&this.has(unit.team,'anti-control')&&this.battle.tick<30;}
   immune(unit){
-    return this.active()&&((this.battle.traits.isGolden(unit)&&this.has(unit.team,'golden-reflection')&&this.battle.catalog[unit.type].element==='mountain')||(this.battle.tick<30&&this.has(unit.team,'backline-angel')&&this.role(unit,'support'))||(this.battle.tick<20&&this.solo.has(unit.id)));
+    return this.active()&&((this.battle.traits.isGolden(unit)&&this.has(unit.team,'golden-reflection')&&this.origin(unit,'mountain'))||(this.battle.tick<30&&this.has(unit.team,'backline-angel')&&this.role(unit,'support'))||(this.battle.tick<20&&this.solo.has(unit.id)));
   }
   start(){
     if(this.started)return;this.started=true;
@@ -51,7 +53,7 @@ export class CombatAugmentEffects {
       unit.augmentControlUntil=this.has(unit.team,'anti-control')?30:0;
       unit.augmentImmuneUntil=Math.max(this.has(unit.team,'backline-angel')&&this.role(unit,'support')?30:0,this.solo.has(unit.id)?20:0);
       unit.guardianRevived=false;unit.shadowKillerEmpowered=false;
-      if(this.battle.catalog[unit.type].element==='cosmic'&&this.has(unit.team,'cosmic-wish'))unit.hp*=.5;
+      if(this.origin(unit,'cosmic')&&this.has(unit.team,'cosmic-wish'))unit.hp*=.5;
     }
     for(const team of ['azure','ember']){
       if(!this.has(team,'hold-on'))continue;
@@ -64,11 +66,11 @@ export class CombatAugmentEffects {
     if(!this.active())return amount;
     if(category==='basic'){
       const element=source&&this.battle.catalog[source.type]?.element;
-      if(element==='water'&&this.has(source.team,'water-spark'))amount*=2;
-      if(element==='air'&&this.has(source.team,'wind-assault')&&this.battle.traits.walls.some(w=>w.team===source.team&&this.battle.traits.wallActive(w)))amount*=1.5;
-      if(element==='light'&&this.has(source.team,'lighten-the-way')&&this.battle.tick<(target.stunnedUntil||0))amount*=1.5;
-      if(element==='dark'&&this.has(source.team,'darken-the-world')&&this.battle.controls.feared(target))amount*=1.5;
-      if(element==='ice'&&this.has(source.team,'in-freeze')&&this.battle.controls.frozen(target))amount*=2;
+      if(this.origin(source,'water')&&this.has(source.team,'water-spark'))amount*=2;
+      if(this.origin(source,'air')&&this.has(source.team,'wind-assault')&&this.battle.traits.walls.some(w=>w.team===source.team&&this.battle.traits.wallActive(w)))amount*=1.5;
+      if(this.origin(source,'light')&&this.has(source.team,'lighten-the-way')&&this.battle.tick<(target.stunnedUntil||0))amount*=1.5;
+      if(this.origin(source,'dark')&&this.has(source.team,'darken-the-world')&&this.battle.controls.feared(target))amount*=1.5;
+      if(this.origin(source,'ice')&&this.has(source.team,'in-freeze')&&this.battle.controls.frozen(target))amount*=2;
       if(source&&!source.crystalMirror&&this.has(source.team,'smaller-and-smaller'))amount*=1.5;
       if(source&&!source.crystalMirror&&this.has(source.team,'anti-shield')&&target.shield>0)amount*=1.25;
       if(this.rowProtected.has(target.id))amount*=.9;
@@ -97,7 +99,7 @@ export class CombatAugmentEffects {
     hit.shadowKiller=true;
     attacker.shadowKillerEmpowered=false;
   }
-    const crystalCanMove=this.battle.catalog[attacker.type].element!=='crystal'||this.battle.crystal?.canClassMove(attacker);
+    const crystalCanMove=!this.origin(attacker,'crystal')||this.battle.crystal?.canClassMove(attacker);
     hit.royal=!!crystalCanMove&&this.has(attacker.team,'royal-dancer')&&this.role(attacker,'duelist')&&attacker.basicAttacks>0&&attacker.basicAttacks%3===0;
     if(hit.royal)hit.amount*=1.5;
     return hit;
@@ -122,7 +124,7 @@ export class CombatAugmentEffects {
     return offsets.map(([dx,dy])=>({x:origin.x+dx,y:origin.y+dy})).filter(cell=>b.inside(cell.x,cell.y)&&!b.at(cell.x,cell.y)&&b.traits.canStep(unit,unit,cell));
   }
   jump(unit,to,target,kind){
-    if(this.battle.catalog[unit.type].element==='crystal'&&!this.battle.crystal?.canClassMove(unit))return false;
+    if(this.origin(unit,'crystal')&&!this.battle.crystal?.canClassMove(unit))return false;
     const from={x:unit.x,y:unit.y};unit.x=to.x;unit.y=to.y;
     if(target)unit.targetId=target.id;
     this.battle.events.push({type:'jump',id:unit.id,from,to:{...to},targetId:target?.id,kind});
@@ -130,14 +132,24 @@ export class CombatAugmentEffects {
   }
   cancelCrystalMovement(unit){this.crystalMovements=this.crystalMovements.filter(move=>move.unit.id!==unit.id);}
   deferCrystalMovement(unit,kind,target){
-    if(!this.battle.crystal?.pairs.has(unit.crystalPairId))return false;
+    const competingSand=isSand(unit,this.battle.catalog)&&this.role(unit,'duelist')&&this.role(unit,'assassin')&&this.has(unit.team,'royal-dancer')&&this.has(unit.team,'shadow-killer');
+    if(!competingSand&&!this.battle.crystal?.pairs.has(unit.crystalPairId))return false;
     this.crystalMovements.push({unit,kind,target});return true;
   }
   flushCrystalMovement(){
     const pending=this.crystalMovements;this.crystalMovements=[];
     // All committed hits, reflections and deaths get their exchange opportunity
     // before a linked owner's class movement. Cancelled dashes are never retried.
-    for(const {unit,kind,target} of pending){
+    // Sand's Royal damage/heal already resolved with its attack. Select only one
+    // movement after takedowns are known; an exchange can cancel both beforehand.
+    const movedSand=new Set();
+    for(let move of pending){
+      if(isSand(move.unit,this.battle.catalog)){
+        if(movedSand.has(move.unit.id))continue;
+        movedSand.add(move.unit.id);
+        move=pending.find(other=>other.unit.id===move.unit.id&&other.kind==='shadow-killer')||move;
+      }
+      const {unit,kind,target}=move;
       if(!this.battle.crystal?.canClassMove(unit))continue;
       if(kind==='royal-dancer')this.royalDash({attacker:unit,target,royal:true});
       else this.shadowDash(unit,true);
@@ -167,13 +179,13 @@ export class CombatAugmentEffects {
       this.heal(attacker,attacker.maxHp*.1,'royal-dancer');
     }
     const element=b.catalog[attacker.type]?.element,intents=[];
-    if(element==='cosmic'&&this.has(attacker.team,'cosmic-wish'))this.heal(attacker,total,'cosmic-wish');
-    if(!hit.dodged&&!hit.repelled&&total>0&&element==='fire'&&this.has(attacker.team,'fire-cracker')){
+    if(this.origin(attacker,'cosmic')&&this.has(attacker.team,'cosmic-wish'))this.heal(attacker,total,'cosmic-wish');
+    if(!hit.dodged&&!hit.repelled&&total>0&&this.origin(attacker,'fire')&&this.has(attacker.team,'fire-cracker')){
       b.events.push({type:'fire-cracker-burst',sourceId:attacker.id,targetId:target.id,x:target.sweepX??target.x,y:target.y,radius:1});
       for(const enemy of b.living().filter(u=>u.team!==attacker.team&&u.id!==target.id&&Math.max(Math.abs(u.x-target.x),Math.abs(u.y-target.y))<=1))intents.push({source:attacker,target:enemy,amount:hit.amount*.5,kind:'fire-cracker'});
     }
     // A completed attack emits a separate global shock, never another on-hit.
-    if(element==='electric'&&this.has(attacker.team,'electric-strike')){
+    if(this.origin(attacker,'electric')&&this.has(attacker.team,'electric-strike')){
       const enemies=b.living().filter(u=>u.team!==attacker.team);
       b.events.push({type:'electric-strike-chain',sourceId:attacker.id,targetId:target.id,from:{x:attacker.sweepX??attacker.x,y:attacker.y},targets:enemies.map(u=>({id:u.id,x:u.sweepX??u.x,y:u.y}))});
       for(const enemy of enemies)intents.push({source:attacker,target:enemy,amount:attacker.attackDamage*.05,kind:'electric-strike'});
@@ -184,20 +196,26 @@ export class CombatAugmentEffects {
     const b=this.battle;
     if(killer.crystalMirror||b.crystal?.onPlatform(killer)||!alive(killer)||killer.sweptBy||b.controls?.immobile(killer)||b.tick<(killer.stunnedUntil||0))return;
     if(!deferred&&this.deferCrystalMovement(killer,'shadow-killer'))return;
-    const enemies=b.living().filter(unit=>unit.team!==killer.team&&!unit.sweptBy&&b.targetable(killer,unit)).sort((a,c)=>distance(killer,a)-distance(killer,c)||a.id-c.id);
+    // A surviving Crystal 6 pair retains its existing targeting/movement rules.
+    const pair=b.crystal?.pairs.get(killer.crystalPairId),linkedCrystal=pair?.tier===6&&alive(pair.owner)&&alive(pair.mirror);
+    const enemies=b.living().filter(unit=>unit.team!==killer.team&&!unit.sweptBy&&b.targetable(killer,unit)).sort((a,c)=>(linkedCrystal?0:a.hp-c.hp)||distance(killer,a)-distance(killer,c)||a.id-c.id);
     for(const target of enemies){
-      const cells=this.openCells(killer,target,[[0,-1],[-1,0],[1,0],[0,1]])
-        .filter(cell=>b.traits.canTarget(killer,target,cell)).sort((a,c)=>distance(killer,a)-distance(killer,c)||a.y-c.y||a.x-c.x);
+      // A crowded target permits a nearby landing, never a partial dash toward
+      // the opposite side of an active Wind Wall or outside Crystal confinement.
+      if(!linkedCrystal&&!b.traits.canStep(killer,killer,{x:target.x,y:Math.max(0,Math.min(b.height-1,target.y))}))continue;
+      const candidates=linkedCrystal?this.openCells(killer,target,[[0,-1],[-1,0],[1,0],[0,1]]):Array.from({length:b.width*b.height},(_,i)=>({x:i%b.width,y:Math.floor(i/b.width)}))
+        .filter(cell=>!b.at(cell.x,cell.y)&&b.traits.canStep(killer,killer,cell));
+      const cells=candidates.filter(cell=>b.traits.canTarget(killer,target,cell))
+        .sort((a,c)=>(linkedCrystal?0:distance(a,target)-distance(c,target))||distance(killer,a)-distance(killer,c)||a.y-c.y||a.x-c.x);
       if(!cells.length)continue;
       if(this.jump(killer,cells[0],target,'shadow-killer'))killer.shadowKillerEmpowered=true;return;
-    return;
     }
   }
   onDeath(unit,killer){
     if(!this.active()||unit.hp>0||unit.eliminated||this.deaths.has(unit.id))return [];
     this.deaths.add(unit.id);
     const intents=[];
-    if(killer&&killer.team!==unit.team&&this.battle.catalog[killer.type]?.element==='ice'&&this.has(killer.team,'xmas-gift')){
+    if(killer&&killer.team!==unit.team&&this.origin(killer,'ice')&&this.has(killer.team,'xmas-gift')){
       const amount=this.battle.catalog[unit.type]?.cost||0;
       this.battle.goldEarned[killer.team]+=amount;this.battle.onGold?.(killer.team,amount);this.battle.events.push({type:'gold',id:killer.id,team:killer.team,amount});
     }

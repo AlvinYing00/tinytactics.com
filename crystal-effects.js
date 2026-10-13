@@ -1,5 +1,6 @@
 import {teamTraits} from './catalog.js';
 import {CrystalProjectileEffects} from './crystal-projectiles.js';
+import {hasOrigin,isSand} from './origin-inheritance.js';
 
 // Preparation uses its own random stream: rendering cannot change combat rolls.
 export function crystalPreparationTiles(seed,width=8,height=8,team='azure'){
@@ -37,10 +38,10 @@ export class CrystalEffects {
     for(const team of ['azure','ember']){
       const tier=battle.traits.teams[team].crystalTier;
       if(!tier)continue;
-      const tiles=this.prismaticTiles(team),owners=battle.living(team).filter(u=>!u.summoned&&battle.catalog[u.type].element==='crystal').sort((a,b)=>a.id-b.id);
+      const tiles=this.prismaticTiles(team),owners=battle.living(team).filter(u=>!u.summoned&&hasOrigin(u,'crystal',battle.catalog)).sort((a,b)=>a.id-b.id);
       for(const owner of owners){
         owner.crystalConfined=tier<6;
-        if(tier!==6&&!tiles.some(p=>p.x===owner.x&&p.y===owner.y))continue;
+        if(tier!==6&&!tiles.some(p=>p.x===owner.x&&p.y===owner.y)){if(isSand(owner,battle.catalog))owner.sandCrystalStationary=true;continue;}
         const y=team==='azure'?-1:battle.height;
         const free=Array.from({length:battle.width},(_,x)=>x).filter(x=>!battle.at(x,y)).sort((a,b)=>Math.abs(a-owner.x)-Math.abs(b-owner.x)||a-b);
         if(!free.length)continue;
@@ -67,15 +68,18 @@ export class CrystalEffects {
   onPlatform(unit){return unit.y===-1||unit.y===this.battle.height;}
   canClassMove(unit){return !unit.crystalMirror&&!this.onPlatform(unit)&&!this.isDormant(unit)&&!this.inTransit(unit)&&unit.crystalExchangeTick!==this.battle.tick;}
   confined(unit){return !this.finished&&!!unit.crystalConfined&&!unit.crystalDormant;}
-  canStep(unit,from,to){
+  canStep(unit,from,to,{openingJump=false}={}){
     if(this.isDormant(unit)||this.inTransit(unit))return false;
     if(this.onPlatform(unit))return to.y===unit.y&&to.x>=0&&to.x<this.battle.width;
+    if(unit.sandCrystalStationary)return false;
+    if(openingJump&&!unit.crystalMirror&&this.battle.augments.has(unit.team,'rainbow-reflection'))return !this.onPlatform(to);
     if(this.confined(unit))return this.battle.home(unit.team,to.y);
     return !this.onPlatform(to);
   }
   canTarget(attacker,target){return !this.isDormant(target)&&!target.crystalRemoved;}
   canReach(attacker,target,from=attacker){
     if(!this.canTarget(attacker,target))return false;
+    if(attacker.sandCrystalStationary&&!this.battle.home(attacker.team,target.y))return false;
     if(this.onPlatform(attacker))return true;
     const role=this.battle.catalog[attacker.type].combatRole;
     if(this.onPlatform(target)&&!this.onPlatform(attacker)&&['sentinel','duelist','assassin'].includes(role)&&from.y!==(target.y===-1?0:this.battle.height-1))return false;

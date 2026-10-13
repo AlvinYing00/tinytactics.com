@@ -2,6 +2,9 @@
 import {CHAMPIONS} from './catalog.js';
 import {portraitImage} from './champion-portraits.js';
 export const TRAIT_DETAILS={
+  sand:{name:'Sand',steps:[1],boardEffect:false,rows:[
+    'Universal Inheritance: receive active allied Origins, Classes and their Augments. Cosmic 1 also grants the starting-row class: Tanker / Duelist / Assassin / Ranger. Each class applies once; adds only Sand to counts. Rows 1–2 have range 1; rows 3–4 have range 3.'
+  ],note:'Master of Origins: finish a combat with 5 distinct deployed Origins; no breakpoints needed. Your next-round reroll guarantees Eyphiothan for 5 gold. Sand stays in the normal 5-cost pool across matches until you refresh this page. Inherited effects never repeat global events or recursively summon copies. Off a Crystal tile below Crystal 6, Sand stays still and attacks only within its own half.'},
   cosmic:{name:'Cosmic',steps:[1,2,3],rows:[
     'Starting row grants Tanker / Duelist / Assassin / Ranger effects and matching Augment bonuses. Cosmic adds no class count.',
     'A mega asteroid lands after 5s: 25% enemy max HP damage and a 3s stun.',
@@ -59,7 +62,7 @@ export const TRAIT_DETAILS={
     'One fixed Prismatic Tile, kept across rounds. Its Crystal champion creates a mirror with 25% HP and Attack on the enemy-side Crystal Platform.',
     'Two fixed Prismatic Tiles. Mirrors inherit 50% HP and Attack. Each active body swaps after losing 25% of its max HP. The body back on the board is protected and cannot act.',
     'All Crystal champions mirror at 50% stats. Every 3 damaging basic attacks, the active body swaps. Two line projectiles each deal 50% of their source’s Attack: one from the owner, one from the mirror. Aurora animation lasts up to 60s, ending early when all MAX mirrors are gone.'
-  ],note:'Swaps take 0.5s. At 2/4, unmirrored Crystal moves within its own half: Tanker, Duelist and Assassin range 1; Ranger and Support range 3. Only Crystal bodies fighting on the Platform have unlimited range. Crystal never performs the opening Assassin jump. Platform bodies cannot jump or dash off. Mirrors gain no class effects or class-specific Augments. Tsunami carries an owner off the board and locks its swaps while swept. Losing a mirror returns an unswept platform owner to its starting tile. Mirror mechanics bypass Wind Wall. Five unique champions plus +1 Crystal unlock MAX.'},
+  ],note:'Swaps take 0.5s. At 2/4, unmirrored Crystal moves within its own half: Tanker, Duelist and Assassin range 1; Ranger and Support range 3. Only Crystal bodies fighting on the Platform have unlimited range. Crystal performs the opening Assassin jump only with Rainbow Reflection; mirrors never jump. Platform bodies cannot jump or dash off. Mirrors gain no class effects or class-specific Augments. Tsunami carries an owner off the board and locks its swaps while swept. Losing a mirror returns an unswept platform owner to its starting tile. Mirror mechanics bypass Wind Wall. Five unique champions plus +1 Crystal unlock MAX.'},
   nature:{name:'Nature',steps:[2,4],boardEffect:false,rows:[
     'From 2s onward, gain 1% of current max HP and attack every second. Heal the HP gained; growth compounds.',
     'Summon a doppelganger per Nature champion at combat start, with 25% starting HP and 50% attack. Growth increases to 2% per second.'
@@ -90,6 +93,7 @@ export const TRAIT_DETAILS={
   ],note:'Exact counts only. Other counts disable Air. Wind Wall does not block trait effects or grant stats.'}
 };
 const paths={
+  sand:'<path d="M4 3h16M4 21h16M6 3c0 5 2 6 6 9-4 3-6 4-6 9M18 3c0 5-2 6-6 9 4 3 6 4 6 9M8 18l4-3 4 3M8 6h8"/>',
   crystal:'<path d="m12 2 7 7-3 11H8L5 9l7-7Z M5 9h14M12 2 8 9l4 11 4-11-4-7Z"/>',
   cosmic:'<ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(-35 12 12)"/><circle cx="12" cy="12" r="4"/><path d="m19 2 .8 2.2L22 5l-2.2.8L19 8l-.8-2.2L16 5l2.2-.8L19 2Z"/>',
   sentinel:'<path d="m12 2 8 3v6c0 5-4 9-8 11-4-2-8-6-8-11V5l8-3Z"/><path d="M12 6v11M8 10h8"/>',

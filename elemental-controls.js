@@ -1,5 +1,6 @@
 // Shared combat statuses and per-target counters. All deadlines use battle ticks.
 import {LightDarkMaxEffects} from './light-dark-max.js';
+import {hasOrigin} from './origin-inheritance.js';
 export class ElementalControls {
   constructor(battle){
     this.battle=battle;this.storms=[];this.pending=[];this.started=false;this.finished=false;
@@ -12,6 +13,7 @@ export class ElementalControls {
   }
   active(){return this.battle.phase==='combat'&&!this.finished;}
   element(unit){return this.battle.catalog[unit.type]?.element;}
+  hasOrigin(unit,origin){return hasOrigin(unit,origin,this.battle.catalog);}
   frozen(unit){return this.active()&&this.battle.tick<(unit.frozenUntil||0);}
   feared(unit){return this.active()&&this.battle.tick<(unit.fearedUntil||0);}
   chilled(unit){return this.active()&&this.battle.tick<(unit.chilledUntil||0);}
@@ -20,8 +22,8 @@ export class ElementalControls {
   protected(unit){return this.battle.traits.isGolden(unit)||!!this.battle.augments?.controlImmune(unit);}
   apply(unit,kind,duration,emit=true){
     if(!this.active()||unit.hp<=0||unit.eliminated||unit.sweptBy||this.protected(unit))return false;
-    if(['stun','fear'].includes(kind)&&(this.max.heavenImmune(unit)||this.element(unit)==='light'&&this.battle.augments?.has(unit.team,'divine-squad')))return false;
-    const resist=this.element(unit)==='light'&&['stun','fear'].includes(kind)?this.battle.traits.teams[unit.team].lightControlResist||0:0;
+    if(['stun','fear'].includes(kind)&&(this.max.heavenImmune(unit)||this.hasOrigin(unit,'light')&&this.battle.augments?.has(unit.team,'divine-squad')))return false;
+    const resist=this.hasOrigin(unit,'light')&&['stun','fear'].includes(kind)?this.battle.traits.teams[unit.team].lightControlResist||0:0;
     if(resist&&this.battle.random()<resist){this.battle.events.push({type:'control-resist',id:unit.id,kind});return false;}
     const fields={stun:'stunnedUntil',fear:'fearedUntil',freeze:'frozenUntil',chill:'chilledUntil'},field=fields[kind];
     if(!field)throw new Error('Unknown control effect.');
@@ -71,11 +73,10 @@ export class ElementalControls {
     const {attacker,target}=hit,b=this.battle,team=b.traits.teams[attacker.team],hits=[];
     const landed=(dealt?.hpDamage||0)+(dealt?.shieldDamage||0);
     if(!this.active()||hit.dodged||hit.repelled||landed<=0||target.eliminated||target.sweptBy)return hits;
-    switch(this.element(attacker)){
-      case 'light':
+    if(this.hasOrigin(attacker,'light')){
         this.addLightStacks(target,attacker.team);
-        break;
-      case 'dark':
+    }
+    if(this.hasOrigin(attacker,'dark')){
         if(team.darkFearEvery&&b.tick>=attacker.darkFearReady){
           attacker.darkFearCount++;
           if(attacker.darkFearCount>=team.darkFearEvery){
@@ -83,9 +84,8 @@ export class ElementalControls {
             this.apply(target,'fear',team.darkFearTicks);
           }
         }
-        break;
-      case 'ice':
-        if(!team.iceChillTicks||target.hp<=0)break;
+    }
+    if(this.hasOrigin(attacker,'ice')&&team.iceChillTicks&&target.hp>0){
         this.apply(target,'chill',team.iceChillTicks);
         if(b.tick>=target.iceCooldownUntil){
           target.iceStacks++;b.events.push({type:'ice-stack',id:target.id,stacks:target.iceStacks});
@@ -94,19 +94,18 @@ export class ElementalControls {
             if(this.apply(target,'freeze',team.iceFreezeTicks))hits.push({source:attacker,target,amount:target.maxHp*team.iceFreezePercent,kind:'freeze'});
           }
         }
-        break;
     }
     return hits;
   }
   onDeath(unit){
-    if(!this.active()||unit.hp>0||unit.eliminated||this.element(unit)!=='dark')return [];
+    if(!this.active()||unit.hp>0||unit.eliminated||!this.hasOrigin(unit,'dark'))return [];
     const rule=this.battle.traits.teams[unit.team];if(!rule.darkExplosionPercent)return [];
     const suicide=this.battle.augments?.has(unit.team,'suicide-squad');
     this.battle.events.push({type:'dark-death-burst',sourceId:unit.id,x:unit.sweepX??unit.x,y:unit.y,radius:suicide?2:1});
     const targets=this.battle.living().filter(u=>u.team!==unit.team&&Math.max(Math.abs((u.sweepX??u.x)-(unit.sweepX??unit.x)),Math.abs(u.y-unit.y))<=(suicide?2:1));
     return targets.map(target=>{
       this.apply(target,'fear',rule.darkDeathFearTicks);
-      return {source:unit,target,amount:(suicide?unit.maxHp*.5:unit.attackDamage*rule.darkExplosionPercent)*(this.element(target)==='light'?2:1),kind:'dark-explosion'};
+      return {source:unit,target,amount:(suicide?unit.maxHp*.5:unit.attackDamage*rule.darkExplosionPercent)*(this.hasOrigin(target,'light')?2:1),kind:'dark-explosion'};
     });
   }
   finish(){

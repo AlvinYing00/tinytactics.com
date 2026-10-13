@@ -1,3 +1,4 @@
+import {hasOrigin} from './origin-inheritance.js';
 // Vortex removal is elimination, never a death proc.
 export class CosmicEffects{
   constructor(battle){
@@ -11,7 +12,7 @@ export class CosmicEffects{
   }
   capture(){
     if(!this.vortices.some(v=>!v.exploded))return;
-    for(const u of this.battle.living())if(this.battle.catalog[u.type].element!=='cosmic'&&!u.sweptBy){
+    for(const u of this.battle.living())if(!hasOrigin(u,'cosmic',this.battle.catalog)&&!u.sweptBy){
       if(!u.cosmicHeld)u.cosmicOrigin={x:u.x,y:u.y};
       u.cosmicHeld=true;u.targetId=null;
     }
@@ -21,7 +22,7 @@ export class CosmicEffects{
     const b=this.battle;this.capture();
     const due=this.vortices.filter(v=>!v.exploded&&b.tick>=v.endTick);
     if(!due.length)return;
-    const victims=b.living().filter(u=>b.catalog[u.type].element!=='cosmic');
+    const victims=b.living().filter(u=>!hasOrigin(u,'cosmic',b.catalog));
     for(const u of victims){
       u.eliminated=true;u.eliminatedBy='cosmic';u.targetId=null;
       delete u.sweptBy;delete u.sweepX;delete b.traits.burns[u.id];

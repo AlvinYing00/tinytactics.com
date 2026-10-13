@@ -34,8 +34,8 @@ export function availablePool(players=[],returnedShops=new Set()){
 
 // Select a cost first, then weight champion identities by their remaining copies.
 // Reserving each draw immediately prevents the same last copy appearing twice.
-export function drawChampion(cost,random=Math.random,excluded=new Set(),stock=availablePool()){
-  const eligible=tiers[cost-1].filter(c=>!excluded.has(c.id)&&(stock.get(c.id)||0)>0);
+export function drawChampion(cost,random=Math.random,excluded=new Set(),stock=availablePool(),unlockedTypes=new Set()){
+  const eligible=tiers[cost-1].filter(c=>(!c.missionLocked||unlockedTypes.has(c.id))&&!excluded.has(c.id)&&(stock.get(c.id)||0)>0);
   const total=eligible.reduce((sum,c)=>sum+stock.get(c.id),0);
   let roll=random()*total;
   if(!total)return null;
@@ -45,12 +45,16 @@ export function drawChampion(cost,random=Math.random,excluded=new Set(),stock=av
   }
   return null;
 }
-export function rollShop(level,random=Math.random,excluded=new Set(),stock=availablePool()){
+export function rollShop(level,random=Math.random,excluded=new Set(),stock=availablePool(),unlockedTypes=new Set(),guaranteedType=null){
   const odds=shopOdds(level);
-  return Array.from({length:SHOP_SIZE},()=>{
+  const guaranteed=SHOP_CHAMPIONS[guaranteedType];
+  const reserveGuarantee=guaranteed&&(!guaranteed.missionLocked||unlockedTypes.has(guaranteedType))&&!excluded.has(guaranteedType)&&(stock.get(guaranteedType)||0)>0;
+  if(reserveGuarantee)stock.set(guaranteedType,stock.get(guaranteedType)-1);
+  return Array.from({length:SHOP_SIZE},(_,slot)=>{
+    if(reserveGuarantee&&slot===0)return guaranteedType;
     const roll=random()*100;let sum=0,cost=0;
     for(;cost<4;cost++){sum+=odds[cost];if(roll<sum)break;}
     // Exhausted tiers stay empty rather than changing the advertised cost odds.
-    return drawChampion(cost+1,random,excluded,stock);
+    return drawChampion(cost+1,random,excluded,stock,unlockedTypes);
   });
 }

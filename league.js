@@ -19,8 +19,8 @@ const blankOpponent={team:'neutral',name:'Opponent arrives at combat',hp:null,le
 
 // Persistent eight-company match. Each matchup owns an independent two-sided Battle.
 export class League extends Campaign {
-  constructor({random=Math.random}={}){
-    super({random,initialize:false});this.mode='fight';this.levelCosts=LEVEL_COSTS;this.phase='lobby';this.viewId='azure';
+  constructor({random=Math.random,originProgress}={}){
+    super({random,initialize:false,originProgress});this.mode='fight';this.levelCosts=LEVEL_COSTS;this.phase='lobby';this.viewId='azure';
     this.preparationRemaining=PREPARATION_SECONDS;this.intermissionRemaining=0;this.preparationSerial=0;this.matches=[];this.pairs=[];this.previewBoards=new Map();this.winnerId=null;this.nextId=1;
     this.rotation=null;this.rotationKey='';this.rotationIndex=0;this.lastAutoDeployed=[];this.results={};
     this.faceoffRemaining=0;this.combatElapsed=0;this.botActions=[];this.createPlayers(false);
@@ -161,6 +161,7 @@ export class League extends Campaign {
     if(!this.botsPrepared)this.prepareBots();
     for(const p of this.livingPlayers)augmentBeforeFight(this,p);
     this.lastAutoDeployed=this.player.hp>0?this.autoDeploy('azure'):[];
+    this.snapshotOrigins();
     const roundRosters=Object.fromEntries(this.livingPlayers.map(p=>[p.team,clone(p.roster.filter(onBoard))]));
     this.matches=this.pairs.map((pair,index)=>{
       const monster=pair.monster?encounter(this.stage,this.random):null;
@@ -231,7 +232,8 @@ export class League extends Campaign {
         const income={base:5,interest:interestFor(p),win:win?1:0,streak:streakBonus(p.streak)};income.total=income.base+income.interest+income.win+income.streak;
         p.gold+=income.total;p.lastIncome=income;const xp=this.gainExperience(id,2);p.retainShop=p.shopLocked;p.shopLocked=false;
         augmentRoundEnd(p);
-        this.results[id]={outcome:win?'win':loss?'loss':'draw',damage,healing,survivors,income,xp,healthBefore,finalHealth:healthBefore-damage,monster:!!m.monster,ghost:!!m.ghost,opponent:other==='ember'?m.emberId:m.azureId};
+        const sandUnlocked=this.settleOriginMission(id);
+        this.results[id]={outcome:win?'win':loss?'loss':'draw',damage,healing,survivors,income,xp,healthBefore,finalHealth:healthBefore-damage,monster:!!m.monster,ghost:!!m.ghost,opponent:other==='ember'?m.emberId:m.azureId,sandUnlocked};
       }
     }
     const fallen=this.livingPlayers.length<survivorsAtStart?Object.values(this.players).filter(p=>p.hp===0&&p.placement===null).sort((a,b)=>this.results[a.team].finalHealth-this.results[b.team].finalHealth||this.results[a.team].healthBefore-this.results[b.team].healthBefore||a.team.localeCompare(b.team)):[];

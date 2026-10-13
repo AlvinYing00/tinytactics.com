@@ -1,0 +1,5 @@
+.element-sand{--element:#ecc985}
+.origin-mission{display:flex;flex-wrap:wrap;gap:3px 12px;padding:9px 14px;border-bottom:1px solid #dac38b25;background:#dec48b06;font-size:11px;color:#a7b7bd}
+.origin-mission strong{color:#d9c397;font-size:11px;white-space:nowrap}
+.origin-mission.unlocked strong{color:#b8efce}
+.origin-mission[hidden]{display:none}

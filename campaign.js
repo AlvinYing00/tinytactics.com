@@ -3,6 +3,7 @@ import { CHAMPIONS, teamTraits, championStats, sellValue } from './catalog.js';
 import { combineCopies } from './combinations.js';
 import { SHOP_SIZE, rollShop, availablePool, drawChampion } from './shop.js';
 import {maxLevel,levelCurrency,hasAugment,refreshPrice,freeRoundRerolls} from './augments.js';
+import {createSandProgress,deployedOrigins,completeSandMission,unlockedMissionChampions,SAND_CHAMPION} from './sand-progress.js';
 export { SHOP_SIZE, shopOdds, rollShop } from './shop.js';
 
 export const LEVEL_COSTS = Object.freeze({3:10,4:20,5:30,6:40,7:55,8:65,9:80});
@@ -15,8 +16,9 @@ const traitScore=t=>(t.lightStacksRequired?12/t.lightStacksRequired:0)+t.lightCo
 
 // Owned champions and economy survive rounds; Battle holds only combat state.
 export class Campaign {
-  constructor({random=Math.random,initialize=true}={}) {
+  constructor({random=Math.random,initialize=true,originProgress=createSandProgress()}={}) {
     this.random=random;this.round=1;this.phase='preparation';this.nextId=1;this.result=null;
+    this.originProgress=originProgress;this.botOriginProgress=new Map();this.sandGuaranteeRounds=new Map();this.roundOrigins={};
     this.players={};
     if(!initialize)return;
     for(const team of ['azure','ember'])this.players[team]={team,hp:100,gold:10,level:3,xp:0,lossStreak:0,virtualTraits:{},roster:[],shop:[],shopLocked:false,retainShop:false,lastIncome:null};
@@ -38,9 +40,23 @@ export class Campaign {
   maxedTypes(team='azure'){return new Set(this.players[team].roster.filter(u=>u.stars===3).map(u=>u.type));}
   poolPlayers(){return Object.values(this.players);}
   poolStock(returnedShops=new Set()){return availablePool(this.poolPlayers(),returnedShops);}
-  rollOffers(team='azure'){
+  originProgressFor(team='azure'){
+    if(team==='azure')return this.originProgress;
+    if(!this.botOriginProgress.has(team))this.botOriginProgress.set(team,createSandProgress());
+    return this.botOriginProgress.get(team);
+  }
+  unlockedChampionTypes(team='azure'){return unlockedMissionChampions(this.originProgressFor(team));}
+  snapshotOrigins(){this.roundOrigins=Object.fromEntries(Object.keys(this.players).map(team=>[team,deployedOrigins(this.deployed(team))]));}
+  settleOriginMission(team='azure'){
+    const completed=completeSandMission(this.originProgressFor(team),this.roundOrigins[team]||[]);
+    if(completed)this.sandGuaranteeRounds.set(team,this.round+1);
+    return completed;
+  }
+  rollOffers(team='azure',{manual=false}={}){
     const p=this.players[team];
-    p.shop=rollShop(p.level,this.random,this.maxedTypes(team),this.poolStock(new Set([p])));
+    const progress=this.originProgressFor(team),guarantee=manual&&progress.sandGuaranteePending&&this.round>=(this.sandGuaranteeRounds.get(team)??1);
+    p.shop=rollShop(p.level,this.random,this.maxedTypes(team),this.poolStock(new Set([p])),this.unlockedChampionTypes(team),guarantee?SAND_CHAMPION:null);
+    if(guarantee&&p.shop.includes(SAND_CHAMPION))progress.sandGuaranteePending=false;
     return p.shop;
   }
   refreshRoundShops(){
@@ -77,7 +93,8 @@ export class Campaign {
   giftChampion(team,{type,cost,maxCost,element,combatRole}){
     const p=this.players[team];
     if(!type){
-      const choices=Object.values(CHAMPIONS).filter(c=>(maxCost?c.cost<=maxCost:c.cost===cost)&&(!element||c.element===element)&&(!combatRole||c.combatRole===combatRole));
+      const unlocked=this.unlockedChampionTypes(team);
+      const choices=Object.values(CHAMPIONS).filter(c=>(!c.missionLocked||unlocked.has(c.id))&&(maxCost?c.cost<=maxCost:c.cost===cost)&&(!element||c.element===element)&&(!combatRole||c.combatRole===combatRole));
       const nonMax=choices.filter(c=>!this.maxedTypes(team).has(c.id)),eligible=nonMax.length?nonMax:choices;
       type=eligible[Math.min(eligible.length-1,Math.floor(this.random()*eligible.length))]?.id;
     }
@@ -126,13 +143,13 @@ export class Campaign {
       const replacements=p.shop.map((offer,slot)=>offer&&excluded.has(offer)?{slot,cost:CHAMPIONS[offer].cost}:null).filter(Boolean);
       for(const {slot} of replacements)p.shop[slot]=null;
       const stock=this.poolStock();
-      for(const {slot,cost} of replacements)p.shop[slot]=drawChampion(cost,this.random,excluded,stock);
+      for(const {slot,cost} of replacements)p.shop[slot]=drawChampion(cost,this.random,excluded,stock,this.unlockedChampionTypes(team));
     }
   }
   refresh(team='azure') {
     this.economyEditable();const p=this.players[team];
     const price=this.refreshPrice(team);if(p.gold<price)throw new Error('You need 2 gold to refresh the shop.');
-    p.gold-=price;if(price===0&&!freeRoundRerolls(this,p))p.freeRerolls--;this.rollOffers(team);return price;
+    p.gold-=price;if(price===0&&!freeRoundRerolls(this,p))p.freeRerolls--;this.rollOffers(team,{manual:true});return price;
   }
   setShopLocked(locked,team='azure'){
     this.economyEditable();
@@ -193,7 +210,7 @@ export class Campaign {
   }
   start() {
     this.editable();
-    this.lastAutoDeployed=this.autoDeploy();this.rebuildBattle();
+    this.lastAutoDeployed=this.autoDeploy();this.rebuildBattle();this.snapshotOrigins();
     if(!this.deployed().length){this.battle.phase='finished';this.battle.outcome='ember';this.phase='combat';return;}
     this.battle.start();this.phase='combat';
   }
@@ -213,6 +230,7 @@ export class Campaign {
       experience[team]=this.gainExperience(team,2);
       // Consume the lock once at round end; keep these offers through the next refresh.
       p.retainShop=p.shopLocked;p.shopLocked=false;
+      this.settleOriginMission(team);
     }
     this.phase=Object.values(this.players).some(p=>p.hp===0)?'finished':'result';
     this.result={round:this.roundLabel,outcome,loser,damage,income,experience,airGold:{...this.battle.goldEarned},matchOver:this.phase==='finished'};

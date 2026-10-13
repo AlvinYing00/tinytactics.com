@@ -1,3 +1,4 @@
+import {hasOrigin} from './origin-inheritance.js';
 import {teamTraits} from './catalog.js';
 import {NatureEffects} from './nature-effects.js';
 
@@ -21,7 +22,7 @@ export class TraitEffects {
       if(traits.thunder)this.thunderstorms.push({team,impactTick:30,triggered:false,targets:[]});
       for(const u of battle.living(team)){
         u.basicAttacks=0;
-        if(battle.catalog[u.type].element==='mountain'){
+        if(hasOrigin(u,'mountain',battle.catalog)){
           u.shield=u.maxHp*traits.shieldPercent;u.maxShield=u.shield;u.goldenUntil=traits.goldenShield?50:0;
         }
       }
@@ -33,11 +34,11 @@ export class TraitEffects {
   canTarget(attacker,target,from=attacker){
     if(this.battle.crystal&&!this.battle.crystal.canTarget(attacker,target))return false;
     if(this.battle.crystal?.onPlatform(attacker))return true;
-    if(this.battle.catalog[attacker.type].element==='air'&&this.teams[attacker.team].windWall)return true;
-    return !(attacker.team!==target.team&&this.battle.catalog[target.type].element==='air'&&this.walls.some(w=>w.team===target.team&&this.wallActive(w)&&(from.y<w.y)!==(target.y<w.y)));
+    if(hasOrigin(attacker,'air',this.battle.catalog)&&this.teams[attacker.team].windWall)return true;
+    return !(attacker.team!==target.team&&hasOrigin(target,'air',this.battle.catalog)&&this.walls.some(w=>w.team===target.team&&this.wallActive(w)&&(from.y<w.y)!==(target.y<w.y)));
   }
-  canStep(unit,from,to){
-    if(this.battle.crystal&&!this.battle.crystal.canStep(unit,from,to))return false;
+  canStep(unit,from,to,options){
+    if(this.battle.crystal&&!this.battle.crystal.canStep(unit,from,to,options))return false;
     if(this.battle.crystal?.onPlatform(unit))return true;
     return !this.walls.some(w=>this.wallActive(w)&&(from.y<w.y)!==(to.y<w.y));
   }
@@ -48,7 +49,7 @@ export class TraitEffects {
   }
   prepareAttack(attacker,target){
     attacker.basicAttacks++;
-    const attackingAir=this.battle.catalog[attacker.type].element==='air',defendingAir=this.battle.catalog[target.type].element==='air';
+    const attackingAir=hasOrigin(attacker,'air',this.battle.catalog),defendingAir=hasOrigin(target,'air',this.battle.catalog);
     const every=attackingAir?this.teams[attacker.team].criticalEvery:0;
     const critical=!!every&&attacker.basicAttacks%every===0;
     const airDodge=defendingAir?this.teams[target.team].dodgeChance:0,assassinDodge=this.battle.classes?.dodge(target)||0;
@@ -61,22 +62,22 @@ export class TraitEffects {
   }
   onAttack(attacker,target,dodged=false){
     const stats=this.battle.catalog[attacker.type],team=this.teams[attacker.team];
-    if(stats.element==='fire'&&team.burnPercent&&!dodged&&!this.isGolden(target)){
+    if(hasOrigin(attacker,'fire',this.battle.catalog)&&team.burnPercent&&!dodged&&!this.isGolden(target)){
       const old=this.burns[target.id];
       this.burns[target.id]={rate:Math.max(old?.rate||0,team.burnPercent),sourceId:attacker.id,expires:this.battle.tick+30,nextTick:old?.nextTick||this.battle.tick+10};
     }
-    if(stats.element==='air'&&((this.has(attacker.team,'air-windfall')&&attacker.basicAttacks%5===0)||(team.coinChance&&this.battle.random()<team.coinChance))){
+    if(hasOrigin(attacker,'air',this.battle.catalog)&&((this.has(attacker.team,'air-windfall')&&attacker.basicAttacks%5===0)||(team.coinChance&&this.battle.random()<team.coinChance))){
       this.battle.goldEarned[attacker.team]++;this.battle.onGold?.(attacker.team,1);
       this.battle.events.push({type:'gold',id:attacker.id,team:attacker.team,amount:1});
     }
-    return stats.element==='water'?attacker.maxHp*team.healPercent:0;
+    return hasOrigin(attacker,'water',this.battle.catalog)?attacker.maxHp*team.healPercent:0;
   }
   reflection(target,hpDamage){
-    return this.battle.catalog[target.type].element==='mountain'?hpDamage*this.teams[target.team].reflectPercent:0;
+    return hasOrigin(target,'mountain',this.battle.catalog)?hpDamage*this.teams[target.team].reflectPercent:0;
   }
   windPierce(attacker,target,damageDealt){
     const rate=this.teams[attacker.team].windPiercePercent;
-    if(!rate||damageDealt<=0||this.battle.catalog[attacker.type].element!=='air')return [];
+    if(!rate||damageDealt<=0||!hasOrigin(attacker,'air',this.battle.catalog))return [];
     // Continue to the board edge in the attack's eight-way direction.
     // Gaps and allies do not stop the ray; each enemy takes the same 50% hit.
     const dx=Math.sign(target.x-attacker.x),dy=Math.sign(target.y-attacker.y);
@@ -93,12 +94,12 @@ export class TraitEffects {
     for(const u of fresh)this.inheritedDeaths.add(u.id);
     for(const team of ['azure','ember']){
       const {inheritanceHpPercent:hpRate,inheritanceAttackPercent:attackRate}=this.teams[team];if(!hpRate&&!attackRate)continue;
-      const losses=fresh.filter(u=>u.team===team&&this.battle.catalog[u.type].element==='electric');
+      const losses=fresh.filter(u=>u.team===team&&hasOrigin(u,'electric',this.battle.catalog));
       const multiplier=this.has(team,'double-inheritance')?2:1;
       const hp=losses.reduce((sum,u)=>sum+this.baseStats.get(u.id).maxHp*hpRate*multiplier,0);
       const attack=losses.reduce((sum,u)=>sum+this.baseStats.get(u.id).attackDamage*attackRate*multiplier,0);
       if(!losses.length)continue;
-      for(const u of this.battle.living(team).filter(u=>this.battle.catalog[u.type].element==='electric')){
+      for(const u of this.battle.living(team).filter(u=>hasOrigin(u,'electric',this.battle.catalog))){
         u.maxHp+=hp;u.hp=Math.min(u.maxHp,u.hp+hp);u.attackDamage+=attack;
         this.battle.events.push({type:'inheritance',id:u.id,amount:hp,attack});
       }
