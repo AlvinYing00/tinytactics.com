@@ -45,25 +45,46 @@ export class Campaign {
     if(!this.botOriginProgress.has(team))this.botOriginProgress.set(team,createSandProgress());
     return this.botOriginProgress.get(team);
   }
-  unlockedChampionTypes(team='azure'){return unlockedMissionChampions(this.originProgressFor(team));}
+  unlockedChampionTypes(team='azure'){
+    const progress=this.originProgressFor(team);
+    // The unlocking combat cannot expose Sand through mid-round rerolls. The
+    // next round's guaranteed auto-refresh opens the normal pool afterward.
+    return progress.sandGuaranteePending?new Set():unlockedMissionChampions(progress);
+  }
+  sandGuaranteeDue(team='azure'){
+    return this.originProgressFor(team).sandGuaranteePending&&this.round>=(this.sandGuaranteeRounds.get(team)??1);
+  }
   snapshotOrigins(){this.roundOrigins=Object.fromEntries(Object.keys(this.players).map(team=>[team,deployedOrigins(this.deployed(team))]));}
   settleOriginMission(team='azure'){
     const completed=completeSandMission(this.originProgressFor(team),this.roundOrigins[team]||[]);
     if(completed)this.sandGuaranteeRounds.set(team,this.round+1);
     return completed;
   }
-  rollOffers(team='azure',{manual=false}={}){
+  rollOffers(team='azure',{manual=false,reserveSandCopies=0}={}){
     const p=this.players[team];
-    const progress=this.originProgressFor(team),guarantee=manual&&progress.sandGuaranteePending&&this.round>=(this.sandGuaranteeRounds.get(team)??1);
-    p.shop=rollShop(p.level,this.random,this.maxedTypes(team),this.poolStock(new Set([p])),this.unlockedChampionTypes(team),guarantee?SAND_CHAMPION:null);
+    const progress=this.originProgressFor(team),guarantee=!manual&&this.sandGuaranteeDue(team);
+    const unlocked=guarantee?unlockedMissionChampions(progress):this.unlockedChampionTypes(team);
+    const stock=this.poolStock(new Set([p]));
+    // Other players' due guarantees reserve real bag copies before this shop's
+    // ordinary draws. Rebuilding stock for each shop preserves finite inventory.
+    if(reserveSandCopies)stock.set(SAND_CHAMPION,Math.max(0,(stock.get(SAND_CHAMPION)||0)-reserveSandCopies));
+    p.shop=rollShop(p.level,this.random,this.maxedTypes(team),stock,unlocked,guarantee?SAND_CHAMPION:null);
     if(guarantee&&p.shop.includes(SAND_CHAMPION))progress.sandGuaranteePending=false;
     return p.shop;
   }
   refreshRoundShops(){
     const players=Object.values(this.players).filter(p=>p.hp>0);
-    // Return all unlocked offers before drawing any new round's offers.
-    for(const p of players)if(!p.retainShop)p.shop=[];
-    for(const p of players){if(!p.retainShop)this.rollOffers(p.team);p.retainShop=false;}
+    // Sand's one guaranteed appearance takes precedence over a retained shop.
+    // Return every refreshing shop before reserving the new round's offers.
+    const refreshing=players.filter(p=>!p.retainShop||this.sandGuaranteeDue(p.team));
+    for(const p of refreshing)p.shop=[];
+    const guaranteed=refreshing.filter(p=>this.sandGuaranteeDue(p.team));
+    let remaining=guaranteed.length;
+    for(const p of guaranteed)this.rollOffers(p.team,{reserveSandCopies:--remaining});
+    // Previously unlocked players roll afterward so their ordinary Sand draws
+    // cannot consume a new unlock's guaranteed copy during the same refresh.
+    for(const p of refreshing)if(!guaranteed.includes(p))this.rollOffers(p.team);
+    for(const p of players)p.retainShop=false;
   }
   freeBench(team){const used=new Set(this.bench(team).map(u=>u.position.bench));return Array.from({length:BENCH_SIZE},(_,i)=>i).find(i=>!used.has(i));}
   maxLevel(team='azure'){return maxLevel(this.players[team]);}

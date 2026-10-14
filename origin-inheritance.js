@@ -5,6 +5,9 @@ export const isSand=(unit,catalog)=>catalog[unit.type]?.element==='sand';
 export function activeOrigins(rule){
   return Object.entries(FIRST_BREAKPOINT).filter(([origin,minimum])=>origin==='air'?[1,4,8,10].includes(rule.counts.air):(rule.counts[origin]||0)>=minimum).map(([origin])=>origin);
 }
+export function activatedOrigins(rule){
+  return [...activeOrigins(rule),...(rule.counts.sand>=1?['sand']:[])];
+}
 export function hasOrigin(unit,origin,catalog){
   if(!unit)return false;
   return isSand(unit,catalog)?(origin==='sand'||!unit.summoned&&!!unit.inheritedOrigins?.includes(origin)):catalog[unit.type]?.element===origin;
@@ -23,6 +26,14 @@ export function captureSandInheritance(battle,teams){
     unit.inheritedClasses=sandClasses(teams[unit.team],unit.sandClass);
     unit.sandRange=row<2?1:3;
     const augments=battle.teamAugments[unit.team]||[];
+    if(augments.includes('colour-palette')){
+      const rule=teams[unit.team];
+      unit.paletteOrigins=activatedOrigins(rule).length;
+      unit.paletteClasses=Object.values(rule.classes).filter(bonus=>bonus.tier>0).length;
+      const hpMultiplier=1+unit.paletteOrigins*.05;
+      unit.maxHp*=hpMultiplier;unit.hp*=hpMultiplier;
+      unit.attackDamage*=1+unit.paletteClasses*.1;
+    }
     if(hasOrigin(unit,'mountain',battle.catalog)&&augments.includes('mountain-rock')){unit.maxHp*=1.5;unit.hp*=1.5;}
     if(hasOrigin(unit,'cosmic',battle.catalog)&&augments.includes('cosmic-aura')){
       if(row<2)unit.attackDamage*=1.5;else{unit.maxHp*=1.5;unit.hp*=1.5;}

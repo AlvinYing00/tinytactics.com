@@ -15,7 +15,9 @@ export function deployedOrigins(units,catalog=CHAMPIONS){
 }
 
 export function completeSandMission(progress,origins){
-  if(progress.sandUnlocked||new Set(origins).size<SAND_MISSION_ORIGINS)return false;
+  // A breakpoint or a second champion of the same Origin is still one Origin.
+  const distinct=new Set(origins.filter(origin=>ELEMENTS.includes(origin)));
+  if(progress.sandUnlocked||distinct.size<SAND_MISSION_ORIGINS)return false;
   progress.sandUnlocked=true;progress.sandGuaranteePending=true;return true;
 }
 

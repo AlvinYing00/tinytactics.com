@@ -2,6 +2,8 @@ import {AUGMENTS,freeRoundRerolls} from './augments.js';
 import {traitIcon} from './trait-ui.js';
 
 const paths={
+  hourglass:'M5 3h14M5 21h14M7 3v3c0 3 2 4 5 6-3 2-5 3-5 6v3M17 3v3c0 3-2 4-5 6 3 2 5 3 5 6v3M9 18h6',
+  palette:'M12 3a9 9 0 0 0 0 18h2a2 2 0 0 0 1-4 1 4 0 0 1-1-2 2 2 0 0 1 2-2h2a3 3 0 0 0 3-3 7 7 0 0 0-9-7ZM7 8h.01M12 6h.01M17 8h.01M6 13h.01',
   coins:'M17 8c3 0 5 1 5 3s-2 3-5 3-5-1-5-3 2-3 5-3ZM12 11v7c0 2 2 3 5 3s5-1 5-3v-7M2 6c0-2 2-3 5-3s5 1 5 3-2 3-5 3-5-1-5-3ZM2 6v10c0 2 2 3 5 3h2M2 11c0 2 2 3 5 3h2',
   clock:'M12 7v5l4 2M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z',
   level:'M5 20V14h4v6M10 20V10h4v10M15 20V6h4v14M4 8l8-6 8 2M16 1l4 3-3 4',

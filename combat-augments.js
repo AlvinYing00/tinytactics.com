@@ -23,6 +23,7 @@ export class CombatAugmentEffects {
     this.battle=battle;
     this.teams=Object.fromEntries(['azure','ember'].map(team=>[team,new Set(battle.teamAugments?.[team]||[])]));
     this.rowProtected=new Set();this.solo=new Set();this.revived=new Set();this.deaths=new Set();this.redeemed=new Set();
+    this.hourglassUsed=new Set();this.hourglassUntil=new Map();
     this.started=false;this.finished=false;
     this.crystalMovements=[];
     // Eligibility belongs to the placed formation, before any opening jumps.
@@ -42,7 +43,17 @@ export class CombatAugmentEffects {
   role(unit,role){return !unit.crystalMirror&&hasClass(unit,role,this.battle.catalog);}
   controlImmune(unit){return this.active()&&this.has(unit.team,'anti-control')&&this.battle.tick<30;}
   immune(unit){
-    return this.active()&&((this.battle.traits.isGolden(unit)&&this.has(unit.team,'golden-reflection')&&this.origin(unit,'mountain'))||(this.battle.tick<30&&this.has(unit.team,'backline-angel')&&this.role(unit,'support'))||(this.battle.tick<20&&this.solo.has(unit.id)));
+    return this.active()&&((this.battle.tick<(this.hourglassUntil.get(unit.id)||0))||(this.battle.traits.isGolden(unit)&&this.has(unit.team,'golden-reflection')&&this.origin(unit,'mountain'))||(this.battle.tick<30&&this.has(unit.team,'backline-angel')&&this.role(unit,'support'))||(this.battle.tick<20&&this.solo.has(unit.id)));
+  }
+  protectWithHourglass(unit,hpDamage,{execute=false,amount=hpDamage}={}){
+    if(!this.active()||!alive(unit)||unit.summoned||unit.crystalMirror||!isSand(unit,this.battle.catalog)||!this.has(unit.team,'hourglass')||this.hourglassUsed.has(unit.id))return false;
+    // Predict the fully resolved HP hit before spending either HP or shields.
+    // The triggering hit is prevented in full, including a One Shot execution.
+    if(!execute&&(amount<=0||unit.hp-hpDamage>=unit.maxHp*.5))return false;
+    this.hourglassUsed.add(unit.id);this.hourglassUntil.set(unit.id,this.battle.tick+30);
+    unit.hourglassUntil=this.battle.tick+30;
+    this.battle.events.push({type:'hourglass',id:unit.id,duration:30,kind:'hourglass'});
+    return true;
   }
   start(){
     if(this.started)return;this.started=true;
@@ -53,6 +64,7 @@ export class CombatAugmentEffects {
       unit.augmentControlUntil=this.has(unit.team,'anti-control')?30:0;
       unit.augmentImmuneUntil=Math.max(this.has(unit.team,'backline-angel')&&this.role(unit,'support')?30:0,this.solo.has(unit.id)?20:0);
       unit.guardianRevived=false;unit.shadowKillerEmpowered=false;
+      delete unit.hourglassUntil;
       if(this.origin(unit,'cosmic')&&this.has(unit.team,'cosmic-wish'))unit.hp*=.5;
     }
     for(const team of ['azure','ember']){
@@ -237,6 +249,6 @@ export class CombatAugmentEffects {
   }
   finish(){
     this.finished=true;this.crystalMovements=[];
-    for(const unit of this.battle.units){delete unit.augmentRowProtection;delete unit.augmentControlUntil;delete unit.augmentImmuneUntil;delete unit.guardianRevived;delete unit.shadowKillerEmpowered;}
+    for(const unit of this.battle.units){delete unit.augmentRowProtection;delete unit.augmentControlUntil;delete unit.augmentImmuneUntil;delete unit.guardianRevived;delete unit.shadowKillerEmpowered;delete unit.hourglassUntil;}
   }
 }

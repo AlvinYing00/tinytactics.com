@@ -16,6 +16,8 @@ export function applyDamage(target,amount,{source,sourceTeam=source?.team,execut
   if(target.hp<=0||target.eliminated||battle?.crystal?.isDormant(target)||battle?.augments?.immune(target))return {hpDamage:0,shieldDamage:0};
   amount=damageAmount(target,amount,{source,sourceTeam,battle,category,kind});
   const bypass=category==='basic'&&source?(battle?.classes?.shieldBypass(source,target)||0):0;
+  const projectedHpDamage=execute?target.hp:amount-Math.min(target.shield,amount*(1-bypass));
+  if(battle?.augments?.protectWithHourglass(target,projectedHpDamage,{execute,amount}))return {hpDamage:0,shieldDamage:0};
   const before=target.hp;
   const shieldDamage=execute?0:absorbShield(target,amount*(1-bypass));
   target.hp=execute?0:Math.max(0,target.hp-(amount-shieldDamage));

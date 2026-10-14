@@ -3,6 +3,7 @@ import {drawChampion} from './shop.js';
 import {Battle} from './engine.js';
 import {crystalPreparationTiles} from './crystal-effects.js';
 import {CHAMPIONS,championStats,teamTraits} from './catalog.js';
+import {activatedOrigins} from './origin-inheritance.js';
 import {BOT_STYLES,planBot} from './bot-planner.js';
 import {COMBAT_CATALOG,encounter} from './encounters.js';
 import {AUGMENT_ROUNDS,createChoice,selectAugment,rerollAugment,chooseBotAugment,augmentRoundStart,augmentBeforeFight,augmentRoundEnd,interestFor} from './augments.js';
@@ -136,6 +137,10 @@ export class League extends Campaign {
   }
   chooseAugment(id,team='azure'){return selectAugment(this,team,id);}
   rerollAugment(slot,team='azure'){return rerollAugment(this,team,slot);}
+  snapshotOrigins(){
+    super.snapshotOrigins();
+    this.roundActiveOrigins=Object.fromEntries(this.livingPlayers.map(p=>[p.team,activatedOrigins(this.traits(p.team))]));
+  }
   opponentFor(id){const pair=this.pairs.find(p=>p.azureId===id||(!p.ghost&&p.emberId===id));return pair?.monster?null:this.players[pair?.azureId===id?pair.emberId:pair?.azureId];}
   visibleOpponent(id){const p=this.opponentFor(id);return p?{team:p.team,roster:clone(p.roster.filter(onBoard))}:null;}
   prepareBots(positionOnly=false,ids=null){
@@ -232,6 +237,7 @@ export class League extends Campaign {
         const income={base:5,interest:interestFor(p),win:win?1:0,streak:streakBonus(p.streak)};income.total=income.base+income.interest+income.win+income.streak;
         p.gold+=income.total;p.lastIncome=income;const xp=this.gainExperience(id,2);p.retainShop=p.shopLocked;p.shopLocked=false;
         augmentRoundEnd(p);
+        p.lastCompletedOrigins={round:this.round,origins:[...(this.roundActiveOrigins?.[id]||[])]};
         const sandUnlocked=this.settleOriginMission(id);
         this.results[id]={outcome:win?'win':loss?'loss':'draw',damage,healing,survivors,income,xp,healthBefore,finalHealth:healthBefore-damage,monster:!!m.monster,ghost:!!m.ghost,opponent:other==='ember'?m.emberId:m.azureId,sandUnlocked};
       }

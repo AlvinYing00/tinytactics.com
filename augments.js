@@ -74,7 +74,7 @@ export function combatAugmentMatchesTeam(game,player,augment){
  return true;
 }
 export function eligibleAugments(game,player,seen=[]){
- return entries.filter(a=>AUGMENT_TYPE_STAGES[a.type].includes(game.stage)&&a.stages.includes(game.stage)&&!hasAugment(player,a.id)&&!seen.includes(a.id)&&!(a.effect.higher&&hasAugment(player,'quick-formation'))&&(a.type!=='combat'||combatAugmentMatchesTeam(game,player,a))&&(!['trait','class'].includes(a.type)||traitAugmentMatches(player,a)));
+ return entries.filter(a=>AUGMENT_TYPE_STAGES[a.type].includes(game.stage)&&a.stages.includes(game.stage)&&!hasAugment(player,a.id)&&!seen.includes(a.id)&&!(a.effect.higher&&hasAugment(player,'quick-formation'))&&(a.type!=='combat'||combatAugmentMatchesTeam(game,player,a))&&(!['trait','class'].includes(a.type)||traitAugmentMatches(player,a,game)));
 }
 const pick=(items,random)=>items[Math.min(items.length-1,Math.floor(random()*items.length))];
 export function createChoice(game,player){

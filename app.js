@@ -73,10 +73,10 @@ const snapshot=()=>({
 function say(message,error=false){$('#notice').textContent=message;$('#notice').classList.toggle('error',error);for(const prefix of ['shop','sandbox'])if($('#'+prefix+'-dialog').open){$('#'+prefix+'-feedback').textContent=message;$('#'+prefix+'-feedback').classList.toggle('error',error);}}
 function renderOriginMission(){
   const panel=$('#origin-mission');panel.hidden=isSandbox();if(isSandbox())return;
-  const count=deployedOrigins(campaign.deployed('azure')).length,ready=campaign.round>=(campaign.sandGuaranteeRounds.get('azure')??1);
+  const count=deployedOrigins(campaign.deployed('azure')).length;
   panel.classList.toggle('unlocked',originProgress.sandUnlocked);
   panel.querySelector('strong').textContent=originProgress.sandUnlocked?'Sand unlocked':`Master of Origins · ${Math.min(5,count)}/5`;
-  panel.querySelector('span').textContent=originProgress.sandUnlocked?(originProgress.sandGuaranteePending?(ready?'Reroll to find Eyphiothan · Recruit for 5 gold.':'Next round, reroll to find Eyphiothan · 5 gold.'):'Eyphiothan can appear in 5-cost shops. Resets on page refresh.'):'Finish a combat with 5 distinct Origins. No breakpoints needed.';
+  panel.querySelector('span').textContent=originProgress.sandUnlocked?(originProgress.sandGuaranteePending?'Next round’s automatic shop refresh guarantees Eyphiothan · Recruit for 5 gold.':'Eyphiothan can appear in 5-cost shops. Resets on page refresh.'):'Finish a combat with 5 distinct Origins. Each Origin counts once; no breakpoints needed.';
 }
 function perform(action){try{const value=action();battle=campaign.battle;render();return value??true;}catch(error){say(error.message,true);return false;}}
 
@@ -314,7 +314,7 @@ function renderSelection(){
   const own=owned(selection?.id),record=inspected(selection?.id),u=selection?.roster?null:battle.units.find(v=>v.id===selection?.id),type=u?.type||record?.type,panel=$('#selection-panel');
   const augmentIds=u?battle.teamAugments[u.team]:campaign.players[record?.team]?.augments||[];
   const inheritedClasses=u&&!u.summoned&&battle.catalog[type]?.element==='sand'?(u.inheritedClasses??sandClasses(teamTraits(battle.units.filter(v=>v.team===u.team),battle.catalog,battle.traitCounts[u.team]),unitClass(u,battle.catalog))):[];
-  const nextKey=JSON.stringify([isSandbox(),editable(),trading(),augmentIds,inheritedClasses,selection?.id,selection?.roster,type,record?.stars,record?.position,record?.overflow,u&&[u.stars,u.x,u.y,u.hp,u.maxHp,u.attackDamage,u.shield,u.eliminated,u.sweptBy,u.basicAttacks,battle.attackInterval(u),battle.attackRange(u),battle.traits?.isGolden(u)]]);
+  const nextKey=JSON.stringify([isSandbox(),editable(),trading(),augmentIds,inheritedClasses,selection?.id,selection?.roster,type,record?.stars,record?.position,record?.overflow,u&&[u.stars,u.x,u.y,u.hp,u.maxHp,u.attackDamage,u.shield,u.eliminated,u.sweptBy,u.basicAttacks,battle.attackInterval(u),battle.attackRange(u),battle.traits?.isGolden(u),u.paletteOrigins,u.paletteClasses,u.hourglassUntil&&Math.max(0,(u.hourglassUntil-battle.tick)/10).toFixed(1)]]);
   if(selectionKey===nextKey)return;selectionKey=nextKey;
   if(!type){panel.innerHTML='<span class="selection-kicker">FORMATION TIP</span><p>Frontline first. Rangers behind.</p><span class="tip-caption">'+(isSandbox()?'Control either team. Choose Champions to add units at any star level.':'Drag between the board and bench. Drop on a teammate to swap.')+'</span>';return;}
   const c=combatAugmentStats(championStats(type,(u||record).stars,battle.catalog),augmentIds),location=u?.eliminated?'OUT':u&&battle.crystal?.onPlatform(u)?'Crystal Platform':record?.position.bench!==undefined&&!u?'Bench':u?coordinate(u.x,u.y):'';
@@ -326,6 +326,8 @@ function renderSelection(){
   if(u?.crystalDormant)panel.querySelector('.tip-caption').textContent+=' Protected original: its mirror is fighting. Tsunami can still remove it.';
   if(u&&own&&u.stars!==own.stars)panel.querySelector('.tip-caption').textContent+=' Next round: '+starLabel(own)+'.';
   if(augmentIds.includes('smaller-and-smaller'))panel.querySelector('.tip-caption').textContent+=' Basic attacks deal 50% extra damage.';
+  if(u&&!u.summoned&&c.element==='sand'&&augmentIds.includes('colour-palette')&&u.paletteOrigins!==undefined)panel.querySelector('.tip-caption').textContent+=` Colour Palette: +${u.paletteOrigins*5}% max HP · +${u.paletteClasses*10}% Attack.`;
+  if(u&&!u.summoned&&c.element==='sand'&&augmentIds.includes('hourglass'))panel.querySelector('.tip-caption').textContent+=battle.tick<(u.hourglassUntil||0)?` Hourglass immunity: ${((u.hourglassUntil-battle.tick)/10).toFixed(1)}s.`:u.hourglassUntil?' Hourglass used this round.':' Hourglass ready.';
   if(record?.overflow)panel.querySelector('.tip-caption').textContent='Overflow gift: move to an open bench or team slot before combat to keep it. Otherwise, it sells automatically.';
   const benchButton=$('#bench-unit');if(benchButton)benchButton.onclick=()=>perform(()=>{const slot=campaign.freeBench('azure');if(slot===undefined)throw new Error('Bench is full. Drag onto a bench champion to swap.');campaign.move(own.id,{bench:slot});say(c.name+' moved to the bench.');});
   const sellButton=$('#sell-unit');if(sellButton)sellButton.onclick=()=>sellUnit(own.id);
@@ -346,7 +348,7 @@ function render(){
     const c=battle.catalog[u.type];let el=views.get(u.id);
     // Fight and Sandbox can reuse IDs for different champions.
     if(el&&el.dataset.championType!==u.type){el.remove();views.delete(u.id);el=null;}
-    if(!el){el=document.createElement('div');el.dataset.unitId=u.id;el.innerHTML='<span class="trait-aura" aria-hidden="true"></span><div class="unit-portrait">'+portraitImage(c)+'<span class="unit-glyph"></span>'+roleMarker(c)+'</div><span class="unit-trait-mark" aria-hidden="true" hidden></span><span class="unit-stars"></span><span class="unit-status" hidden></span><span class="unit-control-stacks" hidden></span><div class="shield-track"><div class="shield-fill"></div></div><div class="health-track"><div class="health-fill"></div></div>';views.set(u.id,el);unitLayer.append(el);}
+    if(!el){el=document.createElement('div');el.dataset.unitId=u.id;el.innerHTML='<span class="trait-aura" aria-hidden="true"></span><div class="unit-portrait">'+portraitImage(c)+'<span class="unit-glyph"></span>'+roleMarker(c)+'</div><span class="unit-trait-mark" aria-hidden="true" hidden></span><span class="unit-stars"></span><span class="unit-status" hidden></span><span class="unit-control-stacks" hidden></span><span class="hourglass-timer" hidden></span><div class="shield-track"><div class="shield-fill"></div></div><div class="health-track"><div class="health-fill"></div></div>';views.set(u.id,el);unitLayer.append(el);}
     if(battle.crystal?.inTransit(u)&&el._swapDeadline!==u.crystalSwapUntil){
       // Capture the displayed position before reparenting/cancelling a dash.
       el._swapOrigin=el.getBoundingClientRect();el._swapDeadline=u.crystalSwapUntil;
@@ -364,6 +366,9 @@ function render(){
     el.classList.toggle('crystal-mirror',!!u.crystalMirror);el.classList.toggle('crystal-dormant',!!u.crystalDormant&&!u.eliminated);
     stackBadge.hidden=!control.stacks;stackBadge.textContent=control.stacks;
     el.classList.toggle('augment-immune',!!battle.augments?.immune(u));
+    const hourglassActive=battle.phase==='combat'&&!u.summoned&&u.hp>0&&!u.eliminated&&battle.tick<(u.hourglassUntil||0),hourglassBadge=el.querySelector('.hourglass-timer');
+    el.classList.toggle('hourglass-protected',hourglassActive);hourglassBadge.hidden=!hourglassActive;
+    if(hourglassActive)hourglassBadge.textContent=`⌛ ${((u.hourglassUntil-battle.tick)/10).toFixed(1)}s`;
     el.classList.toggle('control-protected',!!battle.augments?.controlImmune(u));
     el.classList.toggle('heaven-protected',!!battle.controls?.max.heavenImmune(u));
     const visual=visualPosition(u);
@@ -517,6 +522,11 @@ function animateCrystalSwap(event){
 function effects(events){
   let played=false;
   for(const e of events){
+    if(e.type==='hourglass'){
+      const u=battle.units.find(v=>v.id===e.id);
+      if(u){const n=document.createElement('span');n.className='damage-number effect-hourglass';n.textContent='HOURGLASS';const point=visualPosition(u);n.style.left=`${point.x*12.5+6.25}%`;n.style.top=`${point.y*12.5+3}%`;$('#floaters').append(n);setTimeout(()=>n.remove(),820);}
+      continue;
+    }
     if(e.type==='crystal-exchange')animateCrystalSwap(e);
     if(renderCrystalEvent(e,$('#effects'),playbackSpeed()))continue;
     if(renderCombatProc(e,$('#effects'),playbackSpeed()))continue;

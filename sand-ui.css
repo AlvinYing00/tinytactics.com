@@ -3,3 +3,6 @@
 .origin-mission strong{color:#d9c397;font-size:11px;white-space:nowrap}
 .origin-mission.unlocked strong{color:#b8efce}
 .origin-mission[hidden]{display:none}
+.unit.hourglass-protected .unit-portrait{border-color:#ffe8ac;box-shadow:0 0 0 2px #b888364d,0 0 16px #ffdc867a,inset 0 0 9px #ffdf8870}
+.hourglass-timer{position:absolute;left:50%;top:13%;transform:translateX(-50%);z-index:6;white-space:nowrap;font:700 clamp(7px,1.3vw,10px) var(--heading);color:#fff1ca;background:#302613eb;border:1px solid #f2d695a6;border-radius:3px;padding:1px 3px;pointer-events:none}
+.effect-hourglass{color:#ffe5a3;font-size:12px}
