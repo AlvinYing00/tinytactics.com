@@ -14,6 +14,7 @@ import { championMatchesFilters } from './catalog-filters.js';
 import { setupFieldGuide } from './field-guide.js';
 import { renderCombatProc } from './combat-proc-ui.js';
 import {renderCrystalUI,renderCrystalEvent,crystalDisplayY} from './crystal-ui.js';
+import {renderWaterAirHazards} from './water-air-vfx.js';
 import { renderLightDarkMax } from './light-dark-max-ui.js';
 import { interestFor,hasAugment,freeRoundRerolls } from './augments.js';
 import { createAugmentUI,pendingAugment,selectedAugmentCards } from './augment-ui.js';
@@ -279,8 +280,10 @@ function visualPosition(unit){
   return {x:3.5+(dx*Math.cos(angle)-dy*Math.sin(angle))*(1-p),y:3.5+(dx*Math.sin(angle)+dy*Math.cos(angle))*(1-p)};
 }
 function renderHazards(){
-  const fx=battle.traits;if(!fx){$('#trait-effects').replaceChildren();return;}
+  const fx=battle.traits;if(!fx){$('#trait-effects').replaceChildren();$('#water-air-effects').replaceChildren();return;}
   const tick=battle.tick+(paused||battle.phase==='finished'?0:Math.max(0,battle.accumulator)*10);
+  const waterAirLayer=$('#water-air-effects'),waterAirHTML=renderWaterAirHazards(battle,tick);
+  if(waterAirLayer.innerHTML!==waterAirHTML)waterAirLayer.innerHTML=waterAirHTML;
   let html=renderLightDarkMax(battle,tick);
   for(const vortex of fx.cosmic?.vortices||[]){
     const p=Math.max(0,Math.min(1,(tick-vortex.startTick)/(vortex.endTick-vortex.startTick)));
@@ -302,8 +305,6 @@ function renderHazards(){
     if(!m.impacted)html+=`<div class="meteor-target" style="left:${m.x*12.5+6.25}%;top:${m.y*12.5+6.25}%"></div><div class="meteor" style="left:${(m.x-1.5*(1-p))*12.5+6.25}%;top:${(-2+(m.y+2)*p)*12.5+6.25}%"></div>`;
     else html+=`<div class="meteor-blast" style="left:${m.x*12.5+6.25}%;top:${m.y*12.5+6.25}%;opacity:${Math.max(0,1-(tick-m.impactTick)/5)}"></div>`;
   }
-  for(const w of fx.waves)if(battle.phase==='combat'&&!w.completed&&tick<=w.endTick){const p=Math.min(1,(tick-w.startTick)/(w.endTick-w.startTick));html+=`<div class="tsunami-wave" style="left:${p*100}%"><span>TSUNAMI</span></div>`;}
-  for(const w of fx.walls)if(fx.wallActive(w))html+=`<div class="wind-wall ${w.team}" style="top:${(w.y+.5)/battle.height*100}%"><span>${w.team==='azure'?'AZURE':'EMBER'} WIND WALL · ${Math.max(0,(w.endTick-tick)/10).toFixed(1)}s</span></div>`;
   for(const storm of fx.thunderstorms)if(storm.triggered&&tick<storm.impactTick+7)for(const u of storm.targets)html+=`<div class="thunder-strike" style="left:${u.x*12.5+6.25}%;height:${u.y*12.5+6.25}%;opacity:${1-(tick-storm.impactTick)/7}"></div>`;
   $('#trait-effects').innerHTML=html;
 }

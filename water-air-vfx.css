@@ -1,0 +1,15 @@
+/* Isolated transparent artwork can spill slightly past the arena, like spray. */
+.board-shell>.water-air-effects{position:absolute;inset:var(--board-inset,8px);z-index:4;pointer-events:none;overflow:visible;clip-path:inset(-5% -3%);container-type:inline-size}
+.water-air-effects img{position:absolute;display:block;user-select:none;pointer-events:none;object-fit:fill}
+.water-air-effects .tsunami-wave{position:absolute;top:-5%;bottom:-5%;width:29%;transform:translateX(-78%);background:none;border:0;box-shadow:none;isolation:isolate}
+.water-air-effects .tsunami-art{inset:0;width:100%;height:100%;opacity:var(--shimmer);transform:translateY(var(--surge));filter:drop-shadow(0 0 5px #77e4ff55)}
+.water-air-effects .tsunami-mist{inset:0;width:100%;height:100%;opacity:.19;transform:translate(-5%,calc(var(--surge) * -1)) scaleX(1.09);filter:blur(1.4px);mix-blend-mode:screen}
+.water-air-effects .tsunami-wave span{position:absolute;left:64%;top:50%;transform:translate(-50%,-50%);writing-mode:vertical-rl;white-space:nowrap;font:700 clamp(9px,2cqw,15px) var(--heading);letter-spacing:.24em;color:#ecffff;text-shadow:0 1px 5px #005a84,0 0 10px #24cafa}
+.wave-droplet{position:absolute;width:var(--drop);height:var(--drop);border:1px solid #d8fdffb0;border-radius:50%;background:#b9faff30;box-shadow:0 0 3px #6fe5ff66}
+.water-air-effects .wind-wall{position:absolute;left:-2%;right:-2%;height:30%;transform:translateY(-68%);border:0;background:none;box-shadow:none;isolation:isolate}
+.water-air-effects .wind-art{inset:0;width:100%;height:100%;transform:translateY(var(--gust-shift)) scaleY(var(--gust-scale));filter:drop-shadow(0 0 4px #89eaff88)}
+.water-air-effects .wind-echo{inset:0;width:100%;height:100%;opacity:.2;transform:translateY(calc(var(--gust-shift) * -2)) scaleY(1.12);mix-blend-mode:screen;filter:blur(1px)}
+.water-air-effects .wind-wall span{position:absolute;left:3%;top:74%;bottom:auto;right:auto;max-width:94%;padding:4px 7px;white-space:nowrap;font:600 clamp(8px,1.85cqw,12px) var(--heading);color:#edf9ff;background:#172938ed;border:1px solid #8ccbec75;border-radius:3px;box-shadow:0 2px 6px #03122266;text-shadow:0 1px 2px #091522}
+.water-air-effects .wind-wall.ember span{left:auto;right:3%;top:auto;bottom:80%}
+.wind-mote{position:absolute;width:2px;height:2px;border-radius:50%;background:#e8fdff;box-shadow:0 0 5px 1px #75cfff}
+@media(prefers-reduced-motion:reduce){.water-air-effects .tsunami-art,.water-air-effects .wind-art{transform:none}.water-air-effects .tsunami-mist,.water-air-effects .wind-echo,.wave-droplet,.wind-mote{display:none}}
