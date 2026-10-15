@@ -19,7 +19,7 @@ export function classBonuses(counts){
     sentinel:{tier:tier.sentinel,reduction:({2:.1,4:.2,6:.3})[tier.sentinel]||0},
     duelist:{tier:tier.duelist,perAttack:({2:.03,4:.04,6:.05})[tier.duelist]||0,cap:({2:.15,4:.3,6:.5})[tier.duelist]||0},
     ranger:{tier:tier.ranger,damageBonus:({2:.1,4:.2,6:.35})[tier.ranger]||0,rangeBonus:tier.ranger===6?1:0},
-    support:{tier:tier.support,targets:({2:1,4:2,6:3})[tier.support]||0,healPercent:({2:.05,4:.075,6:.1})[tier.support]||0,shieldPercent:tier.support===6?.05:0},
+    support:{tier:tier.support,targets:({2:1,4:2,6:3})[tier.support]||0,healPercent:({2:.1,4:.15,6:.2})[tier.support]||0,shieldPercent:tier.support===6?.1:0},
     assassin:{tier:tier.assassin,damageBonus:({2:.15,4:.3,6:.5})[tier.assassin]||0,dodgeChance:({4:.1,6:.2})[tier.assassin]||0,shieldBypass:tier.assassin===6?.25:0}
   };
 }

@@ -3,7 +3,7 @@ import {sandClasses} from './origin-inheritance.js';
 import { distance } from './engine.js';
 import { CHAMPIONS as ARCHETYPES, SHOP_CHAMPIONS, ARCHETYPES as ROLES, ELEMENT_LABELS, championStats, sellValue, teamTraits } from './catalog.js';
 import { BENCH_SIZE, shopOdds } from './campaign.js';
-import { League, LEVEL_COSTS, stageDamage, stageDamageCap, streakBonus } from './league.js';
+import { League, STARTING_OPTIONS, LEVEL_COSTS, stageDamage, stageDamageCap, streakBonus } from './league.js';
 import { registerGameTools } from './webmcp.js';
 import { attachBoardDrag } from './drag.js';
 import { createTraitHud,traitIcon } from './trait-ui.js';
@@ -461,9 +461,15 @@ function renderLeague(){
   $('#faceoff-countdown').textContent=phase==='faceoff'?Math.ceil(campaign.faceoffRemaining):'';
   $('#result').hidden=true;
   if(phase==='lobby'||phase==='finished'){
-    const result=$('#result'),title=phase==='lobby'?'Eight companies. One winner.':campaign.players[campaign.winnerId].name+' wins.';
+    const result=$('#result'),title=phase==='lobby'?'Choose your start.':campaign.players[campaign.winnerId].name+' wins.';
     const marker=phase+':'+campaign.winnerId;
-    if(result.dataset.league!==marker){result.dataset.league=marker;result.className='result-overlay';result.innerHTML='<span class="eyebrow">TINY TACTICS · FIGHT</span><h2>'+title+'</h2><p>'+(phase==='lobby'?'You and seven rivals. Build your team in 30 seconds.':'Your placement: #'+p.placement+' of 8.')+'</p><button id="league-start" class="primary-button">'+(phase==='lobby'?'Start a game':'Play again')+'</button>';$('#league-start').onclick=startOrPause;}
+    if(result.dataset.league!==marker){
+      result.dataset.league=marker;result.className='result-overlay'+(phase==='lobby'?' starting-lobby':'');
+      const choices=phase==='lobby'?'<fieldset class="starting-options"><legend class="visually-hidden">Starting option</legend>'+Object.entries(STARTING_OPTIONS).map(([id,option])=>`<label class="starting-option"><input type="radio" name="starting-option" value="${id}" ${campaign.startingOption===id?'checked':''}><span><strong>${option.name}</strong><small>${option.count} random ${option.cost}-cost champion${option.count>1?'s':''}${id==='ultra-fast-pass'?' · Excludes Sand':''}</small></span><b aria-hidden="true">${option.count}×</b></label>`).join('')+'</fieldset>':'';
+      result.innerHTML='<span class="eyebrow">TINY TACTICS · FIGHT</span><h2>'+title+'</h2><p>'+(phase==='lobby'?'All options start at Level 3 with 10 gold.':'Your placement: #'+p.placement+' of 8.')+'</p>'+choices+'<button id="league-start" class="primary-button">'+(phase==='lobby'?'Start a game':'Play again')+'</button>';
+      result.querySelectorAll('[name="starting-option"]').forEach(input=>input.onchange=()=>{campaign.startingOption=input.value;});
+      $('#league-start').onclick=startOrPause;
+    }
     result.hidden=false;
   }
   if(phase==='intermission'){
@@ -486,7 +492,7 @@ function startOrPause(){perform(()=>{
   else if(campaign.phase==='finished')restartMatch();
   else{paused=!paused;say(paused?'Battle paused.':'Battle resumed.');}
 });}
-function restartMatch(){cleanEffects();traitHud.reset();campaign=fightCampaign=new League({originProgress});battle=campaign.battle;selection=null;paused=false;shopKey='';$('#result').hidden=true;seenPreparation=0;standingsKey='';campaign.startGame();lastTime=performance.now();say('30 seconds to prepare your team.');}
+function restartMatch(){const startingOption=fightCampaign.startingOption;cleanEffects();traitHud.reset();campaign=fightCampaign=new League({originProgress,startingOption});battle=campaign.battle;selection=null;paused=false;shopKey='';$('#result').hidden=true;delete $('#result').dataset.league;seenPreparation=0;standingsKey='';lastTime=performance.now();say('Choose Normal, Fast Pass or Ultra Fast Pass, then start your game.');}
 function showResult(){
   const result=$('#result');if(!result.hidden)return;
   delete result.dataset.league;
@@ -603,7 +609,7 @@ $('#scout-dialog').addEventListener('close',()=>{
 $('#shop-lock').onclick=()=>setShopLock(!shopLocked());
 $('#close-shop').onclick=$('#done-shop').onclick=()=>$('#shop-dialog').close();
 $('#shop-dialog').addEventListener('click',event=>{if(event.target===$('#shop-dialog')){const r=event.target.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)event.target.close();}});
-$('#new-match').onclick=()=>{if(isSandbox()&&campaign.phase==='combat'){paused=true;render();}$('#restart-dialog h2').textContent=isSandbox()?'Clear both formations?':'Start a new match?';$('#restart-dialog p').textContent=isSandbox()?'Remove all Sandbox champions. Your Fight match is kept.':'Your current match will end. All eight companies restart with 100 HP, level 3, 10 gold and three 1-cost champions.';$('#confirm-restart').textContent=isSandbox()?'Clear formations':'Start new match';$('#restart-dialog').showModal();};
+$('#new-match').onclick=()=>{if(isSandbox()&&campaign.phase==='combat'){paused=true;render();}$('#restart-dialog h2').textContent=isSandbox()?'Clear both formations?':'Start a new match?';$('#restart-dialog p').textContent=isSandbox()?'Remove all Sandbox champions. Your Fight match is kept.':'Your current match will end. Choose a starting option for all eight companies. Everyone starts at Level 3 with 100 HP and 10 gold.';$('#confirm-restart').textContent=isSandbox()?'Clear formations':'Choose starting option';$('#restart-dialog').showModal();};
 $('#cancel-restart').onclick=()=>$('#restart-dialog').close();
 $('#confirm-restart').onclick=()=>{$('#restart-dialog').close();perform(()=>{if(isSandbox()){campaign.clear();selection=null;cleanEffects();traitHud.reset();say('Formations cleared. Choose Champions to build both teams.');}else restartMatch();});};
 document.querySelectorAll('[data-speed]').forEach(button=>button.onclick=()=>{

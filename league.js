@@ -13,6 +13,15 @@ export const stageDamage=stage=>[2,2,5,8,10,12,17][Math.min(6,Math.max(0,stage-1
 export const stageDamageCap=stage=>[3,5,7,9,12,15,18][Math.min(6,Math.max(0,stage-1))];
 export const streakBonus=count=>Math.abs(count)>=6?3:Math.abs(count)>=5?2:Math.abs(count)>=2?1:0;
 export const PREPARATION_SECONDS=30,FACEOFF_SECONDS=3,INTERMISSION_SECONDS=1.5;
+export const STARTING_OPTIONS=Object.freeze({
+  normal:Object.freeze({name:'Normal',count:3,cost:1}),
+  'fast-pass':Object.freeze({name:'Fast Pass',count:2,cost:4}),
+  'ultra-fast-pass':Object.freeze({name:'Ultra Fast Pass',count:1,cost:5})
+});
+function startingOptionFor(value){
+  if(!Object.hasOwn(STARTING_OPTIONS,value))throw new Error('Choose Normal, Fast Pass or Ultra Fast Pass.');
+  return value;
+}
 const clone=value=>JSON.parse(JSON.stringify(value));
 const onBoard=u=>u.position.bench===undefined&&!u.overflow;
 const names=['Azure','Cinder','Pearl','Volt','Granite','Zephyr','Prism','Solstice'];
@@ -20,8 +29,9 @@ const blankOpponent={team:'neutral',name:'Opponent arrives at combat',hp:null,le
 
 // Persistent eight-company match. Each matchup owns an independent two-sided Battle.
 export class League extends Campaign {
-  constructor({random=Math.random,originProgress}={}){
+  constructor({random=Math.random,originProgress,startingOption='normal'}={}){
     super({random,initialize:false,originProgress});this.mode='fight';this.levelCosts=LEVEL_COSTS;this.phase='lobby';this.viewId='azure';
+    this.startingOption=startingOptionFor(startingOption);
     this.preparationRemaining=PREPARATION_SECONDS;this.intermissionRemaining=0;this.preparationSerial=0;this.matches=[];this.pairs=[];this.previewBoards=new Map();this.winnerId=null;this.nextId=1;
     this.rotation=null;this.rotationKey='';this.rotationIndex=0;this.lastAutoDeployed=[];this.results={};
     this.faceoffRemaining=0;this.combatElapsed=0;this.botActions=[];this.createPlayers(false);
@@ -36,11 +46,13 @@ export class League extends Campaign {
       this.players[id]=p;
     }
     if(withRoster){
-      const stock=this.poolStock();
+      const stock=this.poolStock(),start=STARTING_OPTIONS[this.startingOption];
       for(const p of Object.values(this.players)){
-        const selected=new Set();
-        for(let n=0;n<3;n++){
-          const type=drawChampion(1,this.random,selected,stock);
+        // All companies share the selected start and reserve real pool copies.
+        // Sand is never a starter, even after its page-session mission unlock.
+        const selected=new Set(['sand-5']);
+        for(let n=0;n<start.count;n++){
+          const type=drawChampion(start.cost,this.random,selected,stock);
           if(type){selected.add(type);p.roster.push({id:this.nextId++,type,stars:1,team:p.team,position:{bench:n}});}
         }
         this.autoDeploy(p.team);
@@ -48,8 +60,9 @@ export class League extends Campaign {
       this.refreshRoundShops();
     }
   }
-  startGame(){
+  startGame(startingOption=this.startingOption){
     if(this.phase!=='lobby')throw new Error('A match is already in progress.');
+    this.startingOption=startingOptionFor(startingOption);
     this.phase='preparation';this.createPlayers(true);this.beginPreparation();
   }
   get livingPlayers(){return Object.values(this.players).filter(p=>p.hp>0);}

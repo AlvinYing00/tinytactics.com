@@ -19,3 +19,12 @@
 .faceoff-countdown{position:absolute;inset:0;z-index:8;display:grid;place-items:center;pointer-events:none;font:700 clamp(50px,8vw,110px) var(--heading);color:#fff6dc;text-shadow:0 3px 25px #000;background:#0b16262e}.faceoff-countdown[hidden]{display:none}
 #sell-zone{cursor:pointer}#sell-zone:focus-visible{outline:2px solid var(--mint);outline-offset:3px}#sell-dialog{width:min(600px,94vw);max-height:85dvh;padding:22px}#sell-info{font-size:14px;line-height:1.5;color:var(--muted)}#sell-roster{display:grid;gap:8px;margin-top:16px}.sell-card{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;background:#192e34;border:1px solid #425c60;border-radius:5px;color:#e5f5ee;text-align:left}.sell-card small{display:block;color:var(--muted);margin-top:5px}.sell-card b{color:#ffdc8d;white-space:nowrap}.sell-card:hover{border-color:#ffdc8d}
 #mobile-status>span{display:block;line-height:1.5}
+.starting-options{display:grid;gap:8px;border:0;padding:0;margin:4px 0 18px;width:100%;max-width:360px;min-width:0;text-align:left}
+.starting-option{display:flex;gap:10px;align-items:center;padding:12px;border:1px solid #40565e;border-radius:7px;background:#172b34;cursor:pointer}
+.starting-option:has(input:checked){border-color:var(--mint);background:#26453f;box-shadow:inset 0 0 0 1px #b8efce45}
+.starting-option:has(input:focus-visible){outline:2px solid var(--mint);outline-offset:3px}
+.starting-option input{accent-color:#b8efce;margin:0;width:17px;height:17px;flex-shrink:0}
+.starting-option>span{flex:1;min-width:0}.starting-option strong{display:block;font-size:14px;font-weight:600;color:#eef8f2}.starting-option small{display:block;font-size:11px;color:#c0d3d5;margin-top:4px;line-height:1.4}.starting-option>b{font-size:20px;color:var(--mint);font-weight:500}
+.campaign-game .starting-lobby h2{font-size:clamp(22px,2.5vw,30px)}.campaign-game .starting-lobby p{max-width:none;font-size:12px;margin:9px 0}
+.board-shell:has(.starting-lobby:not([hidden])){min-height:320px}
+@media(max-width:600px){.campaign-game .starting-lobby{padding:12px}.campaign-game .starting-lobby .eyebrow{font-size:9px;margin-bottom:5px}.campaign-game .starting-lobby h2{font-size:22px}.campaign-game .starting-lobby p{font-size:10px;margin:6px 0}.starting-options{gap:5px;margin:3px 0 10px}.starting-option{padding:7px 9px;gap:8px}.starting-option strong{font-size:12px}.starting-option small{font-size:10px;margin-top:2px}.starting-option>b{font-size:16px}.campaign-game .starting-lobby .primary-button{padding:8px 12px;font-size:14px;min-height:36px}}

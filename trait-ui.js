@@ -26,9 +26,9 @@ export const TRAIT_DETAILS={
     '35% more long-distance basic damage and +1 attack range.'
   ],note:'Distance is checked at launch. Critical strikes multiply the boosted damage.'},
   support:{name:'Support',category:'class',steps:[2,4,6],rows:[
-    'Every 5s, heal the lowest-health ally for 5% max HP.',
-    'Every 5s, heal the 2 lowest-health allies for 7.5% max HP.',
-    'Every 5s, heal 3 allies for 10% max HP and grant a 5% shield for 3s.'
+    'Every 5s, heal the lowest-health ally for 10% max HP.',
+    'Every 5s, heal the 2 lowest-health allies for 15% max HP.',
+    'Every 5s, heal 3 allies for 20% max HP and grant a 10% shield for 3s.'
   ],note:'One timer per team. Lowest HP percentage first; shields refresh without stacking.'},
   assassin:{name:'Assassin',category:'class',steps:[2,4,6],rows:[
     'For the first 5s, deal 15% more damage to Rangers and Supports.',
@@ -71,7 +71,7 @@ export const TRAIT_DETAILS={
     'Hits mark the target. At 10 stacks, stun for 1s; that target cannot gain stacks for 6s.',
     'Stun requires 8 stacks. Duration 1s; target cooldown 6s.',
     'Stun requires 6 stacks. Light champions have 25% chance to resist stun and fear.',
-    'Hits add 2 stacks: 6 → 2s stun, then 6s stack cooldown. Heaven’s Judgment rains arrows over the enemy half for 5s: up to 20 hits per tile, each dealing 1% max HP and adding 2 stacks. Light is immune to stun/fear for those 5s, then has 50% resistance.'
+    'Hits add 2 stacks: 6 → 2s stun, then 6s stack cooldown. Heaven’s Judgment rains arrows over the enemy half for 5s: up to 20 hits per tile, each dealing 1.5% target max HP and adding 2 stacks. Light is immune to stun/fear for those 5s, then has 50% resistance.'
   ],note:'Always: Light deals double champion damage to Dark. Light resistance does not avoid Freeze, Chill or Tsunami.'},
   dark:{name:'Dark',steps:[2,4,6,8],rows:[
     'Every 10th attack fears its target for 1s. Each Dark champion has a 6s fear cooldown.',
@@ -86,10 +86,10 @@ export const TRAIT_DETAILS={
     'Opening Snowstorm freezes all enemies for 3s and deals 55% max HP. Hits Chill for 2s; keep Ice 7’s stack Freeze.'
   ],note:'Chill slows movement 25% and attack speed 50%; it refreshes without stacking. Freeze blocks movement and attacks. Golden Shield and Anti-control resist both.'},
   air:{name:'Air',steps:[1,4,8,10],exact:true,rows:[
-    '5% chance to earn 1 gold per basic attack.',
-    '7.5% coin chance · 5% dodge · every 10th attack deals 2× damage.',
-    '10% coin chance · 10% dodge · every 8th attack deals 2.5× damage.',
-    '15% coins · 15% dodge · every 5th attack deals 3× damage. Wind Pierce: every enemy in the line behind the target takes 50% of the original hit’s damage. Reaches the board edge, including diagonals. A 5s Wind Wall blocks crossing and enemy attacks through it against Air. Air can attack through.'
+    '10% chance to earn 1 gold per basic attack.',
+    '15% coin chance · 5% dodge · every 9th attack deals 2× damage.',
+    '15% coin chance · 10% dodge · every 7th attack deals 3× damage.',
+    '15% coins · 15% dodge · every 5th attack deals 5× damage. Wind Pierce: every enemy in the line behind the target takes 50% of the original hit’s damage. Reaches the board edge, including diagonals. A 5s Wind Wall blocks crossing and enemy attacks through it against Air. Air can attack through.'
   ],note:'Exact counts only. Other counts disable Air. Wind Wall does not block trait effects or grant stats.'}
 };
 const paths={

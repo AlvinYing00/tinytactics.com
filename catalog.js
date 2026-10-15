@@ -131,7 +131,7 @@ for(const element of ELEMENTS){
   }
 }
 // Cosmic HP is authored as final 1-star HP, exempt from HP_MULTIPLIER.
-for(const [index,name,hp,damage] of [[0,'Asterion',2500,800],[1,'Dragonoid',3500,1000],[2,'Elyndra',5000,2000]]){
+for(const [index,name,hp,damage] of [[0,'Asterion',2000,500],[1,'Dragonoid',2500,750],[2,'Elyndra',3500,1000]]){
   const cost=index+5,id=`cosmic-${cost}`;
   champions[id]=Object.freeze({...ARCHETYPES.cosmic,id,name,hp,damage,cost,attackTicks:12.5,element:'cosmic',combatRole:'cosmic',sideTrait:null,traits:Object.freeze(['cosmic']),damageType:'physical',legendary:true,shopAvailable:cost===5,portrait:'assets/champions/cosmic-roster.png',portraitSize:[1536,1024],portraitFrame:[index*512+2,2,508,1020]});
 }
@@ -184,9 +184,9 @@ export function teamTraits(units,catalog=CHAMPIONS,virtual={}){
     reflectPercent:mountain>=6?.3:mountain>=4?.2:mountain>=2?.1:0,
     inheritanceHpPercent:electric>=7?.25:electric>=5?.1:electric>=3?.05:0,
     inheritanceAttackPercent:electric>=7?.15:electric>=5?.1:electric>=3?.05:0,thunder:electric>=7,
-    coinChance:air===1?.05:air===4?.075:air===8?.1:air===10?.15:0,
-    dodgeChance:air===4?.05:air===8?.1:air===10?.15:0,criticalEvery:air===4?10:air===8?8:air===10?5:0,
-    criticalMultiplier:air===4?2:air===8?2.5:air===10?3:1,windWall:air===10,windPiercePercent:air===10?.5:0,
+    coinChance:air===1?.1:air===4||air===8||air===10?.15:0,
+    dodgeChance:air===4?.05:air===8?.1:air===10?.15:0,criticalEvery:air===4?9:air===8?7:air===10?5:0,
+    criticalMultiplier:air===4?2:air===8?3:air===10?5:1,windWall:air===10,windPiercePercent:air===10?.5:0,
     natureGrowthPercent:nature>=4?.02:nature>=2?.01:0,natureDoppelgangers:nature>=4,
     lightStacksRequired:light>=6?6:light>=4?8:light>=2?10:0,lightStacksPerHit:light>=8?2:1,
     lightStunTicks:light>=8?20:10,lightControlResist:light>=8?.5:light>=6?.25:0,heavensJudgment:light>=8,
