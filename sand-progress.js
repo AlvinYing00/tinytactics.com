@@ -1,4 +1,4 @@
-import {CHAMPIONS,ELEMENTS} from './catalog.js';
+import {ELEMENTS} from './catalog.js';
 
 export const SAND_CHAMPION='sand-5';
 export const SAND_MISSION_NAME='Master of Origins';
@@ -8,14 +8,9 @@ export const SAND_MISSION_ORIGINS=5;
 // a fresh object, deliberately without localStorage or account persistence.
 export const createSandProgress=()=>({sandUnlocked:false,sandGuaranteePending:false});
 
-export function deployedOrigins(units,catalog=CHAMPIONS){
-  const mainOrigins=new Set(ELEMENTS);
-  return [...new Set(units.filter(u=>!u.summoned&&!u.crystalMirror&&!u.overflow&&u.position?.bench===undefined)
-    .map(u=>catalog[u.type]?.element).filter(origin=>mainOrigins.has(origin)))];
-}
-
 export function completeSandMission(progress,origins){
-  // A breakpoint or a second champion of the same Origin is still one Origin.
+  // Callers pass activated Origins captured at combat start. Higher breakpoints
+  // and repeated identities still contribute only one mission point per Origin.
   const distinct=new Set(origins.filter(origin=>ELEMENTS.includes(origin)));
   if(progress.sandUnlocked||distinct.size<SAND_MISSION_ORIGINS)return false;
   progress.sandUnlocked=true;progress.sandGuaranteePending=true;return true;

@@ -4,7 +4,7 @@ import {portraitImage} from './champion-portraits.js';
 export const TRAIT_DETAILS={
   sand:{name:'Sand',steps:[1],boardEffect:false,rows:[
     'Universal Inheritance: receive active allied Origins, Classes and their Augments. Cosmic 1 also grants the starting-row class: Tanker / Duelist / Assassin / Ranger. Each class applies once; adds only Sand to counts. Rows 1–2 have range 1; rows 3–4 have range 3.'
-  ],note:'Master of Origins: finish a combat with 5 distinct deployed Origins. Count each Origin once, regardless of champions or breakpoints. The next round’s automatic shop refresh guarantees Eyphiothan for 5 gold; Sand cannot appear during the unlocking round. It stays in the normal 5-cost pool across matches until page refresh. Inherited effects never repeat global events or recursively summon copies. Off a Crystal tile below Crystal 6, Sand stays still and attacks only within its own half.'},
+  ],note:'Master of Origins: finish a combat with 5 distinct active Origin traits. Each must reach an active breakpoint; each Origin counts once even at higher breakpoints. The next round’s automatic shop refresh guarantees Eyphiothan for 5 gold; Sand cannot appear during the unlocking round. It stays in the normal 5-cost pool across matches until page refresh. Inherited effects never repeat global events or recursively summon copies. Off a Crystal tile below Crystal 6, Sand stays still and attacks only within its own half.'},
   cosmic:{name:'Cosmic',steps:[1,2,3],rows:[
     'Starting row grants Tanker / Duelist / Assassin / Ranger effects and matching Augment bonuses. Cosmic adds no class count.',
     'A mega asteroid lands after 5s: 25% enemy max HP damage and a 3s stun.',

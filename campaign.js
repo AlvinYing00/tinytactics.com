@@ -3,7 +3,8 @@ import { CHAMPIONS, teamTraits, championStats, sellValue } from './catalog.js';
 import { combineCopies } from './combinations.js';
 import { SHOP_SIZE, rollShop, availablePool, drawChampion } from './shop.js';
 import {maxLevel,levelCurrency,hasAugment,refreshPrice,freeRoundRerolls} from './augments.js';
-import {createSandProgress,deployedOrigins,completeSandMission,unlockedMissionChampions,SAND_CHAMPION} from './sand-progress.js';
+import {createSandProgress,completeSandMission,unlockedMissionChampions,SAND_CHAMPION} from './sand-progress.js';
+import {activatedOrigins} from './origin-inheritance.js';
 export { SHOP_SIZE, shopOdds, rollShop } from './shop.js';
 
 export const LEVEL_COSTS = Object.freeze({3:10,4:20,5:30,6:40,7:55,8:65,9:80});
@@ -54,7 +55,7 @@ export class Campaign {
   sandGuaranteeDue(team='azure'){
     return this.originProgressFor(team).sandGuaranteePending&&this.round>=(this.sandGuaranteeRounds.get(team)??1);
   }
-  snapshotOrigins(){this.roundOrigins=Object.fromEntries(Object.keys(this.players).map(team=>[team,deployedOrigins(this.deployed(team))]));}
+  snapshotOrigins(){this.roundOrigins=Object.fromEntries(Object.keys(this.players).map(team=>[team,activatedOrigins(this.traits(team))]));}
   settleOriginMission(team='azure'){
     const completed=completeSandMission(this.originProgressFor(team),this.roundOrigins[team]||[]);
     if(completed)this.sandGuaranteeRounds.set(team,this.round+1);

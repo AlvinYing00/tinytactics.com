@@ -1,5 +1,5 @@
 import {unitClass} from './class-rules.js';
-import {sandClasses} from './origin-inheritance.js';
+import {sandClasses,activatedOrigins} from './origin-inheritance.js';
 import { distance } from './engine.js';
 import { CHAMPIONS as ARCHETYPES, SHOP_CHAMPIONS, ARCHETYPES as ROLES, ELEMENT_LABELS, championStats, sellValue, teamTraits } from './catalog.js';
 import { BENCH_SIZE, shopOdds } from './campaign.js';
@@ -20,7 +20,7 @@ import { interestFor,hasAugment,freeRoundRerolls } from './augments.js';
 import { createAugmentUI,pendingAugment,selectedAugmentCards } from './augment-ui.js';
 import { createSandboxAugmentUI } from './sandbox-augment-ui.js';
 import { combatAugmentStats } from './combat-augments.js';
-import {createSandProgress,deployedOrigins} from './sand-progress.js';
+import {createSandProgress} from './sand-progress.js';
 
 const $=selector=>document.querySelector(selector);
 const board=$('#board'),unitLayer=$('#units'),shell=$('.board-shell');
@@ -73,10 +73,10 @@ const snapshot=()=>({
 function say(message,error=false){$('#notice').textContent=message;$('#notice').classList.toggle('error',error);for(const prefix of ['shop','sandbox'])if($('#'+prefix+'-dialog').open){$('#'+prefix+'-feedback').textContent=message;$('#'+prefix+'-feedback').classList.toggle('error',error);}}
 function renderOriginMission(){
   const panel=$('#origin-mission');panel.hidden=isSandbox();if(isSandbox())return;
-  const count=deployedOrigins(campaign.deployed('azure')).length;
+  const count=activatedOrigins(campaign.traits('azure')).length;
   panel.classList.toggle('unlocked',originProgress.sandUnlocked);
   panel.querySelector('strong').textContent=originProgress.sandUnlocked?'Sand unlocked':`Master of Origins · ${Math.min(5,count)}/5`;
-  panel.querySelector('span').textContent=originProgress.sandUnlocked?(originProgress.sandGuaranteePending?'Next round’s automatic shop refresh guarantees Eyphiothan · Recruit for 5 gold.':'Eyphiothan can appear in 5-cost shops. Resets on page refresh.'):'Finish a combat with 5 distinct Origins. Each Origin counts once; no breakpoints needed.';
+  panel.querySelector('span').textContent=originProgress.sandUnlocked?(originProgress.sandGuaranteePending?'Next round’s automatic shop refresh guarantees Eyphiothan · Recruit for 5 gold.':'Eyphiothan can appear in 5-cost shops. Resets on page refresh.'):'Finish a combat with 5 distinct active Origin traits. Each active Origin counts once, regardless of its breakpoint.';
 }
 function perform(action){try{const value=action();battle=campaign.battle;render();return value??true;}catch(error){say(error.message,true);return false;}}
 
