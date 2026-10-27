@@ -153,7 +153,8 @@ export class TraitEffects {
     }
     for(const meteor of this.meteors){
       const target=battle.units.find(u=>u.id===meteor.targetId);
-      if(target?.hp>0&&!target.eliminated){meteor.x=target.sweepX??target.x;meteor.y=target.y;}
+      // Keep the impact at its actual landing position while its dust fades.
+      if(!meteor.impacted&&target?.hp>0&&!target.eliminated){meteor.x=target.sweepX??target.x;meteor.y=target.y;}
       if(meteor.impacted||battle.tick<meteor.impactTick)continue;
       meteor.impacted=true;
       const victims=battle.living().filter(u=>u.team!==meteor.team&&Math.abs((u.sweepX??u.x)-meteor.x)+Math.abs(u.y-meteor.y)<=1)

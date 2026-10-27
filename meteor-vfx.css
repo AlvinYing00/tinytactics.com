@@ -1,0 +1,23 @@
+/* Textured alpha sprites and clock-driven debris; never cover input targets. */
+.board-shell>.meteor-effects{position:absolute;inset:var(--board-inset,8px);z-index:4;pointer-events:none;overflow:visible;clip-path:inset(var(--meteor-top-overflow,-3%) -3% var(--meteor-bottom-overflow,-3%) -3%);container-type:inline-size;isolation:isolate}
+.crystal-combat-surface:has(.crystal-platform-top:not([hidden])) .meteor-effects{--meteor-top-overflow:-27%}
+.crystal-combat-surface:has(.crystal-platform-bottom:not([hidden])) .meteor-effects{--meteor-bottom-overflow:-27%}
+.meteor-effects .fire{--heat:#ff892f;--heat-soft:#ff8b383d;--heat-pale:#fff1bb;--smoke:#654b3b}
+.meteor-effects .cosmic{--heat:#a9b4ff;--heat-soft:#aaa5ff38;--heat-pale:#effaff;--smoke:#676282}
+.meteor-flight{position:absolute;width:20%;height:0;transform:rotate(var(--flight-angle)) scale(var(--flight-scale));transform-origin:0 0;z-index:2}
+.meteor-flight.cosmic{width:34%;z-index:3}
+.meteor-rock-art{position:absolute;left:0;top:0;display:block;width:100%;max-width:none;height:auto;transform:translate(-50%,-76%);filter:brightness(var(--plasma-pulse));pointer-events:none;user-select:none}
+.meteor-head-light{position:absolute;left:0;top:0;width:60%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,transparent 38%,var(--heat-soft) 55%,transparent 73%);mix-blend-mode:screen}
+.meteor-flight-fragment,.meteor-impact-fragment{position:absolute;left:0;top:0;display:block;width:var(--fragment-size);aspect-ratio:1.7;background:linear-gradient(130deg,var(--heat-pale),var(--heat) 32%,#37302d 53%);clip-path:polygon(0 20%,64% 0,100% 43%,76% 100%,10% 82%);filter:drop-shadow(0 0 2px var(--heat));transform:translate(var(--fragment-x),var(--fragment-y)) rotate(var(--fragment-turn))}
+.meteor-contact{position:absolute;width:11%;aspect-ratio:1;transform:translate(-50%,-50%) scale(var(--contact-scale));opacity:var(--contact-opacity);border-radius:50%;background:radial-gradient(ellipse,#050b17a8 0%,#0c0c1488 24%,var(--heat-soft) 46%,transparent 72%);z-index:0}
+.meteor-contact.cosmic{width:26%}
+.meteor-contact i{position:absolute;inset:18%;border:1px solid var(--heat);border-radius:50%;box-shadow:0 0 9px var(--heat-soft),inset 0 0 10px var(--heat-soft)}
+.meteor-impact{position:absolute;width:0;height:0;--impact-size:22cqw;z-index:3}
+.meteor-impact.cosmic{--impact-size:42cqw}
+.meteor-impact-flash,.meteor-shockwave,.meteor-shockwave-inner,.meteor-impact-dust{position:absolute;left:0;top:0;width:var(--impact-size);aspect-ratio:1;border-radius:50%;transform-origin:50% 50%}
+.meteor-impact-flash{background:radial-gradient(circle,#fff 0%,var(--heat-pale) 10%,var(--heat) 22%,var(--heat-soft) 43%,transparent 68%);transform:translate(-50%,-50%) scale(var(--flash-scale));opacity:var(--flash-opacity);mix-blend-mode:screen}
+.meteor-shockwave{border:2px solid var(--heat-pale);background:radial-gradient(circle,transparent 57%,var(--heat-soft) 69%,transparent 73%);box-shadow:0 0 9px var(--heat),inset 0 0 8px var(--heat);transform:translate(-50%,-50%) scale(var(--blast-scale));opacity:var(--blast-opacity)}
+.meteor-shockwave-inner{border:1px solid var(--heat);transform:translate(-50%,-50%) scale(calc(var(--blast-scale) * .74));opacity:calc(var(--blast-opacity) * .65)}
+.meteor-impact-dust{background:radial-gradient(ellipse at 24% 40%,var(--smoke),transparent 33%),radial-gradient(ellipse at 66% 72%,var(--smoke),transparent 28%),radial-gradient(ellipse at 67% 33%,var(--smoke),transparent 31%);transform:translate(-50%,-50%) scale(var(--dust-scale));opacity:var(--dust-opacity);filter:blur(3px)}
+.meteor-impact-fragment{z-index:1}
+@media(prefers-reduced-motion:reduce){.meteor-flight-fragment,.meteor-impact-fragment{display:none}.meteor-rock-art{filter:none}.meteor-impact-dust{display:none}}
