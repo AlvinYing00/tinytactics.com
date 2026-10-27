@@ -15,6 +15,7 @@ import { setupFieldGuide } from './field-guide.js';
 import { renderCombatProc } from './combat-proc-ui.js';
 import {renderCrystalUI,renderCrystalEvent,crystalDisplayY} from './crystal-ui.js';
 import {renderWaterAirHazards} from './water-air-vfx.js';
+import {renderMeteorHazards} from './meteor-vfx.js';
 import { renderLightDarkMax } from './light-dark-max-ui.js';
 import { interestFor,hasAugment,freeRoundRerolls } from './augments.js';
 import { createAugmentUI,pendingAugment,selectedAugmentCards } from './augment-ui.js';
@@ -280,30 +281,21 @@ function visualPosition(unit){
   return {x:3.5+(dx*Math.cos(angle)-dy*Math.sin(angle))*(1-p),y:3.5+(dx*Math.sin(angle)+dy*Math.cos(angle))*(1-p)};
 }
 function renderHazards(){
-  const fx=battle.traits;if(!fx){$('#trait-effects').replaceChildren();$('#water-air-effects').replaceChildren();return;}
+  const fx=battle.traits;if(!fx){$('#trait-effects').replaceChildren();$('#water-air-effects').replaceChildren();$('#meteor-effects').replaceChildren();return;}
   const tick=battle.tick+(paused||battle.phase==='finished'?0:Math.max(0,battle.accumulator)*10);
   const waterAirLayer=$('#water-air-effects'),waterAirHTML=renderWaterAirHazards(battle,tick);
   if(waterAirLayer.innerHTML!==waterAirHTML)waterAirLayer.innerHTML=waterAirHTML;
+  const meteorLayer=$('#meteor-effects'),meteorHTML=renderMeteorHazards(battle,tick);
+  if(meteorLayer.innerHTML!==meteorHTML)meteorLayer.innerHTML=meteorHTML;
   let html=renderLightDarkMax(battle,tick);
   for(const vortex of fx.cosmic?.vortices||[]){
     const p=Math.max(0,Math.min(1,(tick-vortex.startTick)/(vortex.endTick-vortex.startTick)));
     if(!vortex.exploded&&battle.phase==='combat')html+=`<div class="cosmic-vortex" style="--turn:${p*540}deg;--vortex-scale:${.55+p*.7}" aria-hidden="true"></div><div class="cosmic-countdown">COSMIC VORTEX · ${Math.max(0,(vortex.endTick-tick)/10).toFixed(1)}s</div>`;
     else if(tick<vortex.endTick+12)html+=`<div class="cosmic-burst" style="opacity:${Math.max(0,1-(tick-vortex.endTick)/12)}" aria-hidden="true"></div>`;
   }
-  for(const asteroid of fx.cosmic?.asteroids||[]){
-    const p=Math.max(0,Math.min(1,(tick-asteroid.startTick)/(asteroid.impactTick-asteroid.startTick))),y=asteroid.team==='azure'?25:75;
-    if(!asteroid.impacted&&battle.phase==='combat')html+=`<div class="meteor-target cosmic-impact-target" style="left:50%;top:${y}%"></div><div class="meteor cosmic-asteroid" style="left:${20+30*p}%;top:${-25+(y+25)*p}%;transform:translate(-50%,-50%) scale(${.5+p})"></div>`;
-    else if(tick<asteroid.impactTick+10)html+=`<div class="meteor-blast cosmic-impact-blast" style="left:50%;top:${y}%;opacity:${Math.max(0,1-(tick-asteroid.impactTick)/10)}"></div>`;
-  }
   for(const storm of battle.controls?.storms||[])if(battle.phase==='combat'&&tick>=storm.startTick&&tick<storm.endTick){
     const elapsed=(tick-storm.startTick)/10;
     html+=`<div class="ice-snowstorm" aria-hidden="true">${Array.from({length:28},(_,i)=>`<span style="left:${(i*37)%100}%;--snow-drift:${(i%3-1)*35}px;--snow-start:${(i*23)%100}%;animation-delay:-${(elapsed+i*.107).toFixed(3)}s;font-size:${10+i%5*2}px">❄</span>`).join('')}</div>`;
-  }
-  for(const m of fx.meteors){
-    if(tick<m.launchTick||tick>m.impactTick+5)continue;
-    const p=Math.min(1,(tick-m.launchTick)/(m.impactTick-m.launchTick));
-    if(!m.impacted)html+=`<div class="meteor-target" style="left:${m.x*12.5+6.25}%;top:${m.y*12.5+6.25}%"></div><div class="meteor" style="left:${(m.x-1.5*(1-p))*12.5+6.25}%;top:${(-2+(m.y+2)*p)*12.5+6.25}%"></div>`;
-    else html+=`<div class="meteor-blast" style="left:${m.x*12.5+6.25}%;top:${m.y*12.5+6.25}%;opacity:${Math.max(0,1-(tick-m.impactTick)/5)}"></div>`;
   }
   for(const storm of fx.thunderstorms)if(storm.triggered&&tick<storm.impactTick+7)for(const u of storm.targets)html+=`<div class="thunder-strike" style="left:${u.x*12.5+6.25}%;height:${u.y*12.5+6.25}%;opacity:${1-(tick-storm.impactTick)/7}"></div>`;
   $('#trait-effects').innerHTML=html;
